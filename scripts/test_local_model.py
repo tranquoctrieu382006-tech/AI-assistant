@@ -5,7 +5,8 @@ Kiểm tra kết nối và gọi thử mô hình local (Ollama).
 import sys
 import io
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 from app.core.llm import get_llm, verify_model, check_ollama_status
 
