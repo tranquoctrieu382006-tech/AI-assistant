@@ -1,26 +1,33 @@
-# Báo cáo Benchmark LLM – Ngày 22/10/2026
+# Báo cáo benchmark LLM
 
-## 1. Môi trường thử nghiệm
-- **Framework**: LangChain `init_chat_model` + `langchain-ollama`
-- **Observability**: Langfuse Cloud (`https://cloud.langfuse.com`)
-- **Model local**: `ollama/gemma3:12b` (chạy trên local machine qua Ollama)
-- **User ID**: `intern_tran_quoc_trieu`
+**Ngày chạy:** 22/10/2026
 
-## 2. Kết quả đo lường chi tiết
+**Dataset:** 3 prompt (RAG, NLQ-SQL, so sánh)
 
-| STT | Category | Prompt tóm tắt | Model | Latency | Tokens (In/Out/Total) | Status | Langfuse Trace |
-|:---:|---|---|---|:---:|:---:|:---:|:---:|
-| 1 | **RAG-Concept** | Giải thích cơ chế & lợi ích RAG trong 3 câu | `ollama/gemma3:12b` | **22.19s** | 38 + 133 = **171** | SUCCESS | ✅ Ghi nhận |
-| 2 | **NLQ-SQL** | Viết câu lệnh SQL tìm top 3 khách hàng chi tiêu 2026 | `ollama/gemma3:12b` | **81.83s** | 51 + 491 = **542** | SUCCESS | ✅ Ghi nhận |
-| 3 | **Reasoning** | So sánh PostgreSQL+pgvector vs Pinecone cho RAG nội bộ | `ollama/gemma3:12b` | **263.20s** | 35 + 1491 = **1526** | SUCCESS | ✅ Ghi nhận |
+**Trace:** Langfuse Cloud, session `benchmark-session-1792654439`
+**Kết quả chi tiết:** [`benchmark_20261022_143955.csv`](benchmark_runs/benchmark_20261022_143955.csv)
 
-## 3. Nhận xét & Đánh giá
-1. **Chất lượng câu trả lời**:
-   - `gemma3:12b` trả lời tiếng Việt trôi chảy, đúng định dạng yêu cầu.
-   - Câu lệnh SQL sinh ra đúng cú pháp, có `SUM()`, `GROUP BY`, `ORDER BY` và `LIMIT 3`.
-   - Bài so sánh pgvector vs Pinecone rất đầy đủ về tính toàn vẹn dữ liệu, chi phí vận hành, bảo mật nội bộ và độ phức tạp mở rộng.
-2. **Độ trễ & Tài nguyên**:
-   - Do chạy local trên GPU/CPU cá nhân, các câu trả lời dài (>1000 tokens) mất từ 1 đến 4 phút.
-   - Đối với các tác vụ yêu cầu phản hồi nhanh trong API (như Router phân loại câu hỏi), nên ưu tiên mô hình cloud nhẹ như `gpt-4o-mini` hoặc `gemini-2.0-flash` khi có API key.
-3. **Observability**:
-   - 100% các lượt gọi đều có mặt trên Langfuse Dashboard kèm `session_id`, `user_id`, `tags` (`benchmark`, `local`, `<category>`).
+## Tổng hợp
+
+| Vai trò | Model | Thành công | Độ trễ trung bình | Token vào | Token ra | Chi phí ước tính |
+|---|---|---:|---:|---:|---:|---:|
+| Nhanh | Groq `openai/gpt-oss-20b` | 3/3 | 2,26 giây | 306 | 2.939 | $0,000905 |
+| Mạnh | Groq `openai/gpt-oss-120b` | 3/3 | 3,82 giây | 306 | 3.872 | $0,002369 |
+| Local | Ollama `gemma3:12b` | 3/3 | 111,41 giây | 124 | 2.111 | Không tính phí API |
+
+Chi phí Groq tổng ước tính cho 6 lượt gọi là **$0,003274**. Mức ước tính dựa trên token đầu vào/đầu ra và giá niêm yết của Groq lúc kiểm tra; hóa đơn thực tế có thể khác. Model Groq 20B dùng mức $0,075/$0,30 trên một triệu token đầu vào/đầu ra; 120B dùng $0,15/$0,60. Nguồn: https://console.groq.com/docs/models.
+
+## Kết quả theo prompt
+
+| Prompt | Local (giây) | Groq nhanh (giây) | Groq mạnh (giây) |
+|---|---:|---:|---:|
+| Giải thích RAG | 21,19 | 1,04 | 1,12 |
+| Truy vấn top 3 khách hàng | 73,79 | 1,48 | 1,74 |
+| So sánh pgvector và Pinecone | 239,25 | 4,26 | 8,60 |
+
+## Ghi chú
+
+- Cả 9 lượt gọi thành công và Langfuse đã flush trace sau khi benchmark.
+- Thời gian local phụ thuộc phần cứng và lần chạy nóng/lạnh; prompt so sánh dài mất nhiều thời gian hơn.
+- Bộ đo ghi số token theo metadata trả về từ model; CSV lưu từng lượt, session ID và trạng thái.
+- Benchmark này đo độ trễ, token và chi phí ước tính; chưa chấm điểm chất lượng câu trả lời tự động.

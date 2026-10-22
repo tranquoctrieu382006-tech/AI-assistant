@@ -39,6 +39,8 @@ Sửa biến trong `.env`, **không cần sửa code**:
 | Nhanh/rẻ (router, viết lại câu hỏi) | `FAST_MODEL` | `openai/gpt-4o-mini` |
 | Local (không gửi dữ liệu ra ngoài) | `LOCAL_MODEL` | `ollama/gemma3:12b` |
 
+Groq có thể dùng với `GROQ_API_KEY` trong `.env`, ví dụ `groq/openai/gpt-oss-120b` và `groq/openai/gpt-oss-20b`. Gemini vẫn được hỗ trợ bằng `GOOGLE_API_KEY` và model có tiền tố `google_genai/`.
+
 ## Tại sao chọn `init_chat_model` thay vì LiteLLM?
 
 | Tiêu chí | init_chat_model (LangChain) | LiteLLM |
@@ -72,3 +74,27 @@ ai-assistant/
 ├── requirements.txt
 └── README.md
 ```
+
+## Dữ liệu demo RAG và NLQ
+
+- `data/demo_sales_warehouse/`: 12 tài liệu tiếng Việt mẫu (MD, DOCX, PDF), từ điển dữ liệu và nguồn tham khảo.
+- `data/postgres/schema_seed.sql`: tạo 9 bảng có khóa ngoại/ràng buộc và nạp 2.346 dòng dữ liệu giả lập cố định.
+
+Tạo database rỗng rồi nạp bằng PostgreSQL client:
+
+```bash
+createdb ai_assistant_demo
+psql -d ai_assistant_demo -f data/postgres/schema_seed.sql
+```
+
+Toàn bộ tên và email khách hàng trong seed là giả lập (`example.test`). Các quy chế/chính sách trong tài liệu cũng là nội dung mô phỏng để thử nghiệm, không dùng thay quy định doanh nghiệp thật.
+
+## Benchmark mô hình
+
+Đặt API keys trong `.env`, cài dependencies từ `requirements.txt`, bảo đảm Ollama đang chạy và model `gemma3:12b` đã được tải. Sau đó chạy từ thư mục repo:
+
+```powershell
+.venv\Scripts\python.exe -m scripts.compare_models
+```
+
+Benchmark ghi độ trễ, token, trạng thái và ước tính chi phí cho các model Groq đã cấu hình vào `docs/benchmark_runs/`. Tóm tắt lần chạy gần nhất nằm trong `docs/benchmark_results.md`.

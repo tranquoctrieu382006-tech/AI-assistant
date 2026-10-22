@@ -11,6 +11,9 @@ Script so sánh các mô hình LLM và đẩy trace về Langfuse.
 import io
 import sys
 import time
+import csv
+from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 # Đảm bảo in UTF-8 không lỗi trên Windows
@@ -23,6 +26,7 @@ from app.core.tracing import (
     get_langfuse_handler,
     is_langfuse_configured,
     langfuse_context,
+    init_tracing,
     flush_langfuse,
 )
 
@@ -45,7 +49,42 @@ BENCHMARK_PROMPTS = [
 ]
 
 
+def _response_text(response: Any) -> str:
+    """Normalize string and multimodal/text-block response content."""
+    content = getattr(response, "content", response)
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict) and isinstance(item.get("text"), str):
+                parts.append(item["text"])
+        return "\n".join(parts)
+    return str(content)
+
+
+def _write_results(results: list[dict[str, Any]], session_id: str) -> Path:
+    """Persist a CSV snapshot so the benchmark can be reviewed after the run."""
+    output_dir = Path("docs") / "benchmark_runs"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_path = output_dir / f"benchmark_{stamp}.csv"
+    fields = [
+        "session_id", "prompt_id", "category", "role", "model",
+        "duration_sec", "tokens_in", "tokens_out", "total_tokens", "cost_usd", "status",
+    ]
+    with output_path.open("w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+        writer.writeheader()
+        for row in results:
+            writer.writerow({"session_id": session_id, **row})
+    return output_path
+
+
 def run_benchmark():
+    init_tracing()
     print("=" * 70)
     print("🚀 BẮT ĐẦU CHƯƠNG TRÌNH BENCHMARK SO SÁNH CÁC MÔ HÌNH LLM")
     print("=" * 70)
@@ -57,12 +96,22 @@ def run_benchmark():
         print("⚠️ Langfuse tracing: CHƯA CÓ KEY (Chạy benchmark cục bộ, không gửi trace)")
 
     roles_to_test = ["local"]
-    if settings.openai_api_key and not settings.openai_api_key.startswith("sk-..."):
-        roles_to_test.extend(["fast", "strong"])
-    else:
-        print("ℹ️ Đang chạy với role 'local' (Ollama). Khi có OpenAI/Google API key, sẽ tự test thêm fast/strong.")
+    provider_keys = {
+        "openai": settings.openai_api_key,
+        "google_genai": settings.google_api_key,
+        "groq": settings.groq_api_key,
+    }
+    for role in ("fast", "strong"):
+        model_name = MODEL_REGISTRY.get(role, "")
+        provider = model_name.split("/", 1)[0] if "/" in model_name else ""
+        api_key = provider_keys.get(provider, "")
+        if api_key and not api_key.endswith("..."):
+            roles_to_test.append(role)
+        else:
+            print(f"ℹ️ Bỏ qua role '{role}': chưa có API key hợp lệ cho provider '{provider or 'mặc định'}'.")
 
     results: list[dict[str, Any]] = []
+    unavailable_roles: set[str] = set()
     session_id = f"benchmark-session-{int(time.time())}"
     user_id = "intern_tran_quoc_trieu"
 
@@ -79,6 +128,14 @@ def run_benchmark():
 
         for role in roles_to_test:
             model_name = MODEL_REGISTRY.get(role, role)
+            if role in unavailable_roles:
+                results.append({
+                    "prompt_id": p_id, "category": p_cat, "role": role,
+                    "model": model_name, "duration_sec": 0, "tokens_in": 0,
+                    "tokens_out": 0, "total_tokens": 0,
+                    "status": "SKIPPED: lỗi cấu hình/quota ở lượt trước",
+                })
+                continue
             print(f"▶ Đang gọi role='{role}' (model='{model_name}')...", end="", flush=True)
 
             tags = ["benchmark", role, p_cat]
@@ -90,7 +147,7 @@ def run_benchmark():
             }
 
             try:
-                llm = get_llm(role, temperature=0.0)
+                llm = get_llm(role, temperature=0.0, timeout=300.0 if role == "local" else 120.0)
                 callbacks = [handler] if handler else []
 
                 start_time = time.time()
@@ -103,7 +160,7 @@ def run_benchmark():
                     response = llm.invoke(p_text, config={"callbacks": callbacks} if callbacks else None)
                 duration = time.time() - start_time
 
-                content = response.content if hasattr(response, "content") else str(response)
+                content = _response_text(response)
 
                 tokens_in = 0
                 tokens_out = 0
@@ -111,7 +168,16 @@ def run_benchmark():
                     tokens_in = response.usage_metadata.get("input_tokens", 0)
                     tokens_out = response.usage_metadata.get("output_tokens", 0)
 
-                print(f" XONG ({duration:.2f}s, tokens: {tokens_in} in / {tokens_out} out)")
+                model_id = model_name.split("/", 1)[1] if model_name.startswith("groq/") else ""
+                groq_rates = {
+                    "openai/gpt-oss-120b": (0.15, 0.60),
+                    "openai/gpt-oss-20b": (0.075, 0.30),
+                }
+                rates = groq_rates.get(model_id)
+                cost_usd = round((tokens_in * rates[0] + tokens_out * rates[1]) / 1_000_000, 8) if rates else None
+
+                cost_label = f", cost≈${cost_usd:.6f}" if cost_usd is not None else ""
+                print(f" XONG ({duration:.2f}s, tokens: {tokens_in} in / {tokens_out} out{cost_label})")
                 sample_text = content.replace("\n", " ")[:100]
                 print(f"   Trích đoạn câu trả lời: \"{sample_text}...\"")
 
@@ -124,11 +190,13 @@ def run_benchmark():
                     "tokens_in": tokens_in,
                     "tokens_out": tokens_out,
                     "total_tokens": tokens_in + tokens_out,
+                    "cost_usd": cost_usd,
                     "status": "SUCCESS",
                 })
 
             except LLMInitError as e:
                 print(f" LỖI KHỞI TẠO: {e}")
+                unavailable_roles.add(role)
                 results.append({
                     "prompt_id": p_id,
                     "category": p_cat,
@@ -138,10 +206,13 @@ def run_benchmark():
                     "tokens_in": 0,
                     "tokens_out": 0,
                     "total_tokens": 0,
+                    "cost_usd": None,
                     "status": f"INIT_ERROR: {e}",
                 })
             except Exception as e:
                 print(f" LỖI RUNTIME: {e}")
+                if any(token in str(e).lower() for token in ("resource_exhausted", "quota", "api key required", "authentication")):
+                    unavailable_roles.add(role)
                 results.append({
                     "prompt_id": p_id,
                     "category": p_cat,
@@ -151,6 +222,7 @@ def run_benchmark():
                     "tokens_in": 0,
                     "tokens_out": 0,
                     "total_tokens": 0,
+                    "cost_usd": None,
                     "status": f"RUN_ERROR: {e}",
                 })
 
@@ -169,6 +241,9 @@ def run_benchmark():
         tok_str = f"{r['tokens_in']}+{r['tokens_out']}"
         lat_str = f"{r['duration_sec']}s"
         print(f"{r['role']:<8} | {r['model']:<20} | {r['category']:<15} | {lat_str:<8} | {tok_str:<10} | {r['status']}")
+
+    output_path = _write_results(results, session_id)
+    print(f"\n💾 Đã lưu kết quả CSV: {output_path}")
 
     return results
 

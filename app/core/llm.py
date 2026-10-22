@@ -127,6 +127,16 @@ def get_llm(
 
     call_kwargs: dict[str, Any] = dict(kwargs)
 
+    # Settings are loaded from .env but are not automatically exported to
+    # os.environ. Pass provider credentials directly to LangChain so the
+    # configured keys work for both API-backed providers.
+    if provider == "google_genai" and settings.google_api_key:
+        call_kwargs.setdefault("api_key", settings.google_api_key)
+    elif provider == "openai" and settings.openai_api_key:
+        call_kwargs.setdefault("api_key", settings.openai_api_key)
+    elif provider == "groq" and settings.groq_api_key:
+        call_kwargs.setdefault("api_key", settings.groq_api_key)
+
     # Xử lý tham số đặc thù cho từng provider
     if provider == "ollama":
         if "base_url" not in call_kwargs:

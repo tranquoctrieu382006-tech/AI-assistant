@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     # ── API Keys ────────────────────────────────────────────────
     openai_api_key: str = ""
     google_api_key: str = ""
+    groq_api_key: str = ""
 
     # ── Langfuse ────────────────────────────────────────────────
     langfuse_secret_key: str = ""

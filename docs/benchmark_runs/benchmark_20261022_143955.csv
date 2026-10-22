@@ -1,0 +1,10 @@
+﻿session_id,prompt_id,category,role,model,duration_sec,tokens_in,tokens_out,total_tokens,cost_usd,status
+benchmark-session-1792654439,prompt-1,RAG-Concept,local,ollama/gemma3:12b,21.19,38,129,167,,SUCCESS
+benchmark-session-1792654439,prompt-1,RAG-Concept,fast,groq/openai/gpt-oss-20b,1.04,101,253,354,8.347e-05,SUCCESS
+benchmark-session-1792654439,prompt-1,RAG-Concept,strong,groq/openai/gpt-oss-120b,1.12,101,246,347,0.00016275,SUCCESS
+benchmark-session-1792654439,prompt-2,NLQ-SQL,local,ollama/gemma3:12b,73.79,51,491,542,,SUCCESS
+benchmark-session-1792654439,prompt-2,NLQ-SQL,fast,groq/openai/gpt-oss-20b,1.48,107,638,745,0.00019943,SUCCESS
+benchmark-session-1792654439,prompt-2,NLQ-SQL,strong,groq/openai/gpt-oss-120b,1.74,107,554,661,0.00034845,SUCCESS
+benchmark-session-1792654439,prompt-3,Reasoning-Comparison,local,ollama/gemma3:12b,239.25,35,1491,1526,,SUCCESS
+benchmark-session-1792654439,prompt-3,Reasoning-Comparison,fast,groq/openai/gpt-oss-20b,4.26,98,2048,2146,0.00062175,SUCCESS
+benchmark-session-1792654439,prompt-3,Reasoning-Comparison,strong,groq/openai/gpt-oss-120b,8.6,98,3072,3170,0.0018579,SUCCESS
