@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import health
 from app.core.config import settings
 from app.core.llm import MODEL_REGISTRY, check_ollama_status
+from app.core.tracing import init_tracing, flush_langfuse
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,6 +24,10 @@ logger = logging.getLogger("ai_assistant")
 async def lifespan(app: FastAPI):
     """Lifecycle startup / shutdown hook."""
     logger.info("Starting AI Assistant API v0.1.0...")
+
+    # Khởi tạo tracing environment tường minh
+    init_tracing()
+
     logger.info("Default model: %s", settings.default_model)
     logger.info("Configured roles: %s", list(MODEL_REGISTRY.keys()))
 
@@ -34,7 +39,8 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    logger.info("Shutting down AI Assistant API...")
+    logger.info("Shutting down AI Assistant API... Flushing remaining traces.")
+    flush_langfuse()
 
 
 app = FastAPI(

@@ -4,14 +4,14 @@ Lớp cấu hình LLM đa mô hình.
 Đổi mô hình chỉ bằng biến môi trường, không sửa code.
 Sử dụng init_chat_model (LangChain native) để tự nhận provider từ prefix.
 
-Ví dụ:
-    llm = get_llm("strong")          # → GPT-4o
-    llm = get_llm("fast")            # → GPT-4o-mini
-    llm = get_llm("local")           # → Ollama gemma3:12b
-    llm = get_llm("openai/gpt-4o")   # → chỉ định trực tiếp
+Cải tiến:
+- Cache instance theo (model_name, temperature, timeout) để tái sử dụng
+- Hỗ trợ timeout và max_retries cho từng provider
+- Cung cấp cả sync và async check cho Ollama status
 """
 
 import logging
+from typing import Any
 
 import httpx
 from langchain.chat_models import init_chat_model
@@ -28,6 +28,9 @@ MODEL_REGISTRY: dict[str, str] = {
     "fast": settings.fast_model,
     "local": settings.local_model,
 }
+
+# Cache instance LLM để tránh tạo mới mỗi request
+_LLM_CACHE: dict[tuple, BaseChatModel] = {}
 
 
 class LLMInitError(Exception):
@@ -79,27 +82,47 @@ def _parse_provider_and_model(model_str: str) -> tuple[str | None, str]:
 def get_llm(
     model_role: str = "default",
     temperature: float = 0.0,
+    timeout: float | None = None,
+    max_retries: int = 2,
+    use_cache: bool = True,
     **kwargs,
 ) -> BaseChatModel:
     """
-    Khởi tạo LLM theo vai trò hoặc model string.
+    Khởi tạo LLM theo vai trò hoặc model string có hỗ trợ cache instance.
 
     Args:
         model_role: "strong" | "fast" | "local" | "default" | model string trực tiếp
         temperature: 0.0 – 1.0
+        timeout: Thời gian timeout tính bằng giây (mặc định 120s cho local, None cho cloud)
+        max_retries: Số lần thử lại khi gặp lỗi mạng/rate limit
+        use_cache: Bật/tắt tái sử dụng instance đã tạo
 
     Returns:
         BaseChatModel sẵn sàng gọi .invoke() / .stream()
-
-    Raises:
-        LLMInitError: Khi model không khởi tạo được
     """
     raw_model_name = _resolve_model_name(model_role)
     provider, model_name = _parse_provider_and_model(raw_model_name)
 
-    call_kwargs = dict(kwargs)
-    if provider == "ollama" and "base_url" not in call_kwargs:
-        call_kwargs["base_url"] = settings.ollama_base_url
+    # Đặt timeout mặc định cho local model nếu chưa truyền
+    effective_timeout = timeout
+    if effective_timeout is None and provider == "ollama":
+        effective_timeout = 120.0
+
+    cache_key = (raw_model_name, temperature, effective_timeout, max_retries)
+    if use_cache and cache_key in _LLM_CACHE:
+        return _LLM_CACHE[cache_key]
+
+    call_kwargs: dict[str, Any] = dict(kwargs)
+    if provider == "ollama":
+        if "base_url" not in call_kwargs:
+            call_kwargs["base_url"] = settings.ollama_base_url
+        if effective_timeout is not None and "timeout" not in call_kwargs:
+            call_kwargs["timeout"] = effective_timeout
+    elif effective_timeout is not None and "timeout" not in call_kwargs:
+        call_kwargs["timeout"] = effective_timeout
+
+    if "max_retries" not in call_kwargs:
+        call_kwargs["max_retries"] = max_retries
 
     try:
         if provider:
@@ -123,8 +146,17 @@ def get_llm(
         logger.error(error_msg)
         raise LLMInitError(error_msg) from e
 
-    logger.info("Khởi tạo LLM thành công: %s (role=%s)", raw_model_name, model_role)
+    logger.info("Khởi tạo LLM thành công: %s (role=%s, timeout=%s)", raw_model_name, model_role, effective_timeout)
+
+    if use_cache:
+        _LLM_CACHE[cache_key] = llm
+
     return llm
+
+
+def clear_llm_cache():
+    """Xóa sạch cache instance LLM (dùng cho test hoặc khi đổi env động)."""
+    _LLM_CACHE.clear()
 
 
 def get_available_models() -> dict[str, str]:
@@ -133,13 +165,28 @@ def get_available_models() -> dict[str, str]:
 
 
 def check_ollama_status() -> dict:
-    """Kiểm tra Ollama server có đang chạy và model nào đã pull."""
+    """Kiểm tra Ollama server đồng bộ (dùng trong script/startup)."""
     try:
         r = httpx.get(f"{settings.ollama_base_url}/api/tags", timeout=3)
         if r.status_code == 200:
             models = [m["name"] for m in r.json().get("models", [])]
             return {"status": "ok", "models": models}
         return {"status": "error", "detail": f"HTTP {r.status_code}"}
+    except httpx.ConnectError:
+        return {"status": "offline", "detail": f"Không kết nối được {settings.ollama_base_url}"}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
+
+async def check_ollama_status_async() -> dict:
+    """Kiểm tra Ollama server bất đồng bộ (dùng cho FastAPI endpoint để không chặn event loop)."""
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            r = await client.get(f"{settings.ollama_base_url}/api/tags")
+            if r.status_code == 200:
+                models = [m["name"] for m in r.json().get("models", [])]
+                return {"status": "ok", "models": models}
+            return {"status": "error", "detail": f"HTTP {r.status_code}"}
     except httpx.ConnectError:
         return {"status": "offline", "detail": f"Không kết nối được {settings.ollama_base_url}"}
     except Exception as e:
@@ -155,11 +202,12 @@ def verify_model(model_role: str) -> dict:
     try:
         llm = get_llm(model_role)
         response = llm.invoke("ping")
+        content = response.content if hasattr(response, "content") else str(response)
         return {
             "role": model_role,
             "model": model_name,
             "status": "ok",
-            "response_preview": response.content[:80],
+            "response_preview": content[:80],
         }
     except LLMInitError as e:
         return {

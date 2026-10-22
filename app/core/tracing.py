@@ -14,14 +14,20 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Đảm bảo các biến môi trường chuẩn của Langfuse được thiết lập từ Settings
-if settings.langfuse_public_key and not settings.langfuse_public_key.startswith("pk-lf-..."):
-    os.environ["LANGFUSE_PUBLIC_KEY"] = settings.langfuse_public_key
-if settings.langfuse_secret_key and not settings.langfuse_secret_key.startswith("sk-lf-..."):
-    os.environ["LANGFUSE_SECRET_KEY"] = settings.langfuse_secret_key
-if settings.langfuse_base_url:
-    os.environ["LANGFUSE_HOST"] = settings.langfuse_base_url
-    os.environ["LANGFUSE_BASE_URL"] = settings.langfuse_base_url
+
+def init_tracing():
+    """
+    Khởi tạo các biến môi trường và cấu hình tracing.
+    Được gọi tường minh trong FastAPI lifespan hoặc đầu các script,
+    tránh phụ thuộc vào thứ tự import module.
+    """
+    if settings.langfuse_public_key and not settings.langfuse_public_key.startswith("pk-lf-..."):
+        os.environ["LANGFUSE_PUBLIC_KEY"] = settings.langfuse_public_key
+    if settings.langfuse_secret_key and not settings.langfuse_secret_key.startswith("sk-lf-..."):
+        os.environ["LANGFUSE_SECRET_KEY"] = settings.langfuse_secret_key
+    if settings.langfuse_base_url:
+        os.environ["LANGFUSE_HOST"] = settings.langfuse_base_url
+        os.environ["LANGFUSE_BASE_URL"] = settings.langfuse_base_url
 
 
 def is_langfuse_configured() -> bool:
@@ -34,42 +40,22 @@ def is_langfuse_configured() -> bool:
     )
 
 
-def get_langfuse_handler(
-    session_id: str | None = None,
-    user_id: str | None = None,
-    tags: list[str] | None = None,
-    metadata: dict[str, Any] | None = None,
-):
+def get_langfuse_handler():
     """
-    Tạo Langfuse CallbackHandler gắn vào LangChain config.
-    Tương thích cả Langfuse v2 và Langfuse v5+.
+    Tạo một CallbackHandler mới cho request.
+
+    Lưu ý: Trong Langfuse v5+, CallbackHandler tự động bắt ngữ cảnh
+    (session_id, user_id, tags, metadata) từ context manager `langfuse_context()`.
+    Do đó mỗi request nên tạo một instance riêng thay vì dùng singleton toàn cục.
     """
     if not is_langfuse_configured():
-        logger.debug("Langfuse chưa cấu hình key hợp lệ, bỏ qua tracing.")
         return None
 
     try:
-        # Langfuse v5+
         from langfuse.langchain import CallbackHandler
         return CallbackHandler()
-    except ImportError:
-        try:
-            # Langfuse v2
-            from langfuse.callback import CallbackHandler
-            return CallbackHandler(
-                secret_key=settings.langfuse_secret_key,
-                public_key=settings.langfuse_public_key,
-                host=settings.langfuse_base_url or settings.langfuse_host,
-                session_id=session_id,
-                user_id=user_id,
-                tags=tags or [],
-                metadata=metadata or {},
-            )
-        except Exception as e:
-            logger.warning("Không thể khởi tạo Langfuse CallbackHandler: %s", e)
-            return None
     except Exception as e:
-        logger.warning("Lỗi khởi tạo CallbackHandler: %s", e)
+        logger.warning("Không thể khởi tạo Langfuse CallbackHandler: %s", e)
         return None
 
 
@@ -81,29 +67,39 @@ def langfuse_context(
     metadata: dict[str, Any] | None = None,
 ):
     """
-    Context manager thiết lập thuộc tính trace (session_id, user_id, tags)
-    trước khi gọi chuỗi LangChain trong Langfuse v5.
+    Context manager an toàn thiết lập ngữ cảnh trace (session_id, user_id, tags).
+    Tránh lỗi 'generator didn't stop after throw()' bằng cách chỉ bọc phần
+    chuẩn bị context manager, để exception trong yield lan truyền tự nhiên.
     """
     if not is_langfuse_configured():
         yield
         return
 
+    cm = None
     try:
         import langfuse
-        with langfuse.propagate_attributes(
+        cm = langfuse.propagate_attributes(
             session_id=session_id,
             user_id=user_id,
             tags=tags,
             metadata=metadata,
-        ):
-            yield
+        )
     except Exception as e:
-        logger.debug("Không thể propagate Langfuse attributes: %s", e)
+        logger.debug("Không thể tạo propagate_attributes: %s", e)
+
+    if cm:
+        with cm:
+            yield
+    else:
         yield
 
 
 def flush_langfuse():
-    """Gửi toàn bộ hàng đợi trace về server Langfuse Cloud."""
+    """
+    Gửi toàn bộ hàng đợi trace về server Langfuse Cloud.
+    Trong production: Gọi tại sự kiện shutdown của FastAPI lifespan.
+    Trong batch script: Gọi khi kết thúc script.
+    """
     if not is_langfuse_configured():
         return
     try:
