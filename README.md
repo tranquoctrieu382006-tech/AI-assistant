@@ -1,6 +1,6 @@
 # AI Assistant
 
-Mini AI Assistant â€“ Há»i Ä‘Ã¡p tÃ i liá»‡u (RAG) & truy váº¥n dá»¯ liá»‡u báº±ng ngÃ´n ngá»¯ tá»± nhiÃªn (NLQ).
+Mini AI Assistant – Hỏi đáp tài liệu (RAG) & truy vấn dữ liệu bằng ngôn ngữ tự nhiên (NLQ).
 
 ## Tech Stack
 
@@ -12,89 +12,89 @@ Mini AI Assistant â€“ Há»i Ä‘Ã¡p tÃ i liá»‡u (RAG) & truy v�
 ## Quick Start
 
 ```bash
-# 1. Clone & cÃ i Ä‘áº·t
+# 1. Clone & cài đặt
 git clone <repo-url>
 cd ai-assistant
 pip install -r requirements.txt
 
-# 2. Cáº¥u hÃ¬nh
+# 2. Cấu hình
 cp .env.example .env
-# Sá»­a .env: Ä‘iá»n API key, chá»n model
+# Sửa .env: điền API key, chọn model
 
-# 3. Cháº¡y
+# 3. Chạy
 uvicorn app.main:app --reload
 
-# 4. Má»Ÿ Swagger UI
+# 4. Mở Swagger UI
 # http://localhost:8000/docs
 ```
 
-## Äá»•i mÃ´ hÃ¬nh
+## Đổi mô hình
 
-Sá»­a biáº¿n trong `.env`, **khÃ´ng cáº§n sá»­a code**:
+Sửa biến trong `.env`, **không cần sửa code**:
 
-| Vai trÃ² | Biáº¿n mÃ´i trÆ°á»ng | VÃ­ dá»¥ |
+| Vai trò | Biến môi trường | Ví dụ |
 |---|---|---|
-| Máº·c Ä‘á»‹nh | `DEFAULT_MODEL` | `openai/gpt-4o-mini` |
-| Máº¡nh (SQL phá»©c táº¡p, tá»•ng há»£p) | `STRONG_MODEL` | `openai/gpt-4o` |
-| Nhanh/ráº» (router, viáº¿t láº¡i cÃ¢u há»i) | `FAST_MODEL` | `openai/gpt-4o-mini` |
-| Local (khÃ´ng gá»­i dá»¯ liá»‡u ra ngoÃ i) | `LOCAL_MODEL` | `ollama/gemma3:12b` |
+| Mặc định | `DEFAULT_MODEL` | `openai/gpt-4o-mini` |
+| Mạnh (SQL phức tạp, tổng hợp) | `STRONG_MODEL` | `openai/gpt-4o` |
+| Nhanh/rẻ (router, viết lại câu hỏi) | `FAST_MODEL` | `openai/gpt-4o-mini` |
+| Local (không gửi dữ liệu ra ngoài) | `LOCAL_MODEL` | `ollama/gemma3:12b` |
 
-Groq cÃ³ thá»ƒ dÃ¹ng vá»›i `GROQ_API_KEY` trong `.env`, vÃ­ dá»¥ `groq/openai/gpt-oss-120b` vÃ  `groq/openai/gpt-oss-20b`. Gemini váº«n Ä‘Æ°á»£c há»— trá»£ báº±ng `GOOGLE_API_KEY` vÃ  model cÃ³ tiá»n tá»‘ `google_genai/`.
+Groq có thể dùng với `GROQ_API_KEY` trong `.env`, ví dụ `groq/openai/gpt-oss-120b` và `groq/openai/gpt-oss-20b`. Gemini vẫn được hỗ trợ bằng `GOOGLE_API_KEY` và model có tiền tố `google_genai/`.
 
-## Táº¡i sao chá»n `init_chat_model` thay vÃ¬ LiteLLM?
+## Tại sao chọn `init_chat_model` thay vì LiteLLM?
 
-| TiÃªu chÃ­ | init_chat_model (LangChain) | LiteLLM |
+| Tiêu chí | init_chat_model (LangChain) | LiteLLM |
 |---|---|---|
-| Dependency | KhÃ´ng thÃªm package | ThÃªm `litellm` |
-| TÆ°Æ¡ng thÃ­ch LangChain | Native, luÃ´n Ä‘á»“ng bá»™ version | ÄÃ´i khi lag version |
-| Sá»‘ provider há»— trá»£ | ~10 provider chÃ­nh | 100+ provider |
-| Fallback tá»± Ä‘á»™ng | Cáº§n tá»± viáº¿t | CÃ³ sáºµn |
-| Cost tracking | Qua Langfuse | CÃ³ sáºµn + Langfuse |
+| Dependency | Không thêm package | Thêm `litellm` |
+| Tương thích LangChain | Native, luôn đồng bộ version | Đôi khi lag version |
+| Số provider hỗ trợ | ~10 provider chính | 100+ provider |
+| Fallback tự động | Cần tự viết | Có sẵn |
+| Cost tracking | Qua Langfuse | Có sẵn + Langfuse |
 
-**Quyáº¿t Ä‘á»‹nh:** DÃ¹ng `init_chat_model` vÃ¬ project chá»‰ cáº§n 3 provider (OpenAI, Google, Ollama), Æ°u tiÃªn Ä‘Æ¡n giáº£n vÃ  Ã­t dependency. Náº¿u sau nÃ y cáº§n nhiá»u provider hoáº·c fallback tá»± Ä‘á»™ng â†’ chuyá»ƒn sang LiteLLM.
+**Quyết định:** Dùng `init_chat_model` vì project chỉ cần 3 provider (OpenAI, Google, Ollama), ưu tiên đơn giản và ít dependency. Nếu sau này cần nhiều provider hoặc fallback tự động → chuyển sang LiteLLM.
 
-## Cáº¥u trÃºc project
+## Cấu trúc project
 
 ```
 ai-assistant/
-â”œâ”€â”€ app/
-â”‚   â”œâ”€â”€ main.py              # FastAPI app
-â”‚   â”œâ”€â”€ api/
-â”‚   â”‚   â””â”€â”€ health.py        # GET /api/health
-â”‚   â”œâ”€â”€ core/
-â”‚   â”‚   â”œâ”€â”€ config.py        # Pydantic Settings
-â”‚   â”‚   â”œâ”€â”€ llm.py           # Lá»›p cáº¥u hÃ¬nh LLM Ä‘a mÃ´ hÃ¬nh
-â”‚   â”‚   â””â”€â”€ tracing.py       # Langfuse integration
-â”‚   â””â”€â”€ schemas/
-â”‚       â””â”€â”€ health.py        # Response models
-â”œâ”€â”€ scripts/
-â”‚   â””â”€â”€ compare_models.py    # So sÃ¡nh 3 mÃ´ hÃ¬nh
-â”œâ”€â”€ .env.example
-â”œâ”€â”€ .gitignore
-â”œâ”€â”€ requirements.txt
-â””â”€â”€ README.md
+├── app/
+│   ├── main.py              # FastAPI app
+│   ├── api/
+│   │   └── health.py        # GET /api/health
+│   ├── core/
+│   │   ├── config.py        # Pydantic Settings
+│   │   ├── llm.py           # Lớp cấu hình LLM đa mô hình
+│   │   └── tracing.py       # Langfuse integration
+│   └── schemas/
+│       └── health.py        # Response models
+├── scripts/
+│   └── compare_models.py    # So sánh 3 mô hình
+├── .env.example
+├── .gitignore
+├── requirements.txt
+└── README.md
 ```
 
-## Dá»¯ liá»‡u demo RAG vÃ  NLQ
+## Dữ liệu demo RAG và NLQ
 
-- `data/demo_sales_warehouse/`: 12 tÃ i liá»‡u tiáº¿ng Viá»‡t máº«u (MD, DOCX, PDF), tá»« Ä‘iá»ƒn dá»¯ liá»‡u vÃ  nguá»“n tham kháº£o.
-- `data/demo_sales_warehouse/schema_seed.sql`: táº¡o 9 báº£ng cÃ³ khÃ³a ngoáº¡i/rÃ ng buá»™c vÃ  náº¡p 2.346 dÃ²ng dá»¯ liá»‡u giáº£ láº­p cá»‘ Ä‘á»‹nh.
+- `data/demo_sales_warehouse/`: 12 tài liệu tiếng Việt mẫu (MD, DOCX, PDF), từ điển dữ liệu và nguồn tham khảo.
+- `data/demo_sales_warehouse/schema_seed.sql`: tạo 9 bảng có khóa ngoại/ràng buộc và nạp 2.346 dòng dữ liệu giả lập cố định.
 
-Táº¡o database rá»—ng rá»“i náº¡p báº±ng PostgreSQL client:
+Tạo database rỗng rồi nạp bằng PostgreSQL client:
 
 ```bash
 createdb ai_assistant_demo
 psql -d ai_assistant_demo -f data/demo_sales_warehouse/schema_seed.sql
 ```
 
-ToÃ n bá»™ tÃªn vÃ  email khÃ¡ch hÃ ng trong seed lÃ  giáº£ láº­p (`example.test`). CÃ¡c quy cháº¿/chÃ­nh sÃ¡ch trong tÃ i liá»‡u cÅ©ng lÃ  ná»™i dung mÃ´ phá»ng Ä‘á»ƒ thá»­ nghiá»‡m, khÃ´ng dÃ¹ng thay quy Ä‘á»‹nh doanh nghiá»‡p tháº­t.
+Toàn bộ tên và email khách hàng trong seed là giả lập (`example.test`). Các quy chế/chính sách trong tài liệu cũng là nội dung mô phỏng để thử nghiệm, không dùng thay quy định doanh nghiệp thật.
 
-## Benchmark mÃ´ hÃ¬nh
+## Benchmark mô hình
 
-Äáº·t API keys trong `.env`, cÃ i dependencies tá»« `requirements.txt`, báº£o Ä‘áº£m Ollama Ä‘ang cháº¡y vÃ  model `gemma3:12b` Ä‘Ã£ Ä‘Æ°á»£c táº£i. Sau Ä‘Ã³ cháº¡y tá»« thÆ° má»¥c repo:
+Đặt API keys trong `.env`, cài dependencies từ `requirements.txt`, bảo đảm Ollama đang chạy và model `gemma3:12b` đã được tải. Sau đó chạy từ thư mục repo:
 
 ```powershell
 .venv\Scripts\python.exe -m scripts.compare_models
 ```
 
-Benchmark ghi Ä‘á»™ trá»…, token, tráº¡ng thÃ¡i vÃ  Æ°á»›c tÃ­nh chi phÃ­ cho cÃ¡c model Groq Ä‘Ã£ cáº¥u hÃ¬nh vÃ o `docs/benchmark_runs/`. TÃ³m táº¯t láº§n cháº¡y gáº§n nháº¥t náº±m trong `docs/benchmark_results.md`.
+Benchmark ghi độ trễ, token, trạng thái và ước tính chi phí cho các model Groq đã cấu hình vào `docs/benchmark_runs/`. Tóm tắt lần chạy gần nhất nằm trong `docs/benchmark_results.md`.
