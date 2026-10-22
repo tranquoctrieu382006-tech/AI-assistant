@@ -3,12 +3,14 @@ uvicorn[standard]>=0.30.0
 pydantic-settings>=2.5.0
 python-dotenv>=1.0.0
 
-# LangChain
+# LangChain & LangGraph
 langchain>=0.3.0
 langchain-core>=0.3.0
 langchain-openai>=0.2.0
 langchain-ollama>=0.2.0
+langchain-google-genai>=2.0.0
 langchain-community>=0.3.0
+langgraph>=0.2.0
 
 # Observability (v5+ với context propagation)
 langfuse>=5.0.0,<6.0.0

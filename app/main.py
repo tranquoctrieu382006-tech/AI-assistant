@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import health
 from app.core.config import settings
-from app.core.llm import MODEL_REGISTRY, check_ollama_status
+from app.core.llm import MODEL_REGISTRY, check_ollama_status_async
 from app.core.tracing import init_tracing, flush_langfuse
 
 logging.basicConfig(
@@ -23,7 +23,7 @@ logger = logging.getLogger("ai_assistant")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle startup / shutdown hook."""
-    logger.info("Starting AI Assistant API v0.1.0...")
+    logger.info("Starting %s v%s...", settings.app_name, settings.app_version)
 
     # Khởi tạo tracing environment tường minh
     init_tracing()
@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
     logger.info("Default model: %s", settings.default_model)
     logger.info("Configured roles: %s", list(MODEL_REGISTRY.keys()))
 
-    ollama_info = check_ollama_status()
+    ollama_info = await check_ollama_status_async()
     if ollama_info.get("status") == "ok":
         logger.info("Ollama is reachable. Available models: %s", ollama_info.get("models"))
     else:
@@ -39,25 +39,25 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    logger.info("Shutting down AI Assistant API... Flushing remaining traces.")
+    logger.info("Shutting down %s... Flushing remaining traces.", settings.app_name)
     flush_langfuse()
 
 
 app = FastAPI(
-    title="AI Assistant",
+    title=settings.app_name,
     description="Mini AI Assistant – RAG & NLQ (FastAPI, LangChain, Langfuse, PostgreSQL/pgvector)",
-    version="0.1.0",
+    version=settings.app_version,
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
 )
 
-# CORS Middleware
+# CORS Middleware – sử dụng danh sách origin tường minh, an toàn khi có credentials
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -68,7 +68,8 @@ app.include_router(health.router, prefix="/api", tags=["Health"])
 @app.get("/", include_in_schema=False)
 async def root():
     return {
-        "message": "AI Assistant API is running",
+        "message": f"{settings.app_name} API is running",
+        "version": settings.app_version,
         "docs": "/docs",
         "health": "/api/health",
     }

@@ -5,9 +5,10 @@ Lớp cấu hình LLM đa mô hình.
 Sử dụng init_chat_model (LangChain native) để tự nhận provider từ prefix.
 
 Cải tiến:
-- Cache instance theo (model_name, temperature, timeout) để tái sử dụng
-- Hỗ trợ timeout và max_retries cho từng provider
-- Cung cấp cả sync và async check cho Ollama status
+- Cache instance theo (model_name, temperature, timeout, max_retries, kwargs)
+- Xử lý timeout chuẩn xác cho từng provider (Ollama dùng client_kwargs, OpenAI dùng timeout trực tiếp)
+- verify_model bắt mọi Exception để tránh HTTP 500
+- Async check cho Ollama status
 """
 
 import logging
@@ -79,6 +80,15 @@ def _parse_provider_and_model(model_str: str) -> tuple[str | None, str]:
     return None, model_str.strip()
 
 
+def _make_hashable(val: Any) -> Any:
+    """Chuyển đổi đệ quy các cấu trúc dữ liệu sang tuple có thể hash được."""
+    if isinstance(val, dict):
+        return tuple(sorted((k, _make_hashable(v)) for k, v in val.items()))
+    elif isinstance(val, (list, set, tuple)):
+        return tuple(_make_hashable(v) for v in val)
+    return val
+
+
 def get_llm(
     model_role: str = "default",
     temperature: float = 0.0,
@@ -93,9 +103,10 @@ def get_llm(
     Args:
         model_role: "strong" | "fast" | "local" | "default" | model string trực tiếp
         temperature: 0.0 – 1.0
-        timeout: Thời gian timeout tính bằng giây (mặc định 120s cho local, None cho cloud)
-        max_retries: Số lần thử lại khi gặp lỗi mạng/rate limit
+        timeout: Thời gian timeout (giây). Mặc định 120s cho Ollama
+        max_retries: Số lần thử lại khi gặp lỗi mạng/rate limit (OpenAI/Cloud)
         use_cache: Bật/tắt tái sử dụng instance đã tạo
+        **kwargs: Các tham số bổ sung truyền cho LLM (vd: num_predict, stop, ...)
 
     Returns:
         BaseChatModel sẵn sàng gọi .invoke() / .stream()
@@ -108,21 +119,30 @@ def get_llm(
     if effective_timeout is None and provider == "ollama":
         effective_timeout = 120.0
 
-    cache_key = (raw_model_name, temperature, effective_timeout, max_retries)
+    # Khóa cache bao gồm toàn bộ kwargs đã được chuẩn hóa để tránh trả nhầm cấu hình cũ
+    kwargs_hashable = _make_hashable(kwargs)
+    cache_key = (raw_model_name, temperature, effective_timeout, max_retries, kwargs_hashable)
     if use_cache and cache_key in _LLM_CACHE:
         return _LLM_CACHE[cache_key]
 
     call_kwargs: dict[str, Any] = dict(kwargs)
+
+    # Xử lý tham số đặc thù cho từng provider
     if provider == "ollama":
         if "base_url" not in call_kwargs:
             call_kwargs["base_url"] = settings.ollama_base_url
+        # ChatOllama cấu hình timeout thông qua client_kwargs
+        if effective_timeout is not None:
+            existing_client_kwargs = call_kwargs.get("client_kwargs", {})
+            if "timeout" not in existing_client_kwargs:
+                existing_client_kwargs["timeout"] = effective_timeout
+            call_kwargs["client_kwargs"] = existing_client_kwargs
+    else:
+        # OpenAI / Cloud providers hỗ trợ trực tiếp timeout và max_retries
         if effective_timeout is not None and "timeout" not in call_kwargs:
             call_kwargs["timeout"] = effective_timeout
-    elif effective_timeout is not None and "timeout" not in call_kwargs:
-        call_kwargs["timeout"] = effective_timeout
-
-    if "max_retries" not in call_kwargs:
-        call_kwargs["max_retries"] = max_retries
+        if "max_retries" not in call_kwargs:
+            call_kwargs["max_retries"] = max_retries
 
     try:
         if provider:
@@ -146,7 +166,12 @@ def get_llm(
         logger.error(error_msg)
         raise LLMInitError(error_msg) from e
 
-    logger.info("Khởi tạo LLM thành công: %s (role=%s, timeout=%s)", raw_model_name, model_role, effective_timeout)
+    logger.info(
+        "Khởi tạo LLM thành công: %s (role=%s, timeout=%s)",
+        raw_model_name,
+        model_role,
+        effective_timeout,
+    )
 
     if use_cache:
         _LLM_CACHE[cache_key] = llm
@@ -155,7 +180,7 @@ def get_llm(
 
 
 def clear_llm_cache():
-    """Xóa sạch cache instance LLM (dùng cho test hoặc khi đổi env động)."""
+    """Xóa sạch cache instance LLM."""
     _LLM_CACHE.clear()
 
 
@@ -165,21 +190,21 @@ def get_available_models() -> dict[str, str]:
 
 
 def check_ollama_status() -> dict:
-    """Kiểm tra Ollama server đồng bộ (dùng trong script/startup)."""
+    """Kiểm tra Ollama server đồng bộ (dùng trong script chạy một lần)."""
     try:
         r = httpx.get(f"{settings.ollama_base_url}/api/tags", timeout=3)
         if r.status_code == 200:
             models = [m["name"] for m in r.json().get("models", [])]
             return {"status": "ok", "models": models}
         return {"status": "error", "detail": f"HTTP {r.status_code}"}
-    except httpx.ConnectError:
+    except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError):
         return {"status": "offline", "detail": f"Không kết nối được {settings.ollama_base_url}"}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
 
 
 async def check_ollama_status_async() -> dict:
-    """Kiểm tra Ollama server bất đồng bộ (dùng cho FastAPI endpoint để không chặn event loop)."""
+    """Kiểm tra Ollama server bất đồng bộ (không chặn event loop của FastAPI)."""
     try:
         async with httpx.AsyncClient(timeout=2.0) as client:
             r = await client.get(f"{settings.ollama_base_url}/api/tags")
@@ -187,7 +212,7 @@ async def check_ollama_status_async() -> dict:
                 models = [m["name"] for m in r.json().get("models", [])]
                 return {"status": "ok", "models": models}
             return {"status": "error", "detail": f"HTTP {r.status_code}"}
-    except httpx.ConnectError:
+    except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError):
         return {"status": "offline", "detail": f"Không kết nối được {settings.ollama_base_url}"}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
@@ -196,7 +221,7 @@ async def check_ollama_status_async() -> dict:
 def verify_model(model_role: str) -> dict:
     """
     Kiểm tra model có hoạt động không bằng cách gọi thử.
-    Dùng cho health check nâng cao và debug.
+    Bắt toàn bộ Exception (bao gồm timeout, lỗi mạng, 401) để không làm crash HTTP 500.
     """
     model_name = _resolve_model_name(model_role)
     try:
@@ -209,7 +234,7 @@ def verify_model(model_role: str) -> dict:
             "status": "ok",
             "response_preview": content[:80],
         }
-    except LLMInitError as e:
+    except Exception as e:
         return {
             "role": model_role,
             "model": model_name,

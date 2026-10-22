@@ -1,14 +1,17 @@
 """
 Unit tests cho app.core.llm.
-Kiểm tra logic phân tách provider, cấu hình model, cache và error handling.
+Kiểm tra logic phân tách provider, cấu hình model, cache, kwargs, timeout và error handling.
 """
 
+from unittest.mock import MagicMock, patch
 import pytest
 from app.core.llm import (
     _parse_provider_and_model,
     _resolve_model_name,
     get_llm,
     clear_llm_cache,
+    verify_model,
+    check_ollama_status_async,
     LLMInitError,
     MODEL_REGISTRY,
 )
@@ -67,8 +70,35 @@ class TestLLMCacheAndError:
         llm2 = get_llm("local", temperature=0.7, use_cache=True)
         assert llm1 is not llm2
 
+    def test_different_kwargs_different_instance(self):
+        """Kiểm tra kwargs (ví dụ num_predict) được tính vào cache key chính xác."""
+        llm1 = get_llm("local", num_predict=100, use_cache=True)
+        llm2 = get_llm("local", num_predict=200, use_cache=True)
+        assert llm1 is not llm2
+
     def test_invalid_provider_raises_llm_init_error(self):
         """Kiểm tra báo lỗi LLMInitError có gợi ý hữu ích khi provider không hợp lệ."""
         with pytest.raises(LLMInitError) as exc_info:
             get_llm("nonexistent_provider/invalid-model-name-xyz", use_cache=False)
         assert "Không khởi tạo được model" in str(exc_info.value)
+
+    def test_verify_model_catches_runtime_exception(self):
+        """Kiểm tra verify_model bắt mọi Exception khi invoke gặp sự cố (Ollama sập, 401...)."""
+        with patch("app.core.llm.get_llm") as mock_get_llm:
+            mock_instance = MagicMock()
+            mock_instance.invoke.side_effect = RuntimeError("Mất kết nối máy chủ Ollama")
+            mock_get_llm.return_value = mock_instance
+
+            res = verify_model("local")
+            assert res["status"] == "error"
+            assert "Mất kết nối máy chủ Ollama" in res["error"]
+
+
+class TestAsyncOllamaCheck:
+    @pytest.mark.asyncio
+    async def test_check_ollama_status_async_offline(self):
+        """Kiểm tra check_ollama_status_async xử lý mượt mà khi port không tồn tại."""
+        from app.core.config import settings
+        with patch.object(settings, "ollama_base_url", "http://127.0.0.1:59999"):
+            res = await check_ollama_status_async()
+            assert res["status"] == "offline"
