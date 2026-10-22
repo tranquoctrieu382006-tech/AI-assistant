@@ -28,7 +28,8 @@ dist/
 build/
 *.egg-info/
 
-# Data (có thể chứa dữ liệu nhạy cảm)
-data/*.pdf
-data/*.docx
+# Testing
+.pytest_cache/
+
+# Database
 *.db

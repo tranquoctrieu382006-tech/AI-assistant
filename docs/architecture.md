@@ -288,8 +288,7 @@ ai-assistant/
 │   │   ├── 01-12_*.md|docx|pdf  # 12 tài liệu tiếng Việt
 │   │   ├── schema_seed.sql       # 9 bảng, ~2346 rows
 │   │   └── data_dictionary.md    # Từ điển dữ liệu + ERD
-│   ├── documents/                # Bộ tài liệu phụ (7 files MD)
-│   └── postgres/                 # SQL scripts
+│   └── documents/                # Bộ tài liệu phụ (7 files MD)
 ├── docs/
 │   ├── architecture.md           # (file này)
 │   ├── benchmark_results.md      # Kết quả benchmark LLM

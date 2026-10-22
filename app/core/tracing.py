@@ -25,9 +25,9 @@ def init_tracing():
         os.environ["LANGFUSE_PUBLIC_KEY"] = settings.langfuse_public_key
     if settings.langfuse_secret_key and not settings.langfuse_secret_key.startswith("sk-lf-..."):
         os.environ["LANGFUSE_SECRET_KEY"] = settings.langfuse_secret_key
-    if settings.langfuse_base_url:
-        os.environ["LANGFUSE_HOST"] = settings.langfuse_base_url
-        os.environ["LANGFUSE_BASE_URL"] = settings.langfuse_base_url
+    if settings.langfuse_host:
+        os.environ["LANGFUSE_HOST"] = settings.langfuse_host
+        os.environ["LANGFUSE_BASE_URL"] = settings.langfuse_host
 
 
 def is_langfuse_configured() -> bool:
