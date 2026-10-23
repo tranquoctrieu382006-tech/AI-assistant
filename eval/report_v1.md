@@ -17,7 +17,22 @@
 
 These are development-set results; the threshold was calibrated on the same corpus. They are not a held-out quality estimate. Earlier five-case Hit@5/MRR values that counted the abstention case are superseded.
 
-The golden set has since been expanded to 47 explicitly categorized cases (33 simple, four paraphrases, two multi-document, eight out-of-scope). No live retrieval or answer evaluation has been run against this expanded set yet. The prior metrics above apply only to the original 35 cases and must not be presented as results for the expanded set. The small 27-chunk corpus also makes Hit@k particularly easy to attain.
+The golden set has since been expanded to 47 explicitly categorized cases (33 simple, four paraphrases, two multi-document, eight out-of-scope). The live retrieval run below applies to this expanded set. The small 27-chunk corpus means Hit@k remains a development diagnostic, not a robust generalization estimate.
+
+## Retrieval and abstention (expanded 47-case set)
+
+The run used local `bge-m3:latest`, PostgreSQL 18.6 and pgvector 0.8.7. The answerable set contains 39 cases; eight are expected abstentions.
+
+| Measure | Result | Count / scope |
+|---|---:|---|
+| Hit@1 | 0.744 | 29/39 answerable cases |
+| Hit@3 | 0.846 | 33/39 answerable cases |
+| Hit@5 | 0.872 | 34/39 answerable cases |
+| MRR | 0.808 | Answerable cases |
+| Expected-source coverage@5 | 0.872 | Required sources across answerable cases |
+| Abstention accuracy | 1.000 | 8/8 out-of-scope cases at cutoff 0.5 |
+
+Failure analysis: all four paraphrase questions missed their expected source in the top five. Of the two multi-document cases, one retrieved both expected sources at ranks 2 and 4; the other retrieved neither in the top five. The 33 simple cases had Hit@3 and Hit@5 of 1.0. These are development-set results, and the abstention sample remains small.
 
 ## NLQ
 
@@ -35,7 +50,7 @@ The golden set has since been expanded to 47 explicitly categorized cases (33 si
 ## Tests and limitations
 
 - Current suite: **62 passed in 3.81s**, captured with `.venv\Scripts\python.exe -m pytest -q`. There are 57 test functions plus five parameterized cases; the pytest run output is authoritative. `pytest -q` is the reproducible command.
-- Python compile check passed. Live ingestion and retrieval were run locally; full 35-question answer evaluation was not run.
+- Python compile check passed. Live ingestion and retrieval were run locally; full 47-question answer evaluation was not run.
 - The benchmark script now warm-ups each model and reports median latency over three measured samples. Cost remains comparable only for the two Groq models with configured rates; other models report no cost estimate.
 - API authentication and rate limiting are not implemented. The demo binds to loopback by default and must not be exposed externally without those controls.
 

@@ -18,7 +18,9 @@ One local RAG answer smoke test returned the correct exchange window with source
 
 ## Expanded golden set and evaluator changes
 
-The new 47-case set adds paraphrases, two questions requiring evidence from two separate documents, and six additional out-of-scope questions. Every case now has a category. The evaluator reports Hit@1/3/5, MRR, expected-source coverage, and per-category results. Answer smoke evaluation checks every required substring for multi-part answers. These additions have not yet been run against the live Ollama/PostgreSQL stack; rerun the retrieval and answer commands before publishing new scores. The corpus remains only 27 chunks, so even Hit@1/3/5 is a development diagnostic rather than a robust generalization estimate.
+The 47-case set adds paraphrases, two questions requiring evidence from two separate documents, and six additional out-of-scope questions. Every case has a category. The evaluator reports Hit@1/3/5, MRR, expected-source coverage, and per-category results. Answer smoke evaluation checks every required substring for multi-part answers.
+
+Live expanded-set retrieval run with local bge-m3 and PostgreSQL/pgvector: 39 answerable cases, Hit@1 **0.744**, Hit@3 **0.846**, Hit@5 **0.872**, MRR **0.808**, expected-source coverage@5 **0.872**; abstention accuracy **8/8**. Simple questions reached Hit@3/5 **1.0**. All four paraphrases missed their expected source in top five. One multi-document case retrieved both sources at ranks 2 and 4; the other missed both. These are development diagnostics on the same 27-chunk corpus, not held-out results. The eight negative cases are too few for a stable abstention estimate.
 
 `pytest -q` is the reproducible test command. The latest run after these evaluator changes reported **62 passed**: 57 test functions plus five parameterized instances. Use pytest's collection/run output as the source of truth.
 
