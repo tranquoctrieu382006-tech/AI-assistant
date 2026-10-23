@@ -78,18 +78,25 @@ ai-assistant/
 │       └── rag.py           # RAG request/response
 ├── data/
 │   ├── demo_sales_warehouse/ # Tài liệu và SQL seed mẫu
+│   ├── documents/            # Tài liệu RAG bổ sung
 │   ├── rag_golden_set.json
 │   └── nlq_golden_set.json
+├── docs/
+│   ├── architecture.md
+│   ├── benchmark_results.md
+│   └── rag_evaluation_v1.md
 ├── scripts/
 │   ├── compare_models.py
 │   ├── ingest_documents.py
 │   ├── evaluate_rag_retrieval.py
 │   └── evaluate_nlq_golden.py
 ├── tests/
+│   ├── test_evaluators.py
 │   ├── test_health.py
 │   ├── test_ingestion.py
 │   ├── test_llm.py
 │   ├── test_rag.py
+│   ├── test_vector_store.py
 │   └── test_tracing.py
 ├── .env.example
 ├── .gitignore
