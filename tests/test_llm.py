@@ -77,8 +77,9 @@ class TestLLMCacheAndError:
 
     def test_invalid_provider_raises_llm_init_error(self):
         """Kiểm tra báo lỗi LLMInitError có gợi ý hữu ích khi provider không hợp lệ."""
-        with pytest.raises(ValueError, match="Unknown model role"):
+        with pytest.raises(LLMInitError) as exc_info:
             get_llm("nonexistent_provider/invalid-model-name-xyz", use_cache=False)
+        assert "Không khởi tạo được model" in str(exc_info.value)
 
     def test_verify_model_catches_runtime_exception(self):
         """Kiểm tra verify_model bắt mọi Exception khi invoke gặp sự cố (Ollama sập, 401...)."""

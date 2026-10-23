@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     # Require an explicit local DATABASE_URL instead of silently guessing credentials.
     database_url: str = ""
     rag_document_dir: str = "data/demo_sales_warehouse"
+    rag_exclude_files: list[str] = ["README.md", "data_dictionary.md", "nguon_dataset.md"]
     # RAG defaults to a local model; cloud use must be an explicit choice.
     rag_model: str = "local"
     rag_chunk_size: int = 900

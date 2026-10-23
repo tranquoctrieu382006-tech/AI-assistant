@@ -52,7 +52,8 @@ def evaluate() -> dict:
                 cursor.execute(sql)
                 columns = [column.name for column in cursor.description]
                 actual = [dict(zip(columns, row)) for row in cursor.fetchall()]
-                expected = [case["expected"]]
+                expected_value = case["expected"]
+                expected = expected_value if isinstance(expected_value, list) else [expected_value]
                 ok = results_match(actual, expected)
                 passed += int(ok)
                 print(f"{case['id']}: {'PASS' if ok else 'FAIL'} expected={expected} actual={actual}")

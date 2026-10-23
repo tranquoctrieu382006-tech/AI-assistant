@@ -4,7 +4,7 @@ pydantic-settings>=2.5.0
 python-dotenv>=1.0.0
 
 # LangChain
-langchain>=0.3.0
+langchain>=1.0.0
 # Langfuse Python SDK v5 requires langchain-core v1 or newer.
 langchain-core>=1.0.0
 langchain-openai>=0.2.0

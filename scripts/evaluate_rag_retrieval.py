@@ -42,4 +42,8 @@ def evaluate(k: int = 5) -> dict:
 
 
 if __name__ == "__main__":
-    print(json.dumps(evaluate(settings.rag_top_k), ensure_ascii=False, indent=2))
+    from app.core.vector_store import close_pool
+    try:
+        print(json.dumps(evaluate(settings.rag_top_k), ensure_ascii=False, indent=2))
+    finally:
+        close_pool()

@@ -127,7 +127,12 @@ def chunk_text(text: str, size: int | None = None, overlap: int | None = None) -
 def ingest_directory(directory: str | Path | None = None) -> dict:
     from app.core.vector_store import replace_corpus_chunks
     root = Path(directory or settings.rag_document_dir)
-    files = sorted(p for p in root.rglob("*") if p.suffix.lower() in {".md", ".txt", ".docx", ".pdf"})
+    excluded = {name.casefold() for name in settings.rag_exclude_files}
+    files = sorted(
+        p for p in root.rglob("*")
+        if p.suffix.lower() in {".md", ".txt", ".docx", ".pdf"}
+        and p.name.casefold() not in excluded
+    )
     records: list[dict] = []
     sources = [path.relative_to(root).as_posix() for path in files]
     for path in files:

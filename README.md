@@ -15,7 +15,7 @@ Mini AI Assistant – Hỏi đáp tài liệu (RAG) & truy vấn dữ liệu b�
 # 1. Clone & cài đặt
 git clone <repo-url>
 cd ai-assistant
-pip install -r requirements-dev.txt
+pip install -r requirements.lock
 
 # 2. Cấu hình
 cp .env.example .env
@@ -78,19 +78,22 @@ ai-assistant/
 │       └── rag.py           # RAG request/response
 ├── data/
 │   ├── demo_sales_warehouse/ # Tài liệu và SQL seed mẫu
-│   ├── documents/            # Tài liệu RAG bổ sung
+│   ├── documents/            # Corpus chính sách thay thế (không nạp mặc định)
 │   ├── rag_golden_set.json
 │   └── nlq_golden_set.json
 ├── docs/
 │   ├── architecture.md
 │   ├── benchmark_results.md
 │   └── rag_evaluation_v1.md
+├── eval/
+│   └── report_v1.md
 ├── scripts/
 │   ├── compare_models.py
 │   ├── ingest_documents.py
 │   ├── evaluate_rag_retrieval.py
 │   ├── evaluate_rag_answers.py
-│   └── evaluate_nlq_golden.py
+│   ├── evaluate_nlq_golden.py
+│   └── evaluate_nlq_model.py
 ├── tests/
 │   ├── test_evaluators.py
 │   ├── test_health.py
@@ -103,6 +106,7 @@ ai-assistant/
 ├── .gitignore
 ├── requirements.txt
 ├── requirements-dev.txt
+├── requirements.lock
 └── README.md
 ```
 
@@ -122,7 +126,7 @@ Toàn bộ tên và email khách hàng trong seed là giả lập (`example.test
 
 ### Nạp tài liệu và hỏi đáp RAG
 
-Đảm bảo PostgreSQL có extension pgvector, Ollama đang chạy, sau đó tải model embedding và cấu hình `DATABASE_URL`, `RAG_DOCUMENT_DIR` trong `.env`:
+Mặc định corpus gồm 12 tài liệu nghiệp vụ trong `data/demo_sales_warehouse`; ba file mô tả repo/dataset (`README.md`, `data_dictionary.md`, `nguon_dataset.md`) được loại khỏi ingestion. `data/documents/` là corpus chính sách riêng, không được trộn vào corpus bán hàng mặc định; muốn nạp corpus này thì đổi `RAG_DOCUMENT_DIR=data/documents` rồi chạy ingest lại. Đảm bảo PostgreSQL có extension pgvector, Ollama đang chạy, sau đó tải model embedding và cấu hình `DATABASE_URL`, `RAG_DOCUMENT_DIR` trong `.env`:
 
 ```bash
 ollama pull bge-m3
@@ -138,6 +142,10 @@ curl -X POST http://localhost:8000/api/rag/ask \
 ```
 
 Phản hồi gồm `answer` và danh sách `sources` có đường dẫn, đoạn, điểm và số trang (với PDF). API lọc từng chunk dưới ngưỡng và trả `sources: []` khi từ chối trả lời. Chạy `python -m scripts.evaluate_rag_retrieval` để đo Hit@k/MRR trên các câu có câu trả lời và abstention accuracy riêng; `python -m scripts.evaluate_rag_answers` kiểm tra chuỗi đáp án trên API đang chạy. NLQ golden script chỉ xác nhận SQL tham chiếu khớp dữ liệu seed, không đo khả năng sinh SQL của mô hình.
+
+Chạy `python -m scripts.evaluate_nlq_golden` để kiểm tra SQL tham chiếu với seed; chạy `python -m scripts.evaluate_nlq_model --model-role local` để chấm SQL do model sinh bằng kết quả thực thi read-only. Lệnh sau gọi model cho từng câu trong bộ golden.
+
+`requirements.lock` khóa phiên bản runtime và dev đã resolve. Khi thay dependencies, cập nhật bằng `uv pip compile requirements-dev.txt --output-file requirements.lock`, review diff rồi cài lại từ lock.
 
 API demo không có xác thực hay giới hạn tần suất. Mặc định chỉ bind vào `127.0.0.1`; trước khi mở ra mạng hoặc dùng thật, cần bổ sung xác thực và rate limiting.
 

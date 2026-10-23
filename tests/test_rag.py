@@ -1,10 +1,13 @@
 import sys
 import types
+import httpx
+import pytest
 from unittest.mock import patch
 
 from app.api import rag
 from app.schemas.rag import RagAskRequest
 from fastapi import HTTPException
+from app.main import app
 
 
 class FakeModel:
@@ -137,3 +140,15 @@ def test_rag_reports_generation_failure_separately():
             assert exc.detail == "RAG answer generation failed"
         else:
             raise AssertionError("Expected generation failure")
+
+
+@pytest.mark.asyncio
+async def test_rag_request_validation_uses_http_boundary():
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        short_question = await client.post("/api/rag/ask", json={"question": "x"})
+        invalid_top_k = await client.post(
+            "/api/rag/ask", json={"question": "Câu hỏi hợp lệ?", "top_k": 21}
+        )
+    assert short_question.status_code == 422
+    assert invalid_top_k.status_code == 422

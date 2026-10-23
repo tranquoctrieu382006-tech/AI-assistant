@@ -1,6 +1,635 @@
 [
-  {"id":"nlq-001","question":"Có bao nhiêu sản phẩm?","sql":"SELECT COUNT(*) AS product_count FROM products;","expected":{"product_count":80}},
-  {"id":"nlq-002","question":"Có bao nhiêu khách hàng?","sql":"SELECT COUNT(*) AS customer_count FROM customers;","expected":{"customer_count":200}},
-  {"id":"nlq-003","question":"Có bao nhiêu đơn hàng?","sql":"SELECT COUNT(*) AS order_count FROM orders;","expected":{"order_count":300}},
-  {"id":"nlq-004","question":"Có bao nhiêu kho hàng?","sql":"SELECT COUNT(*) AS warehouse_count FROM warehouses;","expected":{"warehouse_count":3}}
+  {
+    "id": "nlq-001",
+    "question": "Có bao nhiêu sản phẩm?",
+    "sql": "SELECT COUNT(*) AS product_count FROM products;",
+    "expected": {
+      "product_count": 80
+    }
+  },
+  {
+    "id": "nlq-002",
+    "question": "Có bao nhiêu khách hàng?",
+    "sql": "SELECT COUNT(*) AS customer_count FROM customers;",
+    "expected": {
+      "customer_count": 200
+    }
+  },
+  {
+    "id": "nlq-003",
+    "question": "Có bao nhiêu đơn hàng?",
+    "sql": "SELECT COUNT(*) AS order_count FROM orders;",
+    "expected": {
+      "order_count": 300
+    }
+  },
+  {
+    "id": "nlq-004",
+    "question": "Có bao nhiêu kho hàng?",
+    "sql": "SELECT COUNT(*) AS warehouse_count FROM warehouses;",
+    "expected": {
+      "warehouse_count": 3
+    }
+  },
+  {
+    "id": "nlq-005",
+    "question": "Có bao nhiêu sản phẩm đang kinh doanh?",
+    "sql": "SELECT COUNT(*) AS active_product_count FROM products WHERE active;",
+    "expected": {
+      "active_product_count": 80
+    }
+  },
+  {
+    "id": "nlq-006",
+    "question": "Mỗi danh mục hiện có bao nhiêu sản phẩm?",
+    "sql": "SELECT c.name AS category, COUNT(p.product_id) AS product_count FROM categories c LEFT JOIN products p USING (category_id) GROUP BY c.name ORDER BY c.name;",
+    "expected": [
+      {
+        "category": "Chăm sóc cá nhân",
+        "product_count": 10
+      },
+      {
+        "category": "Điện tử",
+        "product_count": 10
+      },
+      {
+        "category": "Đồ dùng du lịch",
+        "product_count": 10
+      },
+      {
+        "category": "Gia dụng",
+        "product_count": 10
+      },
+      {
+        "category": "Nhà bếp",
+        "product_count": 10
+      },
+      {
+        "category": "Phụ kiện",
+        "product_count": 10
+      },
+      {
+        "category": "Thể thao",
+        "product_count": 10
+      },
+      {
+        "category": "Văn phòng phẩm",
+        "product_count": 10
+      }
+    ]
+  },
+  {
+    "id": "nlq-007",
+    "question": "Có bao nhiêu khách hàng ở mỗi hạng thành viên?",
+    "sql": "SELECT member_tier, COUNT(*) AS customer_count FROM customers GROUP BY member_tier ORDER BY member_tier;",
+    "expected": [
+      {
+        "member_tier": "Bạc",
+        "customer_count": 50
+      },
+      {
+        "member_tier": "Đồng",
+        "customer_count": 50
+      },
+      {
+        "member_tier": "Kim cương",
+        "customer_count": 50
+      },
+      {
+        "member_tier": "Vàng",
+        "customer_count": 50
+      }
+    ]
+  },
+  {
+    "id": "nlq-008",
+    "question": "Số đơn hàng theo từng trạng thái là bao nhiêu?",
+    "sql": "SELECT status, COUNT(*) AS order_count FROM orders GROUP BY status ORDER BY status;",
+    "expected": [
+      {
+        "status": "đã giao",
+        "order_count": 60
+      },
+      {
+        "status": "đã hủy",
+        "order_count": 60
+      },
+      {
+        "status": "đã xác nhận",
+        "order_count": 60
+      },
+      {
+        "status": "đang giao",
+        "order_count": 60
+      },
+      {
+        "status": "mới",
+        "order_count": 60
+      }
+    ]
+  },
+  {
+    "id": "nlq-009",
+    "question": "Mỗi thành phố có bao nhiêu nhà cung cấp?",
+    "sql": "SELECT city, COUNT(*) AS supplier_count FROM suppliers GROUP BY city ORDER BY city;",
+    "expected": [
+      {
+        "city": "Biên Hòa",
+        "supplier_count": 2
+      },
+      {
+        "city": "Cần Thơ",
+        "supplier_count": 2
+      },
+      {
+        "city": "Đà Nẵng",
+        "supplier_count": 2
+      },
+      {
+        "city": "Hà Nội",
+        "supplier_count": 1
+      },
+      {
+        "city": "Hải Phòng",
+        "supplier_count": 2
+      },
+      {
+        "city": "Huế",
+        "supplier_count": 2
+      },
+      {
+        "city": "Nha Trang",
+        "supplier_count": 2
+      },
+      {
+        "city": "TP Hồ Chí Minh",
+        "supplier_count": 2
+      }
+    ]
+  },
+  {
+    "id": "nlq-010",
+    "question": "Tổng số lượng tồn kho hiện tại của từng kho là bao nhiêu?",
+    "sql": "SELECT w.name AS warehouse, SUM(i.on_hand) AS units_on_hand FROM warehouses w JOIN inventory i USING (warehouse_id) GROUP BY w.name ORDER BY w.name;",
+    "expected": [
+      {
+        "warehouse": "Kho Đà Nẵng",
+        "units_on_hand": 6079
+      },
+      {
+        "warehouse": "Kho Hà Nội",
+        "units_on_hand": 6897
+      },
+      {
+        "warehouse": "Kho TP Hồ Chí Minh",
+        "units_on_hand": 6973
+      }
+    ]
+  },
+  {
+    "id": "nlq-011",
+    "question": "Có bao nhiêu dòng tồn kho dưới 10 sản phẩm?",
+    "sql": "SELECT COUNT(*) AS low_stock_rows FROM inventory WHERE on_hand < 10;",
+    "expected": {
+      "low_stock_rows": 16
+    }
+  },
+  {
+    "id": "nlq-012",
+    "question": "Có bao nhiêu sản phẩm chưa có bản ghi tồn kho?",
+    "sql": "SELECT COUNT(*) AS products_without_inventory FROM products p LEFT JOIN inventory i USING (product_id) WHERE i.product_id IS NULL;",
+    "expected": {
+      "products_without_inventory": 0
+    }
+  },
+  {
+    "id": "nlq-013",
+    "question": "Giá bán trung bình theo danh mục sản phẩm là bao nhiêu?",
+    "sql": "SELECT c.name AS category, ROUND(AVG(p.unit_price), 2) AS avg_price FROM categories c JOIN products p USING (category_id) GROUP BY c.name ORDER BY c.name;",
+    "expected": [
+      {
+        "category": "Chăm sóc cá nhân",
+        "avg_price": 1232293.79
+      },
+      {
+        "category": "Điện tử",
+        "avg_price": 1705926.4
+      },
+      {
+        "category": "Đồ dùng du lịch",
+        "avg_price": 1830337.38
+      },
+      {
+        "category": "Gia dụng",
+        "avg_price": 1175508.59
+      },
+      {
+        "category": "Nhà bếp",
+        "avg_price": 989814.33
+      },
+      {
+        "category": "Phụ kiện",
+        "avg_price": 1366556.66
+      },
+      {
+        "category": "Thể thao",
+        "avg_price": 1541212.13
+      },
+      {
+        "category": "Văn phòng phẩm",
+        "avg_price": 1198507.43
+      }
+    ]
+  },
+  {
+    "id": "nlq-014",
+    "question": "Doanh thu hàng hóa theo danh mục là bao nhiêu?",
+    "sql": "SELECT c.name AS category, ROUND(SUM(oi.quantity * oi.unit_price), 2) AS revenue FROM categories c JOIN products p USING (category_id) JOIN order_items oi USING (product_id) GROUP BY c.name ORDER BY c.name;",
+    "expected": [
+      {
+        "category": "Chăm sóc cá nhân",
+        "revenue": 185668810.0
+      },
+      {
+        "category": "Điện tử",
+        "revenue": 197082052.0
+      },
+      {
+        "category": "Đồ dùng du lịch",
+        "revenue": 264155648.0
+      },
+      {
+        "category": "Gia dụng",
+        "revenue": 236277416.0
+      },
+      {
+        "category": "Nhà bếp",
+        "revenue": 220947347.0
+      },
+      {
+        "category": "Phụ kiện",
+        "revenue": 234848980.0
+      },
+      {
+        "category": "Thể thao",
+        "revenue": 195143471.0
+      },
+      {
+        "category": "Văn phòng phẩm",
+        "revenue": 186517536.0
+      }
+    ]
+  },
+  {
+    "id": "nlq-015",
+    "question": "Năm sản phẩm bán ra nhiều nhất theo số lượng là những sản phẩm nào?",
+    "sql": "SELECT p.product_id, SUM(oi.quantity) AS units_sold FROM products p JOIN order_items oi USING (product_id) GROUP BY p.product_id ORDER BY units_sold DESC, p.product_id LIMIT 5;",
+    "expected": [
+      {
+        "product_id": 34,
+        "units_sold": 54
+      },
+      {
+        "product_id": 76,
+        "units_sold": 48
+      },
+      {
+        "product_id": 26,
+        "units_sold": 47
+      },
+      {
+        "product_id": 31,
+        "units_sold": 46
+      },
+      {
+        "product_id": 24,
+        "units_sold": 43
+      }
+    ]
+  },
+  {
+    "id": "nlq-016",
+    "question": "Năm khách hàng có tổng giá trị hàng đã đặt cao nhất là ai (theo mã khách)?",
+    "sql": "SELECT o.customer_id, ROUND(SUM(oi.quantity * oi.unit_price), 2) AS spend FROM orders o JOIN order_items oi USING (order_id) GROUP BY o.customer_id ORDER BY spend DESC, o.customer_id LIMIT 5;",
+    "expected": [
+      {
+        "customer_id": 31,
+        "spend": 20749139.0
+      },
+      {
+        "customer_id": 97,
+        "spend": 20542274.0
+      },
+      {
+        "customer_id": 35,
+        "spend": 18087415.0
+      },
+      {
+        "customer_id": 16,
+        "spend": 17342762.0
+      },
+      {
+        "customer_id": 14,
+        "spend": 17322167.0
+      }
+    ]
+  },
+  {
+    "id": "nlq-017",
+    "question": "Số đơn theo tháng trong năm 2026 là bao nhiêu?",
+    "sql": "SELECT TO_CHAR(DATE_TRUNC('month', order_date), 'YYYY-MM') AS month, COUNT(*) AS order_count FROM orders WHERE order_date >= DATE '2026-01-01' AND order_date < DATE '2027-01-01' GROUP BY DATE_TRUNC('month', order_date) ORDER BY DATE_TRUNC('month', order_date);",
+    "expected": [
+      {
+        "month": "2026-01",
+        "order_count": 10
+      },
+      {
+        "month": "2026-02",
+        "order_count": 10
+      },
+      {
+        "month": "2026-03",
+        "order_count": 10
+      },
+      {
+        "month": "2026-04",
+        "order_count": 10
+      },
+      {
+        "month": "2026-05",
+        "order_count": 10
+      },
+      {
+        "month": "2026-06",
+        "order_count": 10
+      },
+      {
+        "month": "2026-07",
+        "order_count": 11
+      },
+      {
+        "month": "2026-08",
+        "order_count": 7
+      }
+    ]
+  },
+  {
+    "id": "nlq-018",
+    "question": "Có bao nhiêu đơn ở mỗi trạng thái chưa giao thành công?",
+    "sql": "SELECT status, COUNT(*) AS order_count FROM orders WHERE status <> 'đã giao' GROUP BY status ORDER BY status;",
+    "expected": [
+      {
+        "status": "đã hủy",
+        "order_count": 60
+      },
+      {
+        "status": "đã xác nhận",
+        "order_count": 60
+      },
+      {
+        "status": "đang giao",
+        "order_count": 60
+      },
+      {
+        "status": "mới",
+        "order_count": 60
+      }
+    ]
+  },
+  {
+    "id": "nlq-019",
+    "question": "Số đơn đã giao thành công theo tháng trong quý IV/2025 là bao nhiêu?",
+    "sql": "SELECT TO_CHAR(DATE_TRUNC('month', order_date), 'YYYY-MM') AS month, COUNT(*) AS delivered_orders FROM orders WHERE status = 'đã giao' AND order_date >= DATE '2025-10-01' AND order_date < DATE '2026-01-01' GROUP BY DATE_TRUNC('month', order_date) ORDER BY DATE_TRUNC('month', order_date);",
+    "expected": [
+      {
+        "month": "2025-10",
+        "delivered_orders": 4
+      },
+      {
+        "month": "2025-11",
+        "delivered_orders": 2
+      },
+      {
+        "month": "2025-12",
+        "delivered_orders": 2
+      }
+    ]
+  },
+  {
+    "id": "nlq-020",
+    "question": "Phí giao hàng trung bình theo trạng thái đơn là bao nhiêu?",
+    "sql": "SELECT status, ROUND(AVG(shipping_fee), 2) AS avg_shipping_fee FROM orders GROUP BY status ORDER BY status;",
+    "expected": [
+      {
+        "status": "đã giao",
+        "avg_shipping_fee": 0.0
+      },
+      {
+        "status": "đã hủy",
+        "avg_shipping_fee": 0.0
+      },
+      {
+        "status": "đã xác nhận",
+        "avg_shipping_fee": 0.0
+      },
+      {
+        "status": "đang giao",
+        "avg_shipping_fee": 0.0
+      },
+      {
+        "status": "mới",
+        "avg_shipping_fee": 0.0
+      }
+    ]
+  },
+  {
+    "id": "nlq-021",
+    "question": "Năm thành phố có nhiều khách hàng nhất là những thành phố nào?",
+    "sql": "SELECT city, COUNT(*) AS customer_count FROM customers WHERE city IS NOT NULL GROUP BY city ORDER BY customer_count DESC, city LIMIT 5;",
+    "expected": [
+      {
+        "city": "Biên Hòa",
+        "customer_count": 25
+      },
+      {
+        "city": "Cần Thơ",
+        "customer_count": 25
+      },
+      {
+        "city": "Đà Nẵng",
+        "customer_count": 25
+      },
+      {
+        "city": "Hà Nội",
+        "customer_count": 25
+      },
+      {
+        "city": "Hải Phòng",
+        "customer_count": 25
+      }
+    ]
+  },
+  {
+    "id": "nlq-022",
+    "question": "Giá trị hàng trung bình của một đơn hàng là bao nhiêu?",
+    "sql": "SELECT ROUND(AVG(order_total), 2) AS avg_order_value FROM (SELECT order_id, SUM(quantity * unit_price) AS order_total FROM order_items GROUP BY order_id) totals;",
+    "expected": {
+      "avg_order_value": 5735470.87
+    }
+  },
+  {
+    "id": "nlq-023",
+    "question": "Có bao nhiêu đơn hàng gồm nhiều hơn một dòng sản phẩm?",
+    "sql": "SELECT COUNT(*) AS multi_line_orders FROM (SELECT order_id FROM order_items GROUP BY order_id HAVING COUNT(*) > 1) x;",
+    "expected": {
+      "multi_line_orders": 300
+    }
+  },
+  {
+    "id": "nlq-024",
+    "question": "Có bao nhiêu đơn chưa có ngày giao?",
+    "sql": "SELECT COUNT(*) AS undelivered_date_orders FROM orders WHERE delivered_date IS NULL;",
+    "expected": {
+      "undelivered_date_orders": 240
+    }
+  },
+  {
+    "id": "nlq-025",
+    "question": "Số lần biến động kho theo từng loại là bao nhiêu?",
+    "sql": "SELECT movement_type, COUNT(*) AS movement_count FROM stock_movements GROUP BY movement_type ORDER BY movement_type;",
+    "expected": [
+      {
+        "movement_type": "điều chỉnh",
+        "movement_count": 200
+      },
+      {
+        "movement_type": "nhập",
+        "movement_count": 200
+      },
+      {
+        "movement_type": "xuất",
+        "movement_count": 200
+      }
+    ]
+  },
+  {
+    "id": "nlq-026",
+    "question": "Tổng số lượng biến động theo kho và loại biến động là bao nhiêu?",
+    "sql": "SELECT w.name AS warehouse, sm.movement_type, SUM(sm.quantity) AS moved_units FROM stock_movements sm JOIN warehouses w USING (warehouse_id) GROUP BY w.name, sm.movement_type ORDER BY w.name, sm.movement_type;",
+    "expected": [
+      {
+        "warehouse": "Kho Đà Nẵng",
+        "movement_type": "điều chỉnh",
+        "moved_units": 3066
+      },
+      {
+        "warehouse": "Kho Hà Nội",
+        "movement_type": "xuất",
+        "moved_units": 3188
+      },
+      {
+        "warehouse": "Kho TP Hồ Chí Minh",
+        "movement_type": "nhập",
+        "moved_units": 3194
+      }
+    ]
+  },
+  {
+    "id": "nlq-027",
+    "question": "Năm nhà cung cấp có nhiều sản phẩm nhất là những ai (theo mã)?",
+    "sql": "SELECT s.supplier_id, COUNT(p.product_id) AS product_count FROM suppliers s LEFT JOIN products p USING (supplier_id) GROUP BY s.supplier_id ORDER BY product_count DESC, s.supplier_id LIMIT 5;",
+    "expected": [
+      {
+        "supplier_id": 1,
+        "product_count": 6
+      },
+      {
+        "supplier_id": 2,
+        "product_count": 6
+      },
+      {
+        "supplier_id": 3,
+        "product_count": 6
+      },
+      {
+        "supplier_id": 4,
+        "product_count": 6
+      },
+      {
+        "supplier_id": 5,
+        "product_count": 6
+      }
+    ]
+  },
+  {
+    "id": "nlq-028",
+    "question": "Danh mục nào có doanh thu hàng hóa cao nhất?",
+    "sql": "SELECT c.name AS category, ROUND(SUM(oi.quantity * oi.unit_price), 2) AS revenue FROM categories c JOIN products p USING (category_id) JOIN order_items oi USING (product_id) GROUP BY c.name ORDER BY revenue DESC, c.name LIMIT 1;",
+    "expected": {
+      "category": "Đồ dùng du lịch",
+      "revenue": 264155648.0
+    }
+  },
+  {
+    "id": "nlq-029",
+    "question": "Giá thấp nhất và cao nhất theo danh mục là bao nhiêu?",
+    "sql": "SELECT c.name AS category, MIN(p.unit_price) AS min_price, MAX(p.unit_price) AS max_price FROM categories c JOIN products p USING (category_id) GROUP BY c.name ORDER BY c.name;",
+    "expected": [
+      {
+        "category": "Chăm sóc cá nhân",
+        "min_price": 102956.88,
+        "max_price": 2715399.8
+      },
+      {
+        "category": "Điện tử",
+        "min_price": 445778.49,
+        "max_price": 3180970.76
+      },
+      {
+        "category": "Đồ dùng du lịch",
+        "min_price": 553149.94,
+        "max_price": 2963016.17
+      },
+      {
+        "category": "Gia dụng",
+        "min_price": 101616.69,
+        "max_price": 2157747.72
+      },
+      {
+        "category": "Nhà bếp",
+        "min_price": 94113.76,
+        "max_price": 2744090.34
+      },
+      {
+        "category": "Phụ kiện",
+        "min_price": 236126.68,
+        "max_price": 2755202.3
+      },
+      {
+        "category": "Thể thao",
+        "min_price": 128513.02,
+        "max_price": 2650545.18
+      },
+      {
+        "category": "Văn phòng phẩm",
+        "min_price": 100868.1,
+        "max_price": 2936696.79
+      }
+    ]
+  },
+  {
+    "id": "nlq-030",
+    "question": "Tổng doanh thu hàng hóa theo năm đặt hàng là bao nhiêu?",
+    "sql": "SELECT EXTRACT(YEAR FROM o.order_date)::int AS year, ROUND(SUM(oi.quantity * oi.unit_price), 2) AS revenue FROM orders o JOIN order_items oi USING (order_id) GROUP BY EXTRACT(YEAR FROM o.order_date) ORDER BY year;",
+    "expected": [
+      {
+        "year": 2025,
+        "revenue": 1281097291.0
+      },
+      {
+        "year": 2026,
+        "revenue": 439543969.0
+      }
+    ]
+  }
 ]

@@ -71,6 +71,8 @@ def test_pdf_loader_keeps_one_based_page_metadata(monkeypatch, tmp_path: Path):
 
 def test_ingest_directory_sends_current_relative_source_set(tmp_path: Path, monkeypatch):
     (tmp_path / "policy.md").write_text("current policy", encoding="utf-8")
+    (tmp_path / "README.md").write_text("repository notes", encoding="utf-8")
+    (tmp_path / "data_dictionary.md").write_text("schema notes", encoding="utf-8")
     (tmp_path / "nested").mkdir()
     (tmp_path / "nested" / "guide.txt").write_text("current guide", encoding="utf-8")
     captured = {}

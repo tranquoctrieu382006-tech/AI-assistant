@@ -14,6 +14,23 @@ from app.core.config import settings
 _POOL = None
 
 
+class VectorStoreNotReady(RuntimeError):
+    """Raised when pgvector or the ingestion table has not been initialized."""
+
+
+def _configure_connection(conn) -> None:
+    # `register_vector` queries PostgreSQL's vector type. It must be skipped
+    # until ingestion has installed the extension in this database.
+    try:
+        has_vector_type = conn.execute("SELECT to_regtype('vector')").fetchone()[0]
+        if has_vector_type:
+            register_vector(conn)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
 def _pool():
     global _POOL
     if not settings.database_url.strip():
@@ -21,7 +38,7 @@ def _pool():
     if _POOL is None:
         from psycopg_pool import ConnectionPool
         _POOL = ConnectionPool(settings.database_url, min_size=1, max_size=8,
-                               kwargs={"autocommit": False}, configure=register_vector,
+                               kwargs={"autocommit": False}, configure=_configure_connection,
                                open=True)
     return _POOL
 
@@ -89,6 +106,13 @@ def replace_corpus_chunks(chunks: list[dict], sources: list[str]) -> int:
 def similarity_search(query: str, k: int | None = None) -> list[dict]:
     vector = get_embeddings().embed_query(query)
     with _connect() as conn:
+        ready = conn.execute(
+            "SELECT to_regtype('vector'), to_regclass('public.rag_chunks')"
+        ).fetchone()
+        if not ready[0] or not ready[1]:
+            raise VectorStoreNotReady(
+                "RAG vector store is not initialized; install pgvector and run `python -m scripts.ingest_documents`."
+            )
         rows = conn.execute(
             """SELECT content, source, chunk_index, page_number, 1 - (embedding <=> %s) AS score
                FROM rag_chunks ORDER BY embedding <=> %s LIMIT %s""",

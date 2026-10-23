@@ -21,6 +21,8 @@ async def ask_rag(request: RagAskRequest) -> RagAskResponse:
         matches = await run_in_threadpool(vector_store.similarity_search, request.question, request.top_k)
     except Exception as exc:
         logger.exception("RAG retrieval failed")
+        if isinstance(exc, vector_store.VectorStoreNotReady):
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         raise HTTPException(status_code=503, detail="RAG retrieval unavailable") from exc
 
     # Avoid fabricating an answer when retrieval has no plausible evidence.

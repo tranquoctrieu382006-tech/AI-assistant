@@ -80,3 +80,21 @@ def test_connection_pool_is_reused_and_closed(monkeypatch):
     assert vector_store._connect() == "pooled-connection"
     vector_store.close_pool()
     assert created[0].closed
+
+
+def test_pool_connection_skips_vector_registration_before_extension_exists():
+    connection = MagicMock()
+    connection.execute.return_value.fetchone.return_value = (None,)
+    with patch.object(vector_store, "register_vector") as register:
+        vector_store._configure_connection(connection)
+    register.assert_not_called()
+    connection.commit.assert_called_once()
+
+
+def test_pool_connection_registers_vector_when_extension_exists():
+    connection = MagicMock()
+    connection.execute.return_value.fetchone.return_value = ("vector",)
+    with patch.object(vector_store, "register_vector") as register:
+        vector_store._configure_connection(connection)
+    register.assert_called_once_with(connection)
+    connection.commit.assert_called_once()
