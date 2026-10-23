@@ -25,6 +25,31 @@ def test_chunk_text_splits_long_paragraphs():
     assert len(chunks) > 1
 
 
+def test_paragraph_block_strategy_preserves_extracted_boundaries_and_headings():
+    blocks = [
+        (None, "Policy", "Policy"),
+        (None, "Policy", "First paragraph."),
+        (None, "Policy", "Second paragraph."),
+    ]
+    packed = chunk_document_blocks(blocks)
+    separated = chunk_document_blocks(blocks, strategy="paragraph_blocks")
+
+    assert len(packed) == 1
+    assert len(separated) == 2
+    assert separated[0]["content"] == "Policy\nFirst paragraph."
+    assert separated[1]["content"] == "Second paragraph."
+    assert all(chunk["section"] == "Policy" for chunk in separated)
+
+
+def test_chunk_document_blocks_rejects_unknown_strategy():
+    try:
+        chunk_document_blocks([(None, None, "text")], strategy="unknown")
+    except ValueError as exc:
+        assert "Unsupported chunking strategy" in str(exc)
+    else:
+        raise AssertionError("Expected unsupported strategy to fail")
+
+
 def test_load_markdown(tmp_path: Path):
     source = tmp_path / "policy.md"
     source.write_text("# Tiêu đề\nNội dung", encoding="utf-8")

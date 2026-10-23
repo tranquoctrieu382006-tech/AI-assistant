@@ -95,6 +95,7 @@ ai-assistant/
 │   ├── compare_models.py
 │   ├── ingest_documents.py
 │   ├── evaluate_rag_retrieval.py
+│   ├── compare_chunking_strategies.py
 │   ├── evaluate_rag_answers.py
 │   ├── evaluate_rag_experiment.py
 │   ├── evaluate_nlq_golden.py
@@ -149,6 +150,8 @@ curl -X POST http://localhost:8000/api/rag/ask \
 ```
 
 Phản hồi gồm `answer` và danh sách `sources` có đường dẫn, mục, đoạn, điểm và số trang (với PDF). API lọc từng chunk dưới ngưỡng và trả `sources: []` khi từ chối trả lời. Chạy `python -m scripts.evaluate_rag_retrieval` để đo Hit@1/3/5, MRR và độ bao phủ nguồn yêu cầu theo nhóm câu; multi-document chỉ được tính hit khi tìm thấy đủ tất cả nguồn. `python -m scripts.evaluate_rag_answers` kiểm tra chuỗi đáp án trên API đang chạy, gồm từng mảnh đáp án với câu tổng hợp. Đây là bộ đo phát triển trên corpus nhỏ, không phải đánh giá held-out. NLQ golden script chỉ xác nhận SQL tham chiếu khớp dữ liệu seed, không đo khả năng sinh SQL của mô hình.
+
+So sánh chunking hiện tại (gộp paragraph trong cùng section/page) với phương án giữ riêng block trích xuất bằng `python -m scripts.compare_chunking_strategies`. Script dùng embedding local, cùng golden set và ngưỡng retrieval; không sửa vector store đang chạy. Kết quả lần gần nhất được lưu ở `eval/chunking_comparison_2026-10-23.json`.
 
 Chạy `python -m scripts.evaluate_nlq_golden` để kiểm tra SQL tham chiếu với seed; chạy `python -m scripts.evaluate_nlq_model --model-role local --output eval/nlq_model_local_2026-10-23.json` để chấm SQL do model sinh bằng kết quả thực thi read-only. Lệnh này gọi model cho từng câu trong bộ golden và lưu kết quả cục bộ. Sau khi đã duyệt phạm vi chia sẻ, có thể tạo Langfuse Dataset/Experiment từ kết quả đã lưu (không gọi model lại) bằng `python -m scripts.evaluate_nlq_model --upload-results eval/nlq_model_local_2026-10-23.json --langfuse --output eval/nlq_model_local_2026-10-23.json`; nếu không có `--langfuse`, dữ liệu không được gửi lên Cloud.
 

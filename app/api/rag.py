@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import APIRouter, HTTPException, Security
+from langchain_core.output_parsers import StrOutputParser
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
@@ -14,7 +15,7 @@ from app.core.tracing import (
 from app.core.security import require_api_key
 from app.schemas.rag import RagAskRequest, RagAskResponse, RagSource
 from app.core import vector_store
-from app.core.rag_prompt import NO_ANSWER, build_rag_messages, format_context
+from app.core.rag_prompt import NO_ANSWER, build_rag_prompt, format_context
 
 router = APIRouter(dependencies=[Security(require_api_key)])
 logger = logging.getLogger(__name__)
@@ -80,15 +81,16 @@ async def _answer_rag(request: RagAskRequest) -> RagAskResponse:
         handler = get_langfuse_handler()
         callbacks = [handler] if handler else []
         with langfuse_context(session_id=request.session_id, tags=["rag", "ai07"]):
-            result = await get_llm(settings.rag_model, temperature=0).ainvoke(
-                build_rag_messages(request.question, context),
+            chain = build_rag_prompt() | get_llm(settings.rag_model, temperature=0) | StrOutputParser()
+            answer = await chain.ainvoke(
+                {"question": request.question, "context": context},
                 config={"callbacks": callbacks}
             )
     except Exception as exc:
         logger.exception("RAG answer generation failed")
         raise HTTPException(status_code=502, detail="RAG answer generation failed") from exc
 
-    answer = str(result.content).strip()
+    answer = answer.strip()
     if not answer or answer == NO_ANSWER:
         return RagAskResponse(answer=NO_ANSWER, sources=[])
     sources = list({(m["source"], m["chunk_index"]): RagSource(

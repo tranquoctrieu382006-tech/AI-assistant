@@ -28,11 +28,11 @@ flowchart TB
 
     subgraph RAG_Pipeline["RAG Pipeline"]
         RL["Document Loader\npython-docx / pypdf / text"]
-        SP["Section-aware chunking\n900 chars / 150 overlap"]
+        SP["Section-aware chunking\nparagraph-packed, 900 / 150"]
         EM["Embedding\nbge-m3"]
         VS["Vector Store\nPGVector"]
         RET["Retriever\ncosine similarity"]
-        SYN["LLM ainvoke\n(local by default)"]
+        SYN["LCEL answer chain\n(local by default)"]
     end
 
     subgraph NLQ_Pipeline["NLQ Pipeline"]
@@ -137,11 +137,15 @@ flowchart LR
     REQ["POST /api/rag/ask"] --> ROOT["Request observation"]
     ROOT --> RET["Retrieval span"]
     RET --> CTX["Filtered context"]
-    CTX --> LLM["Chat model ainvoke"]
+    CTX --> LLM["LCEL\nChatPromptTemplate | ChatModel | StrOutputParser"]
     LLM --> RESP["Answer + retrieval sources"]
 ```
 
-`/api/rag/ask` gọi `ainvoke` trực tiếp, không dựng LCEL chain hoặc LangGraph. Request observation bao ngoài retrieval span; LangChain callback được truyền vào lần gọi model. `sources` trong response được tạo từ kết quả retrieval, không phải citation do LLM phát ra. Test HTTP boundary kiểm tra wiring này; nó không khẳng định Cloud đã nhận trace thật.
+`/api/rag/ask` dựng LCEL chain `ChatPromptTemplate | ChatModel | StrOutputParser`; đầu ra API vẫn là chuỗi answer, còn `sources` được tạo từ kết quả retrieval thay vì citation do LLM phát ra. Request observation bao ngoài retrieval span và callback được truyền vào chain. LangGraph chưa được dùng.
+
+Chunking mặc định gộp các paragraph trong cùng section/page cho đến giới hạn kích thước. `paragraph_blocks` là biến thể đánh giá giữ riêng ranh giới block được trích xuất. So sánh trên golden set ngày 2026-10-23 không cho thấy lợi ích của biến thể này (Hit@3 0.974 so với 1.000); mặc định hiện tại không thay đổi. Xem kết quả trong `eval/chunking_comparison_2026-10-23.json`.
+
+Một lời gọi HTTP trực tiếp tới `/api/rag/ask` với retriever/model và dữ liệu tổng hợp đã được xác nhận xuất hiện trong Langfuse Cloud, gồm các observation request, retrieval và LCEL/model. Phép thử xác nhận đường truyền tracing; nó không kiểm tra provider model thật hoặc dữ liệu retrieval thật.
 
 ### 3.4 RAG Pipeline
 
@@ -283,7 +287,7 @@ sequenceDiagram
     actor User
     participant API as FastAPI
     participant RET as PGVector retrieval
-    participant LLM as Chat model (ainvoke)
+    participant LLM as LCEL answer chain
     participant LF as Langfuse
 
     User->>API: POST /api/rag/ask
@@ -291,7 +295,7 @@ sequenceDiagram
     API->>RET: similarity_search(question, top_k)
     RET-->>API: chunks, scores, source metadata
     API->>LF: retrieval span (when configured)
-    API->>LLM: ainvoke(prompt, callbacks)
+    API->>LLM: ainvoke(question, context, callbacks)
     LLM-->>API: answer text
     API->>API: attach sources from retrieved chunks
     API-->>User: JSON response
@@ -300,9 +304,9 @@ sequenceDiagram
 ## 7. Quyết định thiết kế quan trọng
 
 1. **Workflow hiện tại**
-   - RAG là luồng trực tiếp trong FastAPI; `ainvoke` nhận prompt/context và Langfuse callback.
+   - RAG là luồng trực tiếp trong FastAPI; LCEL chain kết hợp `ChatPromptTemplate`, chat model và `StrOutputParser`.
    - NLQ model evaluation là script offline dùng seed DDL và read-only SQL.
-   - LangGraph/LCEL orchestration và NLQ API chưa được triển khai.
+   - LangGraph và NLQ API chưa được triển khai.
 
 2. **Tại sao multi-model?**
    - Local model cho dữ liệu nhạy cảm và offline

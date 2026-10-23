@@ -157,8 +157,63 @@ def chunk_text(text: str, size: int | None = None, overlap: int | None = None) -
 
 def chunk_document_blocks(
     blocks: list[tuple[int | None, str | None, str]],
+    strategy: str = "paragraph",
 ) -> list[dict]:
-    """Chunk adjacent text within the same section/page and retain its metadata."""
+    """Chunk document blocks, optionally preserving their extracted boundaries."""
+    if strategy not in {"paragraph", "paragraph_blocks"}:
+        raise ValueError(f"Unsupported chunking strategy: {strategy}")
+    if strategy == "paragraph_blocks":
+        chunks = []
+        pending_heading = None
+        previous_section = None
+        for page_number, section, raw_text in blocks:
+            text = raw_text.strip()
+            if not text:
+                continue
+            section_name = section.split(" > ")[-1] if section else None
+            is_heading = bool(_HEADING.match(text)) or (
+                section is not None
+                and section != previous_section
+                and text == section_name
+            )
+            if is_heading:
+                if pending_heading:
+                    page, heading_section, heading = pending_heading
+                    chunks.extend(
+                        {"content": content, "section": heading_section, "page_number": page}
+                        for content in chunk_text(heading)
+                    )
+                pending_heading = (page_number, section, text)
+                previous_section = section
+                continue
+            if pending_heading:
+                if pending_heading[:2] == (page_number, section):
+                    _, _, heading = pending_heading
+                    text = f"{heading}\n{text}"
+                else:
+                    page, heading_section, heading = pending_heading
+                    chunks.extend(
+                        {
+                            "content": content,
+                            "section": heading_section,
+                            "page_number": page,
+                        }
+                        for content in chunk_text(heading)
+                    )
+                pending_heading = None
+            chunks.extend(
+                {"content": content, "section": section, "page_number": page_number}
+                for content in chunk_text(text)
+            )
+            previous_section = section
+        if pending_heading:
+            page, section, heading = pending_heading
+            chunks.extend(
+                {"content": content, "section": section, "page_number": page}
+                for content in chunk_text(heading)
+            )
+        return chunks
+
     runs: list[tuple[int | None, str | None, str]] = []
     for page_number, section, text in blocks:
         if not text.strip():
@@ -178,8 +233,11 @@ def chunk_document_blocks(
     return chunks
 
 
-def ingest_directory(directory: str | Path | None = None) -> dict:
-    from app.core.vector_store import replace_corpus_chunks
+def build_corpus_chunks(
+    directory: str | Path | None = None,
+    strategy: str = "paragraph",
+) -> tuple[list[dict], list[str]]:
+    """Build indexed chunks without changing the vector store."""
     root = Path(directory or settings.rag_document_dir)
     excluded = {name.casefold() for name in settings.rag_exclude_files}
     files = sorted(
@@ -191,7 +249,16 @@ def ingest_directory(directory: str | Path | None = None) -> dict:
     sources = [path.relative_to(root).as_posix() for path in files]
     for path in files:
         source = path.relative_to(root).as_posix()
-        for index, chunk in enumerate(chunk_document_blocks(load_document_blocks(path))):
+        for index, chunk in enumerate(
+            chunk_document_blocks(load_document_blocks(path), strategy=strategy)
+        ):
             records.append({"source": source, "chunk_index": index, **chunk})
+    return records, sources
+
+
+def ingest_directory(directory: str | Path | None = None) -> dict:
+    from app.core.vector_store import replace_corpus_chunks
+    root = Path(directory or settings.rag_document_dir)
+    records, sources = build_corpus_chunks(root)
     stored = replace_corpus_chunks(records, sources)
-    return {"files": len(files), "chunks": stored, "directory": str(root)}
+    return {"files": len(sources), "chunks": stored, "directory": str(root)}

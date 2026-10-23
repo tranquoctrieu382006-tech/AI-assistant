@@ -46,11 +46,13 @@ Failure analysis: all four corrected paraphrases and both multi-document questio
 
 - One local RAG smoke answer correctly stated the seven-calendar-day return window and returned sources.
 - `answer_contains` remains a strict substring check, not a semantic correctness metric. The corrected v3 model comparison is complete; judge coverage is uneven because Groq returned HTTP 429, as detailed below.
-- An HTTP-boundary integration test verifies the `/api/rag/ask` path creates request/retrieval observations and passes a Langfuse callback to `ainvoke`. This is a test with mocked tracing/model components, not a live confirmation that a Cloud trace was received. Responses attach `sources` from retrieval rather than requiring the LLM to emit citation metadata.
+- `/api/rag/ask` now uses an LCEL chain (`ChatPromptTemplate | ChatModel | StrOutputParser`); the API answer remains a string and `sources` are still assembled from retrieval.
+- A direct HTTP request to `/api/rag/ask` returned 200 using only synthetic question/context and a mocked model/retriever. The Langfuse Cloud API then returned six observations for the trace: request, retrieval, LCEL sequence, prompt, synthetic model and output parser. [View the synthetic trace](https://cloud.langfuse.com/project/cmvj0s4r600axad0jz9ji8ki1/traces/470eb0d013621fc6b3d6112a83b0cdd4). This confirms Cloud delivery and request/callback wiring, not live retrieval or a real provider-model trace.
+- Compared section-packed chunking with paragraph-block-preserving chunking over the same 47-case set and local bge-m3 embeddings. Results: packed paragraph — 30 chunks, Hit@1 0.897, Hit@3 1.000, Hit@5 1.000, MRR 0.962, abstention 5/8; preserved blocks — 33 chunks, Hit@1 0.897, Hit@3 0.974, Hit@5 1.000, MRR 0.962, abstention 5/8. The block variant changed expected-source ranks for one case and did not improve retrieval, so the existing default remains. This is a development-set result, not held-out evidence; the active vector store was not modified. Full output: `eval/chunking_comparison_2026-10-23.json`.
 
 ## Tests and limitations
 
-- Current suite: **82 passed in 5.32s**, captured with `.venv\Scripts\python.exe -m pytest -q`. `pytest -q` is the reproducible command.
+- Current suite: **84 passed**, captured with `.venv\Scripts\python.exe -m pytest -q`. `pytest -q` is the reproducible command.
 - Python compile check passed. Live ingestion, retrieval, and the full 30-case NLQ evaluation were run. The earlier RAG model comparison used malformed new golden questions; its category scores are superseded pending the v3 rerun.
 - The benchmark script now warm-ups each model and reports median latency over three measured samples. Cost remains comparable only for the two Groq models with configured rates; other models report no cost estimate.
 - API key authentication and a 60-requests/minute per-IP in-process limit are now implemented. Multi-worker deployments still need a shared limiter or proxy-level enforcement.

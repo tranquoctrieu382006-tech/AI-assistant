@@ -1,9 +1,13 @@
+import asyncio
 import sys
 import types
 import httpx
 import pytest
 from contextlib import contextmanager
 from unittest.mock import patch
+from langchain_core.callbacks import BaseCallbackHandler
+from langchain_core.messages import AIMessage
+from langchain_core.runnables import RunnableLambda
 
 from app.api import rag
 from app.schemas.rag import RagAskRequest
@@ -11,25 +15,23 @@ from fastapi import HTTPException
 from app.main import app
 
 
-class FakeModel:
+class FakeModel(RunnableLambda):
     def __init__(self, content="Nhân viên được nghỉ 12 ngày."):
         self.content = content
         self.prompt = None
         self.config = None
 
-    async def ainvoke(self, prompt, config):
-        self.prompt = prompt
-        self.config = config
-        return types.SimpleNamespace(content=self.content)
+        async def invoke(prompt_value, config):
+            self.prompt = prompt_value.to_messages()
+            self.config = config
+            return AIMessage(content=self.content)
+
+        super().__init__(invoke)
 
 
 def run_inline(coroutine):
-    """Run these no-I/O async paths without opening a Windows event-loop socket."""
-    try:
-        coroutine.send(None)
-    except StopIteration as completed:
-        return completed.value
-    raise AssertionError("Test unexpectedly suspended on asynchronous I/O")
+    """Run mocked no-I/O endpoint paths on an event loop."""
+    return asyncio.run(coroutine)
 
 
 async def inline_threadpool(function, *args):
@@ -164,7 +166,7 @@ async def test_rag_request_validation_uses_http_boundary():
 async def test_rag_http_request_records_request_and_retrieval_spans():
     observations = []
     contexts = []
-    handler = object()
+    handler = BaseCallbackHandler()
     model = FakeModel()
 
     @contextmanager
@@ -205,4 +207,4 @@ async def test_rag_http_request_records_request_and_retrieval_spans():
     assert contexts == [{"session_id": "trace-test", "tags": ["rag", "ai07"]}]
     assert model.prompt is not None
     assert "Đổi trả" in model.prompt[1].content
-    assert model.config["callbacks"] == [handler]
+    assert model.config["callbacks"].handlers == [handler]
