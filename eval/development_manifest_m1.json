@@ -51,9 +51,9 @@
   "evaluation_code": {
     "scripts/evaluate_rag_retrieval.py": "031bd0505f8b6b608d025fcfe4ef0652950bfd71ea519e332b4846a1bd7eb100",
     "scripts/rag_eval_metrics.py": "bc75bb3fa7da79a04f9d032a8a12eddb66b746317a026e85489afe096ad23069",
-    "scripts/validate_golden_data.py": "77bff329c412995de7c0d377c73c97f72fdad53a1a9ac7fc5e1b55ef9acc5a4c",
+    "scripts/validate_golden_data.py": "d92fbe9fd2f047db32282cbe65a5b26b6cfbbe4c850451d7f29e372543dcd609",
     "scripts/write_development_manifest.py": "7e5f785226a9778162124470c3dd1ca058e3901c4eb6fef602affa6843fd8e5b",
-    "tests/test_golden_data_validation.py": "2fdf80f4f8736a0064c73cb31bc5ac46753cae3f8e6bc3f6d388d08eb5d5a57c",
+    "tests/test_golden_data_validation.py": "0af39a0d163b62750b266227bf97550994b5c9bf627b4bc6cc4dbe563d0b0683",
     "docs/rag_eval_protocol.md": "819cf63ee81043060428cd5b7236d9cba4a802ef9d348a9891aca4708957cffd"
   },
   "held_out": null

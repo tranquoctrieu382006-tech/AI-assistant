@@ -79,6 +79,8 @@ def validate_rag_cases(cases: list[dict], corpus_dir: Path = CORPUS_DIR) -> list
         for source in sources:
             if not (corpus_dir / source).is_file():
                 errors.append(f"{label}: source does not exist: {source}")
+        if category == "multi_document" and len(set(sources)) < 2:
+            errors.append(f"{label}: multi_document case needs evidence from at least two sources")
         if sources:
             evidence = case.get("evidence")
             if not isinstance(evidence, list) or not evidence:

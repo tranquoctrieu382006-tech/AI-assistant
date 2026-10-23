@@ -71,3 +71,19 @@ def test_paired_bootstrap_is_reproducible_and_uses_matched_scores():
     assert first["estimate"] == 0
     assert first["paired_cases"] == 4
     assert first["lower"] <= first["estimate"] <= first["upper"]
+
+
+def test_multi_document_case_must_use_two_distinct_sources(tmp_path):
+    source = tmp_path / "policy.md"
+    source.write_text("Evidence passage.", encoding="utf-8")
+    case = {
+        "id": "multi-001",
+        "question": "Combine two sources?",
+        "answer_contains": ["Evidence passage."],
+        "source": "policy.md",
+        "expected_sources": ["policy.md"],
+        "category": "multi_document",
+        "evidence": [{"source": "policy.md", "text": "Evidence passage."}],
+    }
+    errors = validate_rag_cases([case], corpus_dir=tmp_path)
+    assert any("at least two sources" in error for error in errors)
