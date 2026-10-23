@@ -1,0 +1,642 @@
+[
+  {
+    "id": "heldout-001",
+    "category": "simple",
+    "question": "Nhân viên làm việc vào những ngày nào trong tuần?",
+    "answer_contains": "thứ Hai đến thứ Sáu",
+    "source": "01_quy_che_lam_viec.md",
+    "evidence": [
+      {
+        "source": "01_quy_che_lam_viec.md",
+        "text": "thứ Hai đến thứ Sáu"
+      }
+    ]
+  },
+  {
+    "id": "heldout-002",
+    "category": "simple",
+    "question": "Điều kiện cơ bản để được yêu cầu đổi hoặc trả hàng gồm những gì?",
+    "answer_contains": "chưa qua sử dụng; đủ phụ kiện; mã đơn hàng",
+    "source": "04_chinh_sach_doi_tra.docx",
+    "evidence": [
+      {
+        "source": "04_chinh_sach_doi_tra.docx",
+        "text": "sản phẩm chưa qua sử dụng, đủ phụ kiện và có mã đơn hàng"
+      }
+    ]
+  },
+  {
+    "id": "heldout-003",
+    "category": "simple",
+    "question": "Bộ phận bảo hành tối đa mất mấy ngày làm việc để chẩn đoán?",
+    "answer_contains": "3 ngày làm việc",
+    "source": "05_chinh_sach_bao_hanh.pdf",
+    "evidence": [
+      {
+        "source": "05_chinh_sach_bao_hanh.pdf",
+        "text": "Thời gian chẩn đoán tối đa 3 ngày làm việc"
+      }
+    ]
+  },
+  {
+    "id": "heldout-004",
+    "category": "simple",
+    "question": "Nếu khu vực giao thuộc vùng xa thì khách được báo khoản nào trước khi xác nhận?",
+    "answer_contains": "phụ phí",
+    "source": "06_chinh_sach_van_chuyen.pdf",
+    "evidence": [
+      {
+        "source": "06_chinh_sach_van_chuyen.pdf",
+        "text": "Vùng xa có thể phát sinh phụ phí được thông báo trước khi xác nhận"
+      }
+    ]
+  },
+  {
+    "id": "heldout-005",
+    "category": "simple",
+    "question": "Muốn đạt hạng Kim cương thì chi tiêu tích lũy phải từ mức nào?",
+    "answer_contains": "50 triệu đồng",
+    "source": "07_khuyen_mai_thanh_vien.docx",
+    "evidence": [
+      {
+        "source": "07_khuyen_mai_thanh_vien.docx",
+        "text": "Kim cương từ 50 triệu đồng"
+      }
+    ]
+  },
+  {
+    "id": "heldout-006",
+    "category": "simple",
+    "question": "Sau khi phiếu nhập được duyệt, kho cần làm gì với hàng hóa và tồn kho?",
+    "answer_contains": "Dán nhãn vị trí và cập nhật tồn khả dụng",
+    "source": "08_quy_trinh_nhap_kho.md",
+    "evidence": [
+      {
+        "source": "08_quy_trinh_nhap_kho.md",
+        "text": "Dán nhãn vị trí và cập nhật tồn khả dụng"
+      }
+    ]
+  },
+  {
+    "id": "heldout-007",
+    "category": "simple",
+    "question": "Khi ghi nhận khiếu nại, cần lưu những thông tin nào về yêu cầu của khách?",
+    "answer_contains": "thời gian, ảnh/video nếu có, SKU, số lượng và mong muốn của khách",
+    "source": "10_huong_dan_don_hang_khieu_nai.docx",
+    "evidence": [
+      {
+        "source": "10_huong_dan_don_hang_khieu_nai.docx",
+        "text": "thời gian, ảnh/video nếu có, SKU, số lượng và mong muốn của khách"
+      }
+    ]
+  },
+  {
+    "id": "heldout-008",
+    "category": "simple",
+    "question": "Chi tiêu tích lũy từ 20 triệu đến dưới 50 triệu tương ứng với hạng nào?",
+    "answer_contains": "Vàng",
+    "source": "07_khuyen_mai_thanh_vien.docx",
+    "evidence": [
+      {
+        "source": "07_khuyen_mai_thanh_vien.docx",
+        "text": "Vàng từ 20 đến dưới 50 triệu"
+      }
+    ]
+  },
+  {
+    "id": "heldout-009",
+    "category": "simple",
+    "question": "Khách có thể hẹn giao lại sau lần giao thất bại trong khoảng thời gian nào?",
+    "answer_contains": "một lần trong 3 ngày",
+    "source": "06_chinh_sach_van_chuyen.pdf",
+    "evidence": [
+      {
+        "source": "06_chinh_sach_van_chuyen.pdf",
+        "text": "khách có thể hẹn lại một lần trong 3 ngày"
+      }
+    ]
+  },
+  {
+    "id": "heldout-010",
+    "category": "simple",
+    "question": "Trong trường hợp nào công ty chịu phí vận chuyển đổi trả?",
+    "answer_contains": "giao sai hoặc lỗi xác nhận",
+    "source": "04_chinh_sach_doi_tra.docx",
+    "evidence": [
+      {
+        "source": "04_chinh_sach_doi_tra.docx",
+        "text": "nếu giao sai hoặc lỗi xác nhận"
+      }
+    ]
+  },
+  {
+    "id": "heldout-011",
+    "category": "paraphrase",
+    "question": "Đồ tiêu hao đã xé niêm phong có được đổi trả theo diện thông thường không?",
+    "answer_contains": "không áp dụng đổi trả thông thường",
+    "source": "04_chinh_sach_doi_tra.docx",
+    "evidence": [
+      {
+        "source": "04_chinh_sach_doi_tra.docx",
+        "text": "hàng tiêu hao đã mở niêm phong và quà tặng kèm đã sử dụng không áp dụng đổi trả thông thường"
+      }
+    ]
+  },
+  {
+    "id": "heldout-012",
+    "category": "paraphrase",
+    "question": "Máy bị vào nước trong lúc sử dụng thì có thuộc diện bảo hành không?",
+    "answer_contains": "Không bảo hành hư hỏng do chất lỏng",
+    "source": "05_chinh_sach_bao_hanh.pdf",
+    "evidence": [
+      {
+        "source": "05_chinh_sach_bao_hanh.pdf",
+        "text": "Không bảo hành hư hỏng do chất lỏng"
+      }
+    ]
+  },
+  {
+    "id": "heldout-013",
+    "category": "paraphrase",
+    "question": "Đơn gửi tới tỉnh khác sau lúc xác nhận thường đi trong khoảng bao lâu?",
+    "answer_contains": "2–5 ngày làm việc",
+    "source": "06_chinh_sach_van_chuyen.pdf",
+    "evidence": [
+      {
+        "source": "06_chinh_sach_van_chuyen.pdf",
+        "text": "tỉnh thành khác 2–5 ngày làm việc sau khi xác nhận"
+      }
+    ]
+  },
+  {
+    "id": "heldout-014",
+    "category": "paraphrase",
+    "question": "Nếu kiện hàng vẫn chưa được giao cho đơn vị vận chuyển thì hủy đơn có mất phí không?",
+    "answer_contains": "hủy miễn phí",
+    "source": "06_chinh_sach_van_chuyen.pdf",
+    "evidence": [
+      {
+        "source": "06_chinh_sach_van_chuyen.pdf",
+        "text": "Đơn chưa bàn giao vận chuyển có thể hủy miễn phí"
+      }
+    ]
+  },
+  {
+    "id": "heldout-015",
+    "category": "paraphrase",
+    "question": "Ưu đãi theo hạng thành viên được áp dụng ở bước nào so với khuyến mãi giá?",
+    "answer_contains": "sau khi áp dụng ưu đãi giá",
+    "source": "07_khuyen_mai_thanh_vien.docx",
+    "evidence": [
+      {
+        "source": "07_khuyen_mai_thanh_vien.docx",
+        "text": "giảm hạng thành viên tính sau khi áp dụng ưu đãi giá"
+      }
+    ]
+  },
+  {
+    "id": "heldout-016",
+    "category": "paraphrase",
+    "question": "Khi đơn có nguy cơ ảnh hưởng an toàn, nhân viên hỗ trợ cần chuyển tiếp cho ai?",
+    "answer_contains": "quản lý",
+    "source": "10_huong_dan_don_hang_khieu_nai.docx",
+    "evidence": [
+      {
+        "source": "10_huong_dan_don_hang_khieu_nai.docx",
+        "text": "chuyển cấp quản lý nếu có nguy cơ an toàn"
+      }
+    ]
+  },
+  {
+    "id": "heldout-017",
+    "category": "paraphrase",
+    "question": "Trước khi nhân viên kho ghi nhận phiếu nhập, cần đối chiếu với loại giấy tờ nào?",
+    "answer_contains": "đơn mua/phiếu điều chuyển",
+    "source": "08_quy_trinh_nhap_kho.md",
+    "evidence": [
+      {
+        "source": "08_quy_trinh_nhap_kho.md",
+        "text": "Đối chiếu đơn mua/phiếu điều chuyển"
+      }
+    ]
+  },
+  {
+    "id": "heldout-018",
+    "category": "paraphrase",
+    "question": "Nếu hàng cần thêm linh kiện nên việc sửa kéo dài, khách sẽ được thông báo trong trường hợp nào?",
+    "answer_contains": "nếu cần linh kiện",
+    "source": "05_chinh_sach_bao_hanh.pdf",
+    "evidence": [
+      {
+        "source": "05_chinh_sach_bao_hanh.pdf",
+        "text": "được thông báo nếu cần linh kiện"
+      }
+    ]
+  },
+  {
+    "id": "heldout-019",
+    "category": "paraphrase",
+    "question": "Mỗi đơn được nhập tối đa bao nhiêu mã ưu đãi?",
+    "answer_contains": "một mã khuyến mãi",
+    "source": "07_khuyen_mai_thanh_vien.docx",
+    "evidence": [
+      {
+        "source": "07_khuyen_mai_thanh_vien.docx",
+        "text": "Mỗi đơn chỉ áp dụng một mã khuyến mãi"
+      }
+    ]
+  },
+  {
+    "id": "heldout-020",
+    "category": "paraphrase",
+    "question": "Những ai xác nhận số lượng và SKU đã quét trước khi đóng gói?",
+    "answer_contains": "người kiểm tra",
+    "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+    "evidence": [
+      {
+        "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+        "text": "người kiểm tra xác nhận trước khi đóng gói"
+      }
+    ]
+  },
+  {
+    "id": "heldout-021",
+    "category": "multi_document",
+    "question": "Ngày trả lương là ngày nào của tháng kế tiếp, và khách có thể tra cứu đơn bằng thông tin gì?",
+    "answer_contains": [
+      "ngày 05 của tháng kế tiếp",
+      "mã đơn hoặc số điện thoại đã xác minh"
+    ],
+    "source": "03_quy_che_luong_cong_tac_phi.md",
+    "expected_sources": [
+      "03_quy_che_luong_cong_tac_phi.md",
+      "10_huong_dan_don_hang_khieu_nai.docx"
+    ],
+    "evidence": [
+      {
+        "source": "03_quy_che_luong_cong_tac_phi.md",
+        "text": "ngày 05 của tháng kế tiếp"
+      },
+      {
+        "source": "10_huong_dan_don_hang_khieu_nai.docx",
+        "text": "mã đơn hoặc số điện thoại đã xác minh"
+      }
+    ]
+  },
+  {
+    "id": "heldout-022",
+    "category": "multi_document",
+    "question": "Hàng lỗi do nhà sản xuất được tiếp nhận trong bao lâu, và thời gian chẩn đoán bảo hành tối đa là bao lâu?",
+    "answer_contains": [
+      "30 ngày",
+      "3 ngày làm việc"
+    ],
+    "source": "04_chinh_sach_doi_tra.docx",
+    "expected_sources": [
+      "04_chinh_sach_doi_tra.docx",
+      "05_chinh_sach_bao_hanh.pdf"
+    ],
+    "evidence": [
+      {
+        "source": "04_chinh_sach_doi_tra.docx",
+        "text": "Hàng lỗi do nhà sản xuất được tiếp nhận trong 30 ngày"
+      },
+      {
+        "source": "05_chinh_sach_bao_hanh.pdf",
+        "text": "Thời gian chẩn đoán tối đa 3 ngày làm việc"
+      }
+    ]
+  },
+  {
+    "id": "heldout-023",
+    "category": "multi_document",
+    "question": "Thời gian giao dự kiến ở tỉnh khác là bao lâu, và sau khi nhập kho cần cập nhật thông tin tồn nào?",
+    "answer_contains": [
+      "2–5 ngày làm việc",
+      "tồn khả dụng"
+    ],
+    "source": "06_chinh_sach_van_chuyen.pdf",
+    "expected_sources": [
+      "06_chinh_sach_van_chuyen.pdf",
+      "08_quy_trinh_nhap_kho.md"
+    ],
+    "evidence": [
+      {
+        "source": "06_chinh_sach_van_chuyen.pdf",
+        "text": "tỉnh thành khác 2–5 ngày làm việc sau khi xác nhận"
+      },
+      {
+        "source": "08_quy_trinh_nhap_kho.md",
+        "text": "cập nhật tồn khả dụng"
+      }
+    ]
+  },
+  {
+    "id": "heldout-024",
+    "category": "multi_document",
+    "question": "Hạng Bạc bắt đầu từ mức chi tiêu nào, còn khi nhập hàng thì quản lý duyệt phiếu trong thời hạn nào?",
+    "answer_contains": [
+      "5 triệu",
+      "duyệt trong ngày"
+    ],
+    "source": "07_khuyen_mai_thanh_vien.docx",
+    "expected_sources": [
+      "07_khuyen_mai_thanh_vien.docx",
+      "08_quy_trinh_nhap_kho.md"
+    ],
+    "evidence": [
+      {
+        "source": "07_khuyen_mai_thanh_vien.docx",
+        "text": "Bạc từ 5 đến dưới 20 triệu"
+      },
+      {
+        "source": "08_quy_trinh_nhap_kho.md",
+        "text": "quản lý duyệt trong ngày"
+      }
+    ]
+  },
+  {
+    "id": "heldout-025",
+    "category": "multi_document",
+    "question": "Kho kiểm kê toàn bộ ít nhất bao lâu một lần, và khiếu nại phải được phản hồi đầu tiên trong bao lâu?",
+    "answer_contains": [
+      "mỗi năm",
+      "1 ngày làm việc"
+    ],
+    "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+    "expected_sources": [
+      "09_quy_trinh_xuat_kho_kiem_ke.md",
+      "10_huong_dan_don_hang_khieu_nai.docx"
+    ],
+    "evidence": [
+      {
+        "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+        "text": "kiểm kê toàn bộ tối thiểu mỗi năm"
+      },
+      {
+        "source": "10_huong_dan_don_hang_khieu_nai.docx",
+        "text": "phản hồi đầu tiên trong 1 ngày làm việc"
+      }
+    ]
+  },
+  {
+    "id": "heldout-026",
+    "category": "multi_document",
+    "question": "Phí giao cơ bản là bao nhiêu, và tiền hoàn được xử lý trong khoảng nào sau khi duyệt?",
+    "answer_contains": [
+      "30.000 đồng",
+      "5–7 ngày làm việc"
+    ],
+    "source": "06_chinh_sach_van_chuyen.pdf",
+    "expected_sources": [
+      "06_chinh_sach_van_chuyen.pdf",
+      "04_chinh_sach_doi_tra.docx"
+    ],
+    "evidence": [
+      {
+        "source": "06_chinh_sach_van_chuyen.pdf",
+        "text": "Phí cơ bản 30.000 đồng/đơn"
+      },
+      {
+        "source": "04_chinh_sach_doi_tra.docx",
+        "text": "trong 5–7 ngày làm việc sau khi duyệt"
+      }
+    ]
+  },
+  {
+    "id": "heldout-027",
+    "category": "multi_document",
+    "question": "Sự cố dữ liệu phải được báo trong bao lâu, và quyết toán công tác phí hạn chót là khi nào?",
+    "answer_contains": [
+      "4 giờ kể từ khi phát hiện",
+      "5 ngày làm việc sau khi kết thúc"
+    ],
+    "source": "02_quy_che_bao_mat.md",
+    "expected_sources": [
+      "02_quy_che_bao_mat.md",
+      "03_quy_che_luong_cong_tac_phi.md"
+    ],
+    "evidence": [
+      {
+        "source": "02_quy_che_bao_mat.md",
+        "text": "trong vòng 4 giờ kể từ khi phát hiện"
+      },
+      {
+        "source": "03_quy_che_luong_cong_tac_phi.md",
+        "text": "quyết toán trong 5 ngày làm việc sau khi kết thúc"
+      }
+    ]
+  },
+  {
+    "id": "heldout-028",
+    "category": "multi_document",
+    "question": "Khiếu nại cần phản hồi lần đầu trong bao lâu, và hàng lỗi khi nhập kho phải được để ở đâu?",
+    "answer_contains": [
+      "1 ngày làm việc",
+      "khu cách ly"
+    ],
+    "source": "10_huong_dan_don_hang_khieu_nai.docx",
+    "expected_sources": [
+      "10_huong_dan_don_hang_khieu_nai.docx",
+      "08_quy_trinh_nhap_kho.md"
+    ],
+    "evidence": [
+      {
+        "source": "10_huong_dan_don_hang_khieu_nai.docx",
+        "text": "phản hồi đầu tiên trong 1 ngày làm việc"
+      },
+      {
+        "source": "08_quy_trinh_nhap_kho.md",
+        "text": "Hàng lỗi được đưa vào khu cách ly"
+      }
+    ]
+  },
+  {
+    "id": "heldout-029",
+    "category": "multi_document",
+    "question": "Sản phẩm điện tử được bảo hành bao nhiêu tháng, và hàng có hạn dùng được xuất theo nguyên tắc nào?",
+    "answer_contains": [
+      "12 tháng",
+      "FEFO"
+    ],
+    "source": "05_chinh_sach_bao_hanh.pdf",
+    "expected_sources": [
+      "05_chinh_sach_bao_hanh.pdf",
+      "09_quy_trinh_xuat_kho_kiem_ke.md"
+    ],
+    "evidence": [
+      {
+        "source": "05_chinh_sach_bao_hanh.pdf",
+        "text": "được bảo hành 12 tháng kể từ ngày giao"
+      },
+      {
+        "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+        "text": "Áp dụng nguyên tắc FEFO cho hàng có hạn dùng"
+      }
+    ]
+  },
+  {
+    "id": "heldout-030",
+    "category": "multi_document",
+    "question": "Khách cần giấy tờ gì để yêu cầu đổi trả, và giao thất bại thì đơn vị vận chuyển liên hệ tối đa bao nhiêu lần?",
+    "answer_contains": [
+      "mã đơn hàng",
+      "tối đa 2 lần"
+    ],
+    "source": "04_chinh_sach_doi_tra.docx",
+    "expected_sources": [
+      "04_chinh_sach_doi_tra.docx",
+      "06_chinh_sach_van_chuyen.pdf"
+    ],
+    "evidence": [
+      {
+        "source": "04_chinh_sach_doi_tra.docx",
+        "text": "có mã đơn hàng"
+      },
+      {
+        "source": "06_chinh_sach_van_chuyen.pdf",
+        "text": "đơn vị giao liên hệ tối đa 2 lần"
+      }
+    ]
+  },
+  {
+    "id": "heldout-031",
+    "category": "out_of_scope_far",
+    "question": "Thời tiết Hà Nội ngày mai sẽ thế nào?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-032",
+    "category": "out_of_scope_far",
+    "question": "Cho tôi công thức nấu bún bò Huế.",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-033",
+    "category": "out_of_scope_far",
+    "question": "Đội tuyển nào vô địch World Cup 2022?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-034",
+    "category": "out_of_scope_far",
+    "question": "Viết giúp hàm Python sắp xếp danh sách số tăng dần.",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-035",
+    "category": "out_of_scope_far",
+    "question": "Chuyến bay từ Hà Nội đến Bangkok thường mất bao lâu?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-036",
+    "category": "out_of_scope_far",
+    "question": "Giải thích định luật tương đối rộng của Einstein.",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-037",
+    "category": "out_of_scope_far",
+    "question": "Nên trồng hoa gì ở ban công hướng Tây?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-038",
+    "category": "out_of_scope_far",
+    "question": "Tỷ giá đồng yên hôm nay là bao nhiêu?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-039",
+    "category": "out_of_scope_far",
+    "question": "Gợi ý lịch tập chạy bộ cho người mới bắt đầu.",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-040",
+    "category": "out_of_scope_far",
+    "question": "Ai là người viết Truyện Kiều?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-041",
+    "category": "in_scope_missing",
+    "question": "Nhân viên được chuyển tối đa bao nhiêu ngày phép năm sang năm sau?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-042",
+    "category": "in_scope_missing",
+    "question": "Nhân viên làm thêm giờ vào ngày lễ được tính hệ số lương bao nhiêu?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-043",
+    "category": "in_scope_missing",
+    "question": "Thời gian thử việc cho vị trí nhân viên kinh doanh là bao lâu?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-044",
+    "category": "in_scope_missing",
+    "question": "Công ty chấp nhận thanh toán qua những ví điện tử nào?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-045",
+    "category": "in_scope_missing",
+    "question": "Đơn vị vận chuyển có giao hàng vào ngày lễ không?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-046",
+    "category": "in_scope_missing",
+    "question": "Khách có thể đổi trả sản phẩm mua trong chương trình giảm giá không?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-047",
+    "category": "in_scope_missing",
+    "question": "Ứng dụng nào cho phép khách cập nhật địa chỉ sau khi đơn đã gửi đi?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-048",
+    "category": "in_scope_missing",
+    "question": "Điểm thành viên hết hạn sau bao nhiêu tháng?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-049",
+    "category": "in_scope_missing",
+    "question": "Khách phải đến địa chỉ cụ thể nào để nộp sản phẩm bảo hành?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  },
+  {
+    "id": "heldout-050",
+    "category": "in_scope_missing",
+    "question": "Nếu đơn hàng bị thất lạc thì mức bồi thường tối đa là bao nhiêu?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null
+  }
+]

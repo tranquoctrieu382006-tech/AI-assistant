@@ -1,0 +1,42 @@
+{
+  "answerable_cases": 41,
+  "primary_metric": {
+    "name": "context_recall@5",
+    "estimate": 1.0,
+    "evidence_cases": 41,
+    "case_level_bootstrap_interval": {
+      "confidence": 0.95,
+      "lower": 1.0,
+      "upper": 1.0,
+      "method": "percentile bootstrap over case-level context recall",
+      "samples": 10000,
+      "seed": 20261023
+    }
+  },
+  "risk_metric": {
+    "definition": "False positive means retrieval returns a result at or above the cutoff for a case expected to abstain.",
+    "by_abstention_type": {
+      "in_scope_missing": {
+        "cases": 19,
+        "false_positive_count": 14,
+        "false_positive_rate": 0.7368421052631579,
+        "rate_note": null
+      },
+      "out_of_scope_far": {
+        "cases": 5,
+        "false_positive_count": 0,
+        "false_positive_rate": null,
+        "rate_note": "Fewer than 10 cases; counts only."
+      }
+    },
+    "answerable_false_negative_count": 1,
+    "answerable_false_negative_rate": 0.024390243902439025
+  },
+  "configuration": {
+    "top_k": 5,
+    "relevance_cutoff": 0.5
+  },
+  "per_case_output": "omitted",
+  "dataset": "development M1; scorer dry-run only",
+  "m1_manifest_sha256": "126d1dd9c3e5c63907abd041e8eabbe6817413f457f5d9ef36f4002ed343b2eb"
+}
