@@ -16,7 +16,7 @@ async def ask_rag(request: RagAskRequest) -> RagAskResponse:
         from app.core.vector_store import similarity_search
         matches = await run_in_threadpool(similarity_search, request.question, request.top_k)
         # Avoid fabricating an answer when retrieval has no plausible evidence.
-        if not matches or matches[0]["score"] < 0.25:
+        if not matches or matches[0]["score"] < settings.rag_min_relevance_score:
             return RagAskResponse(answer=NO_ANSWER, sources=[])
         context = "\n\n".join(
             f"[Nguồn: {m['source']} | đoạn {m['chunk_index']}]\n{m['content']}" for m in matches

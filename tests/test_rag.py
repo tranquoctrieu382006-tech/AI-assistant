@@ -34,6 +34,19 @@ def test_rag_abstains_when_retrieval_has_no_evidence():
     assert response.sources == []
 
 
+def test_rag_abstains_when_top_match_is_below_configured_threshold():
+    fake_store = types.ModuleType("app.core.vector_store")
+    fake_store.similarity_search = lambda question, k: [{
+        "content": "Nội dung không liên quan", "source": "other.md", "chunk_index": 0, "score": 0.44
+    }]
+    with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
+          patch.object(rag, "run_in_threadpool", inline_threadpool),
+          patch.object(rag, "get_llm", side_effect=AssertionError("LLM must not run without evidence"))):
+        response = run_inline(rag.ask_rag(RagAskRequest(question="Thông tin ngoài tài liệu?")))
+    assert response.answer == rag.NO_ANSWER
+    assert response.sources == []
+
+
 def test_rag_returns_answer_and_retrieved_source():
     fake_store = types.ModuleType("app.core.vector_store")
     fake_store.similarity_search = lambda question, k: [{

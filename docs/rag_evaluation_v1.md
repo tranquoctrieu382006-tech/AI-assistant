@@ -9,6 +9,16 @@
 
 Run `python -m scripts.evaluate_rag_retrieval` after PostgreSQL/pgvector has been seeded with documents and Ollama is serving the configured `bge-m3` embedding model. The script reports Hit@k (expected source appears in top-k; abstention cases count as hits only when retrieval is below the API threshold) and MRR.
 
-## Initial run
+## Initial run (2026-10-23)
 
-Not run on 2026-10-23: PostgreSQL (5432) and Ollama (11434) were not reachable, so there is no defensible retrieval score yet. Run the ingest command first, then this evaluation; do not treat placeholder values as scores.
+- PostgreSQL 18.6 and pgvector 0.8.7 were reachable. Ingestion stored 21 chunks from 15 files, with 1024-dimensional embeddings.
+- Before tuning abstention, retrieval Hit@5 and MRR were both 0.8. Four answerable cases ranked the expected source first. The negative case had a top cosine similarity of 0.438 against an unrelated shipping policy.
+- `RAG_MIN_RELEVANCE_SCORE=0.5` is the initial v1 cutoff: it sits above that negative score and below the weakest positive score (0.623). This is calibrated on only five cases and should be retuned as the set grows.
+- Run `python -m scripts.evaluate_nlq_golden` to execute the checked-in reference SELECTs in a read-only transaction and compare results.
+
+## After abstention calibration
+
+- At the 0.5 cutoff, all five RAG cases pass: Hit@5 = 1.0 and MRR = 1.0. The negative case is counted as a hit when the API abstains below the configured cutoff.
+- All four NLQ reference queries match their expected values (accuracy = 1.0).
+- A local `POST /api/rag/ask` smoke test returned an answer and sources for an in-scope question. A separate local API request returned the expected no-answer response with no sources for the out-of-scope case.
+- Langfuse reports configured keys and successfully creates a LangChain callback handler locally. Live delivery remains unverified: automatic review blocked a test that would export the RAG question, retrieved context, and generated answer to Langfuse Cloud. Local handler creation does not prove remote delivery.

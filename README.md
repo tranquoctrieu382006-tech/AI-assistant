@@ -20,6 +20,8 @@ pip install -r requirements.txt
 # 2. Cấu hình
 cp .env.example .env
 # Sửa .env: điền API key, chọn model
+# Thay YOUR_USER và YOUR_PASSWORD trong DATABASE_URL bằng thông tin PostgreSQL cục bộ.
+# File .env đã được Git bỏ qua; không commit thông tin đăng nhập thật.
 
 # 3. Chạy
 uvicorn app.main:app --reload
@@ -98,7 +100,7 @@ ollama pull bge-m3
 python -m scripts.ingest_documents
 ```
 
-Pipeline đọc MD/TXT/DOCX/PDF, chia chunk rồi ghi embedding vào bảng `rag_chunks` (tự tạo nếu chưa có). Hỏi tài liệu qua:
+Pipeline đọc MD/TXT/DOCX/PDF, chia chunk rồi ghi embedding vào bảng `rag_chunks` (tự tạo nếu chưa có). `RAG_MIN_RELEVANCE_SCORE` cấu hình ngưỡng để API từ chối câu hỏi không có đoạn liên quan đủ mạnh. Hỏi tài liệu qua:
 
 ```bash
 curl -X POST http://localhost:8000/api/rag/ask \
@@ -106,7 +108,7 @@ curl -X POST http://localhost:8000/api/rag/ask \
   -d '{"question":"Nhân viên được nghỉ phép năm bao nhiêu ngày?","top_k":5}'
 ```
 
-Phản hồi gồm `answer` và danh sách `sources`. Khi không có đoạn phù hợp, API trả lời rằng tài liệu hiện có chưa đủ thông tin. Golden set và lệnh đo Hit@k/MRR nằm trong `data/rag_golden_set.json` và `scripts/evaluate_rag_retrieval.py`.
+Phản hồi gồm `answer` và danh sách `sources`. Khi không có đoạn phù hợp, API trả lời rằng tài liệu hiện có chưa đủ thông tin. Golden set và lệnh đo Hit@k/MRR nằm trong `data/rag_golden_set.json` và `scripts/evaluate_rag_retrieval.py`. Bộ NLQ tham chiếu dùng SQL chỉ đọc và chạy bằng `python -m scripts.evaluate_nlq_golden`.
 
 ## Benchmark mô hình
 

@@ -15,7 +15,7 @@ def evaluate(k: int = 5) -> dict:
         rank = next((i for i, item in enumerate(results, 1)
                      if expected and Path(item["source"]).name == expected), None)
         if expected is None:
-            rank = 1 if not results or results[0]["score"] < 0.25 else None
+            rank = 1 if not results or results[0]["score"] < settings.rag_min_relevance_score else None
         hit = rank is not None
         hits += int(hit)
         reciprocal_ranks.append(1 / rank if rank else 0)

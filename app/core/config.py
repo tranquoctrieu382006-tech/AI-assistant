@@ -27,11 +27,15 @@ class Settings(BaseSettings):
     local_model: str = "ollama/gemma3:12b"
     ollama_base_url: str = "http://localhost:11434"
     embedding_model: str = "bge-m3"
-    database_url: str = "postgresql://postgres:postgres@localhost:5432/ai_assistant_demo"
+    # Require an explicit local DATABASE_URL instead of silently guessing credentials.
+    database_url: str = ""
     rag_document_dir: str = "data/demo_sales_warehouse"
     rag_chunk_size: int = 900
     rag_chunk_overlap: int = 150
     rag_top_k: int = 5
+    # Initial v1 cutoff separates the current golden-set negative (0.438) from
+    # its weakest positive (0.623); retune when the evaluation set grows.
+    rag_min_relevance_score: float = 0.5
 
     # ── API Keys ────────────────────────────────────────────────
     openai_api_key: str = ""
