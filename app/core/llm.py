@@ -45,7 +45,7 @@ def _resolve_model_name(model_role: str) -> str:
         return settings.default_model
     if model_role in MODEL_REGISTRY:
         return MODEL_REGISTRY[model_role]
-    return model_role  # truyền trực tiếp, vd "openai/gpt-4o"
+    return model_role  # Direct model names are used by configured RAG/model workflows.
 
 
 def _build_hint(model_name: str) -> str:
@@ -114,10 +114,10 @@ def get_llm(
     raw_model_name = _resolve_model_name(model_role)
     provider, model_name = _parse_provider_and_model(raw_model_name)
 
-    # Đặt timeout mặc định cho local model nếu chưa truyền
+    # Keep local and hosted requests bounded unless explicitly overridden.
     effective_timeout = timeout
-    if effective_timeout is None and provider == "ollama":
-        effective_timeout = 120.0
+    if effective_timeout is None:
+        effective_timeout = settings.llm_timeout_seconds
 
     # Khóa cache bao gồm toàn bộ kwargs đã được chuẩn hóa để tránh trả nhầm cấu hình cũ
     kwargs_hashable = _make_hashable(kwargs)

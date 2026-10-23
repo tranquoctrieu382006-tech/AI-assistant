@@ -5,6 +5,8 @@ __pycache__/
 
 # Environment
 .env
+.env.*
+!.env.example
 .env.local
 .env.*.local
 
@@ -30,6 +32,11 @@ build/
 
 # Testing
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+*.log
 
 # Database
 *.db

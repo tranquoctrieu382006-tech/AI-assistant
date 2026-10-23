@@ -3,6 +3,7 @@ Application settings – đọc từ .env, đổi model chỉ bằng biến môi
 """
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 
 
 class Settings(BaseSettings):
@@ -38,6 +39,8 @@ class Settings(BaseSettings):
     # Initial v1 cutoff separates the current golden-set negative (0.438) from
     # its weakest positive (0.623); retune when the evaluation set grows.
     rag_min_relevance_score: float = 0.5
+    rag_embedding_batch_size: int = Field(default=64, ge=1)
+    llm_timeout_seconds: float = Field(default=120.0, gt=0)
 
     # ── API Keys ────────────────────────────────────────────────
     openai_api_key: str = ""
@@ -50,7 +53,7 @@ class Settings(BaseSettings):
     langfuse_host: str = "https://cloud.langfuse.com"
 
     # ── Server Host & Port ──────────────────────────────────────
-    app_host: str = "0.0.0.0"
+    app_host: str = "127.0.0.1"
     app_port: int = 8000
 
     model_config = SettingsConfigDict(

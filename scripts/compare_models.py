@@ -12,6 +12,7 @@ import io
 import sys
 import time
 import csv
+import statistics
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -73,7 +74,7 @@ def _write_results(results: list[dict[str, Any]], session_id: str) -> Path:
     output_path = output_dir / f"benchmark_{stamp}.csv"
     fields = [
         "session_id", "prompt_id", "category", "role", "model",
-        "duration_sec", "tokens_in", "tokens_out", "total_tokens", "cost_usd", "status",
+        "duration_sec", "samples", "tokens_in", "tokens_out", "total_tokens", "cost_usd", "status",
     ]
     with output_path.open("w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
@@ -112,8 +113,8 @@ def run_benchmark():
 
     results: list[dict[str, Any]] = []
     unavailable_roles: set[str] = set()
+    warmed_roles: set[str] = set()
     session_id = f"benchmark-session-{int(time.time())}"
-    handler = get_langfuse_handler()
 
     for prompt_item in BENCHMARK_PROMPTS:
         p_id = prompt_item["id"]
@@ -146,24 +147,27 @@ def run_benchmark():
 
             try:
                 llm = get_llm(role, temperature=0.0, timeout=300.0 if role == "local" else 120.0)
-                callbacks = [handler] if handler else []
-
-                start_time = time.time()
-                with langfuse_context(
-                    session_id=session_id,
-                    tags=tags,
-                    metadata=metadata,
-                ):
-                    response = llm.invoke(p_text, config={"callbacks": callbacks} if callbacks else None)
-                duration = time.time() - start_time
+                if role not in warmed_roles:
+                    llm.invoke(p_text)  # warm-up excluded from measured samples and tracing
+                    warmed_roles.add(role)
+                samples = []
+                durations = []
+                for _ in range(3):
+                    # A fresh callback instance keeps each request's trace isolated.
+                    handler = get_langfuse_handler()
+                    callbacks = [handler] if handler else []
+                    start_time = time.perf_counter()
+                    with langfuse_context(session_id=session_id, tags=tags, metadata=metadata):
+                        response = llm.invoke(p_text, config={"callbacks": callbacks} if callbacks else None)
+                    durations.append(time.perf_counter() - start_time)
+                    usage = getattr(response, "usage_metadata", None) or {}
+                    samples.append((usage.get("input_tokens", 0), usage.get("output_tokens", 0)))
+                duration = statistics.median(durations)
 
                 content = _response_text(response)
 
-                tokens_in = 0
-                tokens_out = 0
-                if hasattr(response, "usage_metadata") and response.usage_metadata:
-                    tokens_in = response.usage_metadata.get("input_tokens", 0)
-                    tokens_out = response.usage_metadata.get("output_tokens", 0)
+                tokens_in = round(statistics.mean(pair[0] for pair in samples))
+                tokens_out = round(statistics.mean(pair[1] for pair in samples))
 
                 model_id = model_name.split("/", 1)[1] if model_name.startswith("groq/") else ""
                 groq_rates = {
@@ -184,6 +188,7 @@ def run_benchmark():
                     "role": role,
                     "model": model_name,
                     "duration_sec": round(duration, 2),
+                    "samples": len(samples),
                     "tokens_in": tokens_in,
                     "tokens_out": tokens_out,
                     "total_tokens": tokens_in + tokens_out,

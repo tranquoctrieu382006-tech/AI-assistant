@@ -31,3 +31,4 @@ Chi phí Groq tổng ước tính cho 6 lượt gọi là **$0,003274**. Mức �
 - Thời gian local phụ thuộc phần cứng và lần chạy nóng/lạnh; prompt so sánh dài mất nhiều thời gian hơn.
 - Bộ đo ghi số token theo metadata trả về từ model; CSV lưu từng lượt, session ID và trạng thái.
 - Benchmark này đo độ trễ, token và chi phí ước tính; chưa chấm điểm chất lượng câu trả lời tự động.
+- Đây là snapshot lịch sử one-shot ngày 22/10: chưa có warm-up hay nhiều mẫu, nên các độ trễ (đặc biệt lần Ollama đầu) không đại diện cho median ổn định. Script hiện tại đã warm-up và lấy median của ba mẫu cho mỗi prompt; benchmark lần mới sẽ tạo thêm lượt gọi và trace. Chi phí chỉ ước tính cho hai model Groq đã có bảng giá trong code; model khác để trống.

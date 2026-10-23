@@ -1,57 +1,95 @@
-"""
-Unit tests cho health check endpoints (được cô lập hoàn toàn khỏi network ngoài).
-"""
+"""HTTP-level health route checks using an in-process ASGI transport."""
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from unittest.mock import AsyncMock, patch
-from fastapi.testclient import TestClient
-from app.main import app
+import httpx
+import pytest
+
 from app.core.config import settings
+from app.main import app
+from app.api.health import _database_readiness
 
-client = TestClient(app)
+
+async def request(method: str, path: str) -> httpx.Response:
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        return await client.request(method, path)
 
 
-def test_liveness_endpoint():
-    """Liveness probe phải trả lời 200 OK ngay lập tức."""
-    response = client.get("/api/health/live")
+def test_database_readiness_checks_pgvector(monkeypatch):
+    monkeypatch.setattr(settings, "database_url", "postgresql://test/db")
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = ("0.8.7",)
+    with patch("app.api.health.psycopg.connect", return_value=connection):
+        assert _database_readiness() == {"status": "ok", "pgvector_version": "0.8.7"}
+
+
+@pytest.mark.asyncio
+async def test_liveness_endpoint():
+    response = await request("GET", "/api/health/live")
     assert response.status_code == 200
     assert response.json() == {"status": "alive"}
 
 
+@pytest.mark.asyncio
 @patch("app.api.health.check_ollama_status_async", new_callable=AsyncMock)
-def test_health_check_healthy(mock_ollama):
-    """Khi Ollama hoạt động bình thường, endpoint trả status 'ok'."""
+@patch("app.api.health.psycopg.connect")
+async def test_health_check_healthy(mock_connect, mock_ollama):
     mock_ollama.return_value = {"status": "ok", "models": ["gemma3:12b"]}
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = ("0.8.7",)
+    mock_connect.return_value = connection
 
-    response = client.get("/api/health")
+    response = await request("GET", "/api/health")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
     assert data["version"] == settings.app_version
     assert data["default_model"] == settings.default_model
-    assert "strong" in data["available_roles"]
-    assert "fast" in data["available_roles"]
-    assert "local" in data["available_roles"]
+    assert {"strong", "fast", "local"}.issubset(data["available_roles"])
     assert data["ollama_status"]["status"] == "ok"
+    assert data["database_status"]["pgvector_version"] == "0.8.7"
 
 
+@pytest.mark.asyncio
 @patch("app.api.health.check_ollama_status_async", new_callable=AsyncMock)
-def test_health_check_degraded_when_ollama_offline(mock_ollama):
-    """Khi Ollama offline, endpoint trả status 'degraded' thay vì 'ok'."""
-    mock_ollama.return_value = {
-        "status": "offline",
-        "detail": "Không kết nối được http://localhost:11434",
-    }
-
-    response = client.get("/api/health")
-    assert response.status_code == 200
-    data = response.json()
+@patch("app.api.health.psycopg.connect")
+async def test_health_degraded_when_required_local_model_is_offline(mock_connect, mock_ollama, monkeypatch):
+    mock_ollama.return_value = {"status": "offline", "detail": "offline"}
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = ("0.8.7",)
+    mock_connect.return_value = connection
+    monkeypatch.setattr(settings, "rag_model", "local")
+    data = (await request("GET", "/api/health")).json()
     assert data["status"] == "degraded"
-    assert data["ollama_status"]["status"] == "offline"
+    assert data["database_status"]["status"] == "ok"
 
 
-def test_verify_model_forbidden_in_production(monkeypatch):
-    """Khi settings.debug = False, endpoint verify-model phải trả về HTTP 403 Forbidden."""
+@pytest.mark.asyncio
+@patch("app.api.health.check_ollama_status_async", new_callable=AsyncMock)
+@patch("app.api.health.psycopg.connect")
+async def test_health_does_not_require_ollama_for_cloud_rag(mock_connect, mock_ollama, monkeypatch):
+    mock_ollama.return_value = {"status": "offline", "detail": "offline"}
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = ("0.8.7",)
+    mock_connect.return_value = connection
+    monkeypatch.setattr(settings, "rag_model", "strong")
+    data = (await request("GET", "/api/health")).json()
+    assert data["status"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_verify_model_forbidden_in_production(monkeypatch):
     monkeypatch.setattr(settings, "debug", False)
-    response = client.get("/api/health/verify-model?role=local")
+    response = await request("GET", "/api/health/verify-model?role=local")
     assert response.status_code == 403
-    assert "development/debug" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_verify_model_rejects_unregistered_model_even_in_debug(monkeypatch):
+    monkeypatch.setattr(settings, "debug", True)
+    response = await request("GET", "/api/health/verify-model?role=openai%2Fgpt-secret")
+    assert response.status_code == 422

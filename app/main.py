@@ -12,6 +12,7 @@ from app.api import health, rag
 from app.core.config import settings
 from app.core.llm import MODEL_REGISTRY, check_ollama_status_async
 from app.core.tracing import init_tracing, flush_langfuse
+from app.core.vector_store import close_pool
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,6 +42,7 @@ async def lifespan(app: FastAPI):
 
     logger.info("Shutting down %s... Flushing remaining traces.", settings.app_name)
     flush_langfuse()
+    close_pool()
 
 
 app = FastAPI(
@@ -74,3 +76,8 @@ async def root():
         "docs": "/docs",
         "health": "/api/health",
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app.main:app", host=settings.app_host, port=settings.app_port, reload=settings.debug)

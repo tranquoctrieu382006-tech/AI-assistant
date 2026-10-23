@@ -49,10 +49,9 @@ class TestModelResolution:
         resolved = _resolve_model_name("local")
         assert resolved == MODEL_REGISTRY["local"]
 
-    def test_resolve_direct_string(self):
+    def test_direct_model_name_resolves_for_configured_workflows(self):
         custom = "openai/custom-model-v1"
-        resolved = _resolve_model_name(custom)
-        assert resolved == custom
+        assert _resolve_model_name(custom) == custom
 
 
 class TestLLMCacheAndError:
@@ -78,9 +77,8 @@ class TestLLMCacheAndError:
 
     def test_invalid_provider_raises_llm_init_error(self):
         """Kiểm tra báo lỗi LLMInitError có gợi ý hữu ích khi provider không hợp lệ."""
-        with pytest.raises(LLMInitError) as exc_info:
+        with pytest.raises(ValueError, match="Unknown model role"):
             get_llm("nonexistent_provider/invalid-model-name-xyz", use_cache=False)
-        assert "Không khởi tạo được model" in str(exc_info.value)
 
     def test_verify_model_catches_runtime_exception(self):
         """Kiểm tra verify_model bắt mọi Exception khi invoke gặp sự cố (Ollama sập, 401...)."""

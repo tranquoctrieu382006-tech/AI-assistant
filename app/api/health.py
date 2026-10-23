@@ -14,8 +14,21 @@ from app.core.llm import (
     verify_model,
 )
 from app.core.tracing import is_langfuse_configured
+import psycopg
 
 router = APIRouter()
+
+
+def _database_readiness() -> dict:
+    if not settings.database_url.strip():
+        return {"status": "error", "detail": "DATABASE_URL is not configured"}
+    try:
+        with psycopg.connect(settings.database_url, connect_timeout=3) as conn:
+            vector = conn.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'").fetchone()
+        return {"status": "ok" if vector else "missing_vector_extension",
+                "pgvector_version": vector[0] if vector else None}
+    except Exception as exc:
+        return {"status": "error", "detail": type(exc).__name__}
 
 
 @router.get("/health/live", summary="Liveness probe (kiểm tra tiến trình còn sống)")
@@ -35,7 +48,10 @@ async def health_check() -> HealthResponse:
     langfuse_on = is_langfuse_configured()
 
     # Xác định status theo tình trạng thành phần phụ thuộc
-    is_healthy = ollama_info.get("status") == "ok"
+    database_info = await run_in_threadpool(_database_readiness)
+    active_model = settings.rag_model
+    requires_ollama = active_model == "local" or active_model.startswith("ollama/")
+    is_healthy = database_info["status"] == "ok" and (not requires_ollama or ollama_info.get("status") == "ok")
     system_status = "ok" if is_healthy else "degraded"
 
     return HealthResponse(
@@ -45,6 +61,7 @@ async def health_check() -> HealthResponse:
         available_roles=list(MODEL_REGISTRY.keys()),
         langfuse_enabled=langfuse_on,
         ollama_status=ollama_info,
+        database_status=database_info,
     )
 
 
@@ -63,6 +80,8 @@ async def verify_model_endpoint(
             detail="Endpoint này chỉ được bật trong môi trường development/debug.",
         )
 
+    if role not in MODEL_REGISTRY:
+        raise HTTPException(status_code=422, detail="role must be one of: strong, fast, local")
     # Chạy hàm gọi model trong worker thread để tránh chặn event loop
     result = await run_in_threadpool(verify_model, role)
     return result

@@ -57,7 +57,9 @@ def evaluate() -> dict:
                 passed += int(ok)
                 print(f"{case['id']}: {'PASS' if ok else 'FAIL'} expected={expected} actual={actual}")
     total = len(cases)
-    return {"cases": total, "passed": passed, "accuracy": passed / total if total else 0}
+    return {"reference_sql_cases": total, "seed_consistency_passed": passed,
+            "seed_consistency_rate": passed / total if total else 0,
+            "model_evaluated": False}
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ Mini AI Assistant – Hỏi đáp tài liệu (RAG) & truy vấn dữ liệu b�
 # 1. Clone & cài đặt
 git clone <repo-url>
 cd ai-assistant
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 
 # 2. Cấu hình
 cp .env.example .env
@@ -24,7 +24,7 @@ cp .env.example .env
 # File .env đã được Git bỏ qua; không commit thông tin đăng nhập thật.
 
 # 3. Chạy
-uvicorn app.main:app --reload
+python -m app.main
 
 # 4. Mở Swagger UI
 # http://localhost:8000/docs
@@ -89,6 +89,7 @@ ai-assistant/
 │   ├── compare_models.py
 │   ├── ingest_documents.py
 │   ├── evaluate_rag_retrieval.py
+│   ├── evaluate_rag_answers.py
 │   └── evaluate_nlq_golden.py
 ├── tests/
 │   ├── test_evaluators.py
@@ -101,6 +102,7 @@ ai-assistant/
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
+├── requirements-dev.txt
 └── README.md
 ```
 
@@ -135,7 +137,9 @@ curl -X POST http://localhost:8000/api/rag/ask \
   -d '{"question":"Nhân viên được nghỉ phép năm bao nhiêu ngày?","top_k":5}'
 ```
 
-Phản hồi gồm `answer` và danh sách `sources`. Khi không có đoạn phù hợp, API trả lời rằng tài liệu hiện có chưa đủ thông tin. Golden set và lệnh đo Hit@k/MRR nằm trong `data/rag_golden_set.json` và `scripts/evaluate_rag_retrieval.py`. Bộ NLQ tham chiếu dùng SQL chỉ đọc và chạy bằng `python -m scripts.evaluate_nlq_golden`.
+Phản hồi gồm `answer` và danh sách `sources` có đường dẫn, đoạn, điểm và số trang (với PDF). API lọc từng chunk dưới ngưỡng và trả `sources: []` khi từ chối trả lời. Chạy `python -m scripts.evaluate_rag_retrieval` để đo Hit@k/MRR trên các câu có câu trả lời và abstention accuracy riêng; `python -m scripts.evaluate_rag_answers` kiểm tra chuỗi đáp án trên API đang chạy. NLQ golden script chỉ xác nhận SQL tham chiếu khớp dữ liệu seed, không đo khả năng sinh SQL của mô hình.
+
+API demo không có xác thực hay giới hạn tần suất. Mặc định chỉ bind vào `127.0.0.1`; trước khi mở ra mạng hoặc dùng thật, cần bổ sung xác thực và rate limiting.
 
 ## Benchmark mô hình
 

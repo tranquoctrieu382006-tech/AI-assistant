@@ -2,6 +2,6 @@
   {"id":"rag-001","question":"Nhân viên làm việc vào khung giờ nào?","answer_contains":"08:30","source":"01_quy_che_lam_viec.md"},
   {"id":"rag-002","question":"Nhân viên cần gửi đề nghị nghỉ phép trước bao lâu?","answer_contains":"2 ngày làm việc","source":"01_quy_che_lam_viec.md"},
   {"id":"rag-003","question":"Quy trình nhập kho cần kiểm tra những giấy tờ nào?","answer_contains":"phiếu nhập","source":"08_quy_trinh_nhap_kho.md"},
-  {"id":"rag-004","question":"Chính sách đổi trả áp dụng trong bao nhiêu ngày?","answer_contains":"ngày","source":"04_chinh_sach_doi_tra.docx"},
+  {"id":"rag-004","question":"Khách được yêu cầu đổi hoặc trả trong thời hạn bao lâu kể từ khi giao thành công?","answer_contains":"7 ngày lịch","source":"04_chinh_sach_doi_tra.docx"},
   {"id":"rag-005","question":"Công ty có văn phòng tại Đà Nẵng không?","answer_contains":"không chứa đủ thông tin","source":null}
 ]

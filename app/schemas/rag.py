@@ -11,6 +11,7 @@ class RagSource(BaseModel):
     source: str
     chunk_index: int
     score: float
+    page_number: int | None = None
 
 
 class RagAskResponse(BaseModel):

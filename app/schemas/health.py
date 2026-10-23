@@ -16,3 +16,4 @@ class HealthResponse(BaseModel):
     available_roles: list[str] = Field(..., description="Các vai trò model có thể dùng (strong, fast, local)")
     langfuse_enabled: bool = Field(..., description="Langfuse tracing có được kích hoạt hay không")
     ollama_status: dict[str, Any] = Field(default_factory=dict, description="Trạng thái kết nối tới Ollama")
+    database_status: dict[str, Any] = Field(default_factory=dict, description="Trạng thái PostgreSQL và pgvector")

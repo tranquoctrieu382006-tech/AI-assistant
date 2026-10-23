@@ -1,24 +1,14 @@
 # RAG evaluation v1
 
-## Golden sets
+## What these checks measure
 
-- RAG: `data/rag_golden_set.json` contains five questions with expected source or expected abstention.
-- NLQ: `data/nlq_golden_set.json` contains four questions, reference read-only SQL, and expected aggregate values from the demo seed.
+- `data/rag_golden_set.json` has four answerable retrieval cases and one expected abstention. Retrieval Hit@k and MRR now use only answerable cases. Abstention is reported separately as `abstention_accuracy` using the configured relevance cutoff.
+- The cutoff `RAG_MIN_RELEVANCE_SCORE=0.5` was selected against this same five-case development set (21 chunks in the initial run). Results are calibration observations, not independent evidence of quality. Use a held-out set before making a quality claim.
+- `python -m scripts.evaluate_rag_answers` sends the golden questions to the running API and checks `answer_contains`. This is a simple substring smoke check, not semantic evaluation. The expected text is deliberately specific; for example, the exchange window is `7 ngày lịch`.
+- `python -m scripts.evaluate_nlq_golden` executes checked-in reference SQL in a read-only transaction. Its rate is **seed consistency**, not NLQ model accuracy: the script does not generate SQL or call an LLM.
 
-## Retrieval metrics
+## Initial development-set run (2026-10-23)
 
-Run `python -m scripts.evaluate_rag_retrieval` after PostgreSQL/pgvector has been seeded with documents and Ollama is serving the configured `bge-m3` embedding model. The script reports Hit@k (expected source appears in top-k; abstention cases count as hits only when retrieval is below the API threshold) and MRR.
+The original run used 21 chunks from 15 files. Four answerable cases ranked their expected source first; the negative case had an unrelated top similarity of 0.438. The 0.5 cutoff separated those five examples. Earlier figures of Hit@5/MRR 1.0 included the abstention case and overstated retrieval performance; do not use them as a quality claim.
 
-## Initial run (2026-10-23)
-
-- PostgreSQL 18.6 and pgvector 0.8.7 were reachable. Ingestion stored 21 chunks from 15 files, with 1024-dimensional embeddings.
-- Before tuning abstention, retrieval Hit@5 and MRR were both 0.8. Four answerable cases ranked the expected source first. The negative case had a top cosine similarity of 0.438 against an unrelated shipping policy.
-- `RAG_MIN_RELEVANCE_SCORE=0.5` is the initial v1 cutoff: it sits above that negative score and below the weakest positive score (0.623). This is calibrated on only five cases and should be retuned as the set grows.
-- Run `python -m scripts.evaluate_nlq_golden` to execute the checked-in reference SELECTs in a read-only transaction and compare results.
-
-## After abstention calibration
-
-- At the 0.5 cutoff, all five RAG cases pass: Hit@5 = 1.0 and MRR = 1.0. The negative case is counted as a hit when the API abstains below the configured cutoff.
-- All four NLQ reference queries match their expected values (accuracy = 1.0).
-- A local `POST /api/rag/ask` smoke test returned an answer and sources for an in-scope question. A separate local API request returned the expected no-answer response with no sources for the out-of-scope case.
-- On 2026-10-23, after explicit user authorization, one live RAG smoke trace was flushed to Langfuse Cloud successfully. This confirms one delivery path, not sustained delivery reliability or a privacy-safe configuration; traces may include the question, retrieved context, and generated answer.
+Rerun retrieval after ingestion with `python -m scripts.evaluate_rag_retrieval`. It requires PostgreSQL/pgvector and the configured `bge-m3` embedding service. Run the answer smoke check only when the API is available; this invokes the configured RAG model and may send data to a hosted provider if `RAG_MODEL` selects one. Langfuse tracing may also export question, context, and answer.

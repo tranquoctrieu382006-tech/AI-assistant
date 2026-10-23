@@ -1,4 +1,6 @@
 from unittest.mock import MagicMock, patch
+import sys
+import types
 
 from app.core import vector_store
 
@@ -38,3 +40,43 @@ def test_replace_empty_corpus_clears_all_indexed_chunks():
 
     cursor.execute.assert_called_once_with("DELETE FROM rag_chunks")
     cursor.executemany.assert_not_called()
+
+
+def test_embeddings_are_requested_in_configured_batches(monkeypatch):
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    cursor = connection.cursor.return_value.__enter__.return_value
+    embeddings = MagicMock()
+    embeddings.embed_documents.side_effect = [[[0.1]], [[0.2]]]
+    chunks = [
+        {"content": "one", "source": "a.md", "chunk_index": 0},
+        {"content": "two", "source": "a.md", "chunk_index": 1},
+    ]
+    monkeypatch.setattr(vector_store.settings, "rag_embedding_batch_size", 1)
+    with (patch.object(vector_store, "ensure_vector_schema"),
+          patch.object(vector_store, "get_embeddings", return_value=embeddings),
+          patch.object(vector_store, "_connect", return_value=connection),
+          patch.object(vector_store, "Vector", side_effect=lambda value: value)):
+        assert vector_store.replace_corpus_chunks(chunks, ["a.md"]) == 2
+    assert embeddings.embed_documents.call_count == 2
+    cursor.executemany.assert_called_once()
+
+
+def test_connection_pool_is_reused_and_closed(monkeypatch):
+    created = []
+
+    class FakePool:
+        def __init__(self, *args, **kwargs):
+            self.args, self.kwargs, self.closed = args, kwargs, False
+            created.append(self)
+        def connection(self): return "pooled-connection"
+        def close(self): self.closed = True
+
+    monkeypatch.setitem(sys.modules, "psycopg_pool", types.SimpleNamespace(ConnectionPool=FakePool))
+    monkeypatch.setattr(vector_store.settings, "database_url", "postgresql://local/db")
+    monkeypatch.setattr(vector_store, "_POOL", None)
+    assert vector_store._pool() is vector_store._pool()
+    assert len(created) == 1
+    assert vector_store._connect() == "pooled-connection"
+    vector_store.close_pool()
+    assert created[0].closed

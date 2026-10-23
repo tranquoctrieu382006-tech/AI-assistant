@@ -8,8 +8,13 @@ from fastapi import HTTPException
 
 
 class FakeModel:
+    def __init__(self, content="Nhân viên được nghỉ 12 ngày."):
+        self.content = content
+        self.prompt = None
+
     async def ainvoke(self, prompt, config):
-        return types.SimpleNamespace(content="Nhân viên được nghỉ 12 ngày.")
+        self.prompt = prompt
+        return types.SimpleNamespace(content=self.content)
 
 
 def run_inline(coroutine):
@@ -30,7 +35,8 @@ def test_rag_abstains_when_retrieval_has_no_evidence():
     fake_store.similarity_search = lambda question, k: []
     with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
           patch.object(rag, "run_in_threadpool", inline_threadpool)):
-        response = run_inline(rag.ask_rag(RagAskRequest(question="Chính sách nghỉ phép?")))
+        with patch.object(rag.vector_store, "similarity_search", fake_store.similarity_search):
+            response = run_inline(rag.ask_rag(RagAskRequest(question="Chính sách nghỉ phép?")))
     assert response.answer == rag.NO_ANSWER
     assert response.sources == []
 
@@ -43,7 +49,8 @@ def test_rag_abstains_when_top_match_is_below_configured_threshold():
     with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
           patch.object(rag, "run_in_threadpool", inline_threadpool),
           patch.object(rag, "get_llm", side_effect=AssertionError("LLM must not run without evidence"))):
-        response = run_inline(rag.ask_rag(RagAskRequest(question="Thông tin ngoài tài liệu?")))
+        with patch.object(rag.vector_store, "similarity_search", fake_store.similarity_search):
+            response = run_inline(rag.ask_rag(RagAskRequest(question="Thông tin ngoài tài liệu?")))
     assert response.answer == rag.NO_ANSWER
     assert response.sources == []
 
@@ -57,10 +64,45 @@ def test_rag_returns_answer_and_retrieved_source():
           patch.object(rag, "get_llm", return_value=FakeModel()),
           patch.object(rag, "run_in_threadpool", inline_threadpool),
           patch.object(rag, "get_langfuse_handler", return_value=None)):
-        response = run_inline(rag.ask_rag(RagAskRequest(question="Chính sách nghỉ phép?")))
+        with patch.object(rag.vector_store, "similarity_search", fake_store.similarity_search):
+            response = run_inline(rag.ask_rag(RagAskRequest(question="Chính sách nghỉ phép?")))
     assert response.answer == "Nhân viên được nghỉ 12 ngày."
     assert response.sources[0].source == "policy.md"
     assert response.sources[0].score == 0.8
+
+
+def test_rag_filters_each_low_score_chunk_and_uses_separate_messages():
+    fake_store = types.ModuleType("app.core.vector_store")
+    fake_store.similarity_search = lambda question, k: [
+        {"content": "good", "source": "good.md", "chunk_index": 0, "score": 0.8},
+        {"content": "poor", "source": "poor.md", "chunk_index": 1, "score": 0.2},
+    ]
+    model = FakeModel()
+    with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
+          patch.object(rag, "get_llm", return_value=model),
+          patch.object(rag, "run_in_threadpool", inline_threadpool),
+          patch.object(rag, "get_langfuse_handler", return_value=None)):
+        with patch.object(rag.vector_store, "similarity_search", fake_store.similarity_search):
+            response = run_inline(rag.ask_rag(RagAskRequest(question="Câu hỏi phù hợp?")))
+    assert [source.source for source in response.sources] == ["good.md"]
+    assert len(model.prompt) == 2
+    assert "poor" not in model.prompt[1].content
+
+
+def test_rag_clears_sources_when_model_abstains():
+    fake_store = types.ModuleType("app.core.vector_store")
+    fake_store.similarity_search = lambda question, k: [{
+        "content": "unrelated", "source": "policy.md", "chunk_index": 0, "score": 0.8
+    }]
+    model = FakeModel(rag.NO_ANSWER)
+    with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
+          patch.object(rag, "get_llm", return_value=model),
+          patch.object(rag, "run_in_threadpool", inline_threadpool),
+          patch.object(rag, "get_langfuse_handler", return_value=None)):
+        with patch.object(rag.vector_store, "similarity_search", fake_store.similarity_search):
+            response = run_inline(rag.ask_rag(RagAskRequest(question="Câu hỏi?")))
+    assert response.answer == rag.NO_ANSWER
+    assert response.sources == []
 
 
 def test_rag_reports_retrieval_failure_without_leaking_exception_details():
@@ -69,7 +111,8 @@ def test_rag_reports_retrieval_failure_without_leaking_exception_details():
     with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
           patch.object(rag, "run_in_threadpool", inline_threadpool)):
         try:
-            run_inline(rag.ask_rag(RagAskRequest(question="Chính sách nghỉ phép?")))
+            with patch.object(rag.vector_store, "similarity_search", fake_store.similarity_search):
+                run_inline(rag.ask_rag(RagAskRequest(question="Chính sách nghỉ phép?")))
         except HTTPException as exc:
             assert exc.status_code == 503
             assert exc.detail == "RAG retrieval unavailable"
@@ -87,7 +130,8 @@ def test_rag_reports_generation_failure_separately():
           patch.object(rag, "get_llm", side_effect=RuntimeError("private provider detail")),
           patch.object(rag, "get_langfuse_handler", return_value=None)):
         try:
-            run_inline(rag.ask_rag(RagAskRequest(question="Chính sách nghỉ phép?")))
+            with patch.object(rag.vector_store, "similarity_search", fake_store.similarity_search):
+                run_inline(rag.ask_rag(RagAskRequest(question="Chính sách nghỉ phép?")))
         except HTTPException as exc:
             assert exc.status_code == 502
             assert exc.detail == "RAG answer generation failed"
