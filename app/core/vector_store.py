@@ -113,6 +113,9 @@ def similarity_search(query: str, k: int | None = None) -> list[dict]:
             raise VectorStoreNotReady(
                 "RAG vector store is not initialized; install pgvector and run `python -m scripts.ingest_documents`."
             )
+        # The pool may have opened this connection before another process
+        # installed pgvector. Register its adapter after confirming readiness.
+        register_vector(conn)
         rows = conn.execute(
             """SELECT content, source, chunk_index, page_number, 1 - (embedding <=> %s) AS score
                FROM rag_chunks ORDER BY embedding <=> %s LIMIT %s""",
@@ -120,4 +123,3 @@ def similarity_search(query: str, k: int | None = None) -> list[dict]:
         ).fetchall()
     return [{"content": r[0], "source": r[1], "chunk_index": r[2],
              "page_number": r[3], "score": float(r[4])} for r in rows]
-

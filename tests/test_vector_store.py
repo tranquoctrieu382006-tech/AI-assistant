@@ -98,3 +98,23 @@ def test_pool_connection_registers_vector_when_extension_exists():
         vector_store._configure_connection(connection)
     register.assert_called_once_with(connection)
     connection.commit.assert_called_once()
+
+
+def test_similarity_search_registers_vector_after_extension_is_added():
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.side_effect = [
+        MagicMock(fetchone=MagicMock(return_value=("vector", "rag_chunks"))),
+        MagicMock(fetchall=MagicMock(return_value=[])),
+    ]
+    embeddings = MagicMock()
+    embeddings.embed_query.return_value = [0.1, 0.2]
+
+    with (patch.object(vector_store, "get_embeddings", return_value=embeddings),
+          patch.object(vector_store, "_connect", return_value=connection),
+          patch.object(vector_store, "register_vector") as register,
+          patch.object(vector_store, "Vector", side_effect=lambda value: value)):
+        assert vector_store.similarity_search("question") == []
+
+    register.assert_called_once_with(connection)
+    assert connection.execute.call_count == 2

@@ -6,7 +6,7 @@
 - Ollama exposed `bge-m3:latest` and `gemma3:12b` locally. The default corpus is the 12 business documents in `data/demo_sales_warehouse`; repo/data-description Markdown is excluded. `data/documents/` is a separate optional corpus.
 - Ingestion completed with **12 files and 27 chunks**. A retrieval smoke query for the return window ranked `04_chinh_sach_doi_tra.docx` first (cosine score 0.743); PDF source page metadata was returned for PDF matches.
 
-## Retrieval and abstention
+## Retrieval and abstention (previous 35-case set)
 
 | Measure | Development-set result | Scope |
 |---|---:|---|
@@ -17,6 +17,8 @@
 
 These are development-set results; the threshold was calibrated on the same corpus. They are not a held-out quality estimate. Earlier five-case Hit@5/MRR values that counted the abstention case are superseded.
 
+The golden set has since been expanded to 47 explicitly categorized cases (33 simple, four paraphrases, two multi-document, eight out-of-scope). No live retrieval or answer evaluation has been run against this expanded set yet. The prior metrics above apply only to the original 35 cases and must not be presented as results for the expanded set. The small 27-chunk corpus also makes Hit@k particularly easy to attain.
+
 ## NLQ
 
 - **30/30 reference SQL cases** matched the fixed seed in a read-only transaction. The set now includes joins, groupings, date filters and aggregates. This is seed consistency, not model accuracy.
@@ -26,13 +28,13 @@ These are development-set results; the threshold was calibrated on the same corp
 ## Answer quality and tracing
 
 - One local RAG smoke answer correctly stated the seven-calendar-day return window and returned sources.
-- Faithfulness and answer relevancy have **not** been scored. The 35-case `answer_contains` check is a substring smoke metric, not a semantic judge.
+- Faithfulness and answer relevancy have **not** been scored. The original 35-case `answer_contains` check is a substring smoke metric, not a semantic judge; the expanded set must be run separately.
 - No two-model RAG comparison or Langfuse Dataset/Experiment was run. No Langfuse trace was sent in this verification pass. The previously authorized one-trace smoke test only demonstrates an earlier delivery path.
 - Retrieval has not yet been recorded as its own Langfuse observation; the current callback traces LLM execution.
 
 ## Tests and limitations
 
-- Full pytest suite: **53 passed** at the time of the full run.
+- Current suite: **62 passed in 3.81s**, captured with `.venv\Scripts\python.exe -m pytest -q`. There are 57 test functions plus five parameterized cases; the pytest run output is authoritative. `pytest -q` is the reproducible command.
 - Python compile check passed. Live ingestion and retrieval were run locally; full 35-question answer evaluation was not run.
 - The benchmark script now warm-ups each model and reports median latency over three measured samples. Cost remains comparable only for the two Groq models with configured rates; other models report no cost estimate.
 - API authentication and rate limiting are not implemented. The demo binds to loopback by default and must not be exposed externally without those controls.
