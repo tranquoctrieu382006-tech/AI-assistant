@@ -1,0 +1,50 @@
+{
+  "answerable_cases": 30,
+  "primary_metric": {
+    "name": "context_recall@5",
+    "estimate": 0.9166666666666666,
+    "evidence_cases": 30,
+    "case_level_bootstrap_interval": {
+      "confidence": 0.95,
+      "lower": 0.85,
+      "upper": 0.9833333333333333,
+      "method": "percentile bootstrap over case-level context recall",
+      "samples": 10000,
+      "seed": 20261023
+    }
+  },
+  "risk_metric": {
+    "definition": "False positive means retrieval returns a result at or above the cutoff for a case expected to abstain.",
+    "by_abstention_type": {
+      "in_scope_missing": {
+        "cases": 10,
+        "false_positive_count": 10,
+        "false_positive_rate": 1.0,
+        "rate_note": null,
+        "false_positive_wilson_95": {
+          "lower": 0.7224672001371107,
+          "upper": 0.9999999999999999
+        }
+      },
+      "out_of_scope_far": {
+        "cases": 10,
+        "false_positive_count": 0,
+        "false_positive_rate": 0.0,
+        "rate_note": null,
+        "false_positive_wilson_95": {
+          "lower": 0.0,
+          "upper": 0.2775327998628892
+        }
+      }
+    },
+    "answerable_false_negative_count": 0,
+    "answerable_false_negative_rate": 0.0
+  },
+  "configuration": {
+    "top_k": 5,
+    "relevance_cutoff": 0.5
+  },
+  "per_case_output": "omitted",
+  "heldout_manifest_sha256": "ede47cb962a248c7c56c45716077b8654c5dcacd337aefaa7d5e377c72897b21",
+  "m1_commit": "4c663793007d46b30ed7a7854e543110af437aff"
+}
