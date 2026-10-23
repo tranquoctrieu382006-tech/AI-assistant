@@ -1,0 +1,560 @@
+{
+  "answerable_cases": 41,
+  "hit@1": 0.8780487804878049,
+  "hit@3": 0.975609756097561,
+  "hit@5": 1.0,
+  "mrr": 0.9451219512195121,
+  "expected_source_coverage@5": 1.0,
+  "context_recall@5": 1.0,
+  "evidence_cases": 41,
+  "abstention_risk_by_type": {
+    "in_scope_missing": {
+      "cases": 19,
+      "false_positive_count": 14,
+      "false_positive_rate": 0.7368421052631579,
+      "rate_reporting_note": null
+    },
+    "out_of_scope_far": {
+      "cases": 5,
+      "false_positive_count": 0,
+      "false_positive_rate": null,
+      "rate_reporting_note": "Fewer than 10 cases; report counts only."
+    }
+  },
+  "false_negative_count_answerable": 1,
+  "false_negative_rate_answerable": 0.024390243902439025,
+  "false_positive_definition": "System returned retrieval results above the cutoff for a case expected to abstain.",
+  "by_category": {
+    "in_scope_missing": {
+      "hit@1": null,
+      "hit@3": null,
+      "hit@5": null,
+      "mrr": null,
+      "expected_source_coverage@5": null,
+      "answerable_cases": 0,
+      "abstention_cases": 19,
+      "abstention_accuracy": 0.2631578947368421
+    },
+    "multi_document": {
+      "answerable_cases": 2,
+      "hit@1": 0.0,
+      "hit@3": 1.0,
+      "hit@5": 1.0,
+      "mrr": 0.75,
+      "expected_source_coverage@5": 1.0,
+      "abstention_cases": 0,
+      "abstention_accuracy": null
+    },
+    "out_of_scope_far": {
+      "hit@1": null,
+      "hit@3": null,
+      "hit@5": null,
+      "mrr": null,
+      "expected_source_coverage@5": null,
+      "answerable_cases": 0,
+      "abstention_cases": 5,
+      "abstention_accuracy": 1.0
+    },
+    "paraphrase": {
+      "answerable_cases": 4,
+      "hit@1": 0.75,
+      "hit@3": 1.0,
+      "hit@5": 1.0,
+      "mrr": 0.875,
+      "expected_source_coverage@5": 1.0,
+      "abstention_cases": 0,
+      "abstention_accuracy": null
+    },
+    "simple": {
+      "answerable_cases": 35,
+      "hit@1": 0.9428571428571428,
+      "hit@3": 0.9714285714285714,
+      "hit@5": 1.0,
+      "mrr": 0.9642857142857143,
+      "expected_source_coverage@5": 1.0,
+      "abstention_cases": 0,
+      "abstention_accuracy": null
+    }
+  },
+  "failure_examples": [
+    {
+      "id": "rag-042",
+      "category": "in_scope_missing",
+      "question": "Nhân viên được nghỉ thai sản bao nhiêu ngày theo chính sách công ty?",
+      "expected_sources": [],
+      "expected_abstention": true,
+      "retrieved_top_sources": [
+        {
+          "source": "01_quy_che_lam_viec.md",
+          "rank": 1,
+          "score": 0.5840784564533158
+        },
+        {
+          "source": "03_quy_che_luong_cong_tac_phi.md",
+          "rank": 2,
+          "score": 0.5103079750356821
+        },
+        {
+          "source": "06_chinh_sach_van_chuyen.pdf",
+          "rank": 3,
+          "score": 0.5082051802905067
+        },
+        {
+          "source": "05_chinh_sach_bao_hanh.pdf",
+          "rank": 4,
+          "score": 0.4963849909331344
+        },
+        {
+          "source": "11_faq_khach_hang.pdf",
+          "rank": 5,
+          "score": 0.4860800123692185
+        }
+      ]
+    },
+    {
+      "id": "rag-043",
+      "category": "in_scope_missing",
+      "question": "Số điện thoại tổng đài chăm sóc khách hàng là bao nhiêu?",
+      "expected_sources": [],
+      "expected_abstention": true,
+      "retrieved_top_sources": [
+        {
+          "source": "10_huong_dan_don_hang_khieu_nai.docx",
+          "rank": 1,
+          "score": 0.5558043718338644
+        },
+        {
+          "source": "05_chinh_sach_bao_hanh.pdf",
+          "rank": 2,
+          "score": 0.5371696148560313
+        },
+        {
+          "source": "11_faq_khach_hang.pdf",
+          "rank": 3,
+          "score": 0.5166239410715437
+        },
+        {
+          "source": "02_quy_che_bao_mat.md",
+          "rank": 4,
+          "score": 0.5020650311204773
+        },
+        {
+          "source": "02_quy_che_bao_mat.md",
+          "rank": 5,
+          "score": 0.4989046757022908
+        }
+      ]
+    },
+    {
+      "id": "rag-044",
+      "category": "in_scope_missing",
+      "question": "Mức lương cơ bản hàng tháng của nhân viên kinh doanh là bao nhiêu?",
+      "expected_sources": [],
+      "expected_abstention": true,
+      "retrieved_top_sources": [
+        {
+          "source": "03_quy_che_luong_cong_tac_phi.md",
+          "rank": 1,
+          "score": 0.5490063756112328
+        },
+        {
+          "source": "06_chinh_sach_van_chuyen.pdf",
+          "rank": 2,
+          "score": 0.5133862785466825
+        },
+        {
+          "source": "03_quy_che_luong_cong_tac_phi.md",
+          "rank": 3,
+          "score": 0.5002651809065776
+        },
+        {
+          "source": "07_khuyen_mai_thanh_vien.docx",
+          "rank": 4,
+          "score": 0.4822524540864077
+        },
+        {
+          "source": "11_faq_khach_hang.pdf",
+          "rank": 5,
+          "score": 0.47022080598946336
+        }
+      ]
+    },
+    {
+      "id": "rag-050",
+      "category": "in_scope_missing",
+      "question": "Chính sách có quy định nhân viên làm việc từ xa tối đa bao nhiêu ngày mỗi tuần không?",
+      "expected_sources": [],
+      "expected_abstention": true,
+      "retrieved_top_sources": [
+        {
+          "source": "01_quy_che_lam_viec.md",
+          "rank": 1,
+          "score": 0.5797230195338773
+        },
+        {
+          "source": "03_quy_che_luong_cong_tac_phi.md",
+          "rank": 2,
+          "score": 0.5034472058556106
+        },
+        {
+          "source": "06_chinh_sach_van_chuyen.pdf",
+          "rank": 3,
+          "score": 0.4962269359040751
+        },
+        {
+          "source": "05_chinh_sach_bao_hanh.pdf",
+          "rank": 4,
+          "score": 0.494050069402173
+        },
+        {
+          "source": "01_quy_che_lam_viec.md",
+          "rank": 5,
+          "score": 0.48853319609956647
+        }
+      ]
+    },
+    {
+      "id": "rag-051",
+      "category": "in_scope_missing",
+      "question": "Nhân viên thử việc được hưởng bao nhiêu phần trăm lương chính thức?",
+      "expected_sources": [],
+      "expected_abstention": true,
+      "retrieved_top_sources": [
+        {
+          "source": "03_quy_che_luong_cong_tac_phi.md",
+          "rank": 1,
+          "score": 0.5738675775532049
+        },
+        {
+          "source": "03_quy_che_luong_cong_tac_phi.md",
+          "rank": 2,
+          "score": 0.5285163015243652
+        },
+        {
+          "source": "01_quy_che_lam_viec.md",
+          "rank": 3,
+          "score": 0.5036456152019854
+        },
+        {
+          "source": "11_faq_khach_hang.pdf",
+          "rank": 4,
+          "score": 0.4869604813029066
+        },
+        {
+          "source": "06_chinh_sach_van_chuyen.pdf",
+          "rank": 5,
+          "score": 0.473553633960793
+        }
+      ]
+    },
+    {
+      "id": "rag-052",
+      "category": "in_scope_missing",
+      "question": "Mức phụ cấp ăn trưa hàng tháng của nhân viên là bao nhiêu?",
+      "expected_sources": [],
+      "expected_abstention": true,
+      "retrieved_top_sources": [
+        {
+          "source": "03_quy_che_luong_cong_tac_phi.md",
+          "rank": 1,
+          "score": 0.594525849492925
+        },
+        {
+          "source": "01_quy_che_lam_viec.md",
+          "rank": 2,
+          "score": 0.5014732480049275
+        },
+        {
+          "source": "06_chinh_sach_van_chuyen.pdf",
+          "rank": 3,
+          "score": 0.4908734267429533
+        },
+        {
+          "source": "03_quy_che_luong_cong_tac_phi.md",
+          "rank": 4,
+          "score": 0.47433687786053
+        },
+        {
+          "source": "11_faq_khach_hang.pdf",
+          "rank": 5,
+          "score": 0.4625572286512194
+        }
+      ]
+    },
+    {
+      "id": "rag-053",
+      "category": "in_scope_missing",
+      "question": "Khách có thể thanh toán đơn hàng bằng ví điện tử nào?",
+      "expected_sources": [],
+      "expected_abstention": true,
+      "retrieved_top_sources": [
+        {
+          "source": "05_chinh_sach_bao_hanh.pdf",
+          "rank": 1,
+          "score": 0.5243144122294554
+        },
+        {
+          "source": "11_faq_khach_hang.pdf",
+          "rank": 2,
+          "score": 0.5207232751833322
+        },
+        {
+          "source": "07_khuyen_mai_thanh_vien.docx",
+          "rank": 3,
+          "score": 0.511020586879953
+        },
+        {
+          "source": "04_chinh_sach_doi_tra.docx",
+          "rank": 4,
+          "score": 0.5092346820007824
+        },
+        {
+          "source": "10_huong_dan_don_hang_khieu_nai.docx",
+          "rank": 5,
+          "score": 0.5034027265860546
+        }
+      ]
+    },
+    {
+      "id": "rag-054",
+      "category": "in_scope_missing",
+      "question": "Đơn hàng có hỗ trợ giao hỏa tốc trong ngày không?",
+      "expected_sources": [],
+      "expected_abstention": true,
+      "retrieved_top_sources": [
+        {
+          "source": "06_chinh_sach_van_chuyen.pdf",
+          "rank": 1,
+          "score": 0.6126427612773828
+        },
+        {
+          "source": "10_huong_dan_don_hang_khieu_nai.docx",
+          "rank": 2,
+          "score": 0.5447329229435788
+        },
+        {
+          "source": "11_faq_khach_hang.pdf",
+          "rank": 3,
+          "score": 0.5422818236703678
+        },
+        {
+          "source": "04_chinh_sach_doi_tra.docx",
+          "rank": 4,
+          "score": 0.5211933128873666
+        },
+        {
+          "source": "03_quy_che_luong_cong_tac_phi.md",
+          "rank": 5,
+          "score": 0.4954153605553575
+        }
+      ]
+    },
+    {
+      "id": "rag-055",
+      "category": "in_scope_missing",
+      "question": "Khách cần gửi yêu cầu đổi trả qua kênh nào?",
+      "expected_sources": [],
+      "expected_abstention": true,
+      "retrieved_top_sources": [
+        {
+          "source": "04_chinh_sach_doi_tra.docx",
+          "rank": 1,
+          "score": 0.6053551654737639
+        },
+        {
+          "source": "11_faq_khach_hang.pdf",
+          "rank": 2,
+          "score": 0.6003348469534704
+        },
+        {
+          "source": "10_huong_dan_don_hang_khieu_nai.docx",
+          "rank": 3,
+          "score": 0.5701863849385608
+        },
+        {
+          "source": "06_chinh_sach_van_chuyen.pdf",
+          "rank": 4,
+          "score": 0.5328681151349561
+        },
+        {
+          "source": "04_chinh_sach_doi_tra.docx",
+          "rank": 5,
+          "score": 0.5225864777636755
+        }
+      ]
+    },
+    {
+      "id": "rag-056",
+      "category": "in_scope_missing",
+      "question": "Sản phẩm điện tử được bảo hành bao nhiêu tháng sau khi hết thời hạn tiêu chuẩn?",
+      "expected_sources": [],
+      "expected_abstention": true,
+      "retrieved_top_sources": [
+        {
+          "source": "05_chinh_sach_bao_hanh.pdf",
+          "rank": 1,
+          "score": 0.7780160672063977
+        },
+        {
+          "source": "04_chinh_sach_doi_tra.docx",
+          "rank": 2,
+          "score": 0.5837369261728831
+        },
+        {
+          "source": "11_faq_khach_hang.pdf",
+          "rank": 3,
+          "score": 0.5830474744410922
+        },
+        {
+          "source": "02_quy_che_bao_mat.md",
+          "rank": 4,
+          "score": 0.5198266674224983
+        },
+        {
+          "source": "02_quy_che_bao_mat.md",
+          "rank": 5,
+          "score": 0.5058063549380446
+        }
+      ]
+    },
+    {
+      "id": "rag-057",
+      "category": "in_scope_missing",
+      "question": "Công ty hoàn tiền qua ngân hàng nào và có mất phí không?",
+      "expected_sources": [],
+      "expected_abstention": true,
+      "retrieved_top_sources": [
+        {
+          "source": "06_chinh_sach_van_chuyen.pdf",
+          "rank": 1,
+          "score": 0.5912187534422076
+        },
+        {
+          "source": "04_chinh_sach_doi_tra.docx",
+          "rank": 2,
+          "score": 0.5820946542195119
+        },
+        {
+          "source": "11_faq_khach_hang.pdf",
+          "rank": 3,
+          "score": 0.5808369306740802
+        },
+        {
+          "source": "03_quy_che_luong_cong_tac_phi.md",
+          "rank": 4,
+          "score": 0.5747383682360623
+        },
+        {
+          "source": "03_quy_che_luong_cong_tac_phi.md",
+          "rank": 5,
+          "score": 0.5058784779384681
+        }
+      ]
+    },
+    {
+      "id": "rag-058",
+      "category": "in_scope_missing",
+      "question": "Nhân viên được nghỉ phép khi con ốm tối đa bao nhiêu ngày?",
+      "expected_sources": [],
+      "expected_abstention": true,
+      "retrieved_top_sources": [
+        {
+          "source": "01_quy_che_lam_viec.md",
+          "rank": 1,
+          "score": 0.5728199649775589
+        },
+        {
+          "source": "05_chinh_sach_bao_hanh.pdf",
+          "rank": 2,
+          "score": 0.482224989665338
+        },
+        {
+          "source": "03_quy_che_luong_cong_tac_phi.md",
+          "rank": 3,
+          "score": 0.4771379259660875
+        },
+        {
+          "source": "06_chinh_sach_van_chuyen.pdf",
+          "rank": 4,
+          "score": 0.4697844756163717
+        },
+        {
+          "source": "04_chinh_sach_doi_tra.docx",
+          "rank": 5,
+          "score": 0.45760687479604134
+        }
+      ]
+    },
+    {
+      "id": "rag-059",
+      "category": "in_scope_missing",
+      "question": "Ai cần ký xác nhận biên bản chênh lệch khi hàng nhập thực tế không khớp chứng từ?",
+      "expected_sources": [],
+      "expected_abstention": true,
+      "retrieved_top_sources": [
+        {
+          "source": "12_faq_nhan_vien.md",
+          "rank": 1,
+          "score": 0.6113292113892619
+        },
+        {
+          "source": "08_quy_trinh_nhap_kho.md",
+          "rank": 2,
+          "score": 0.5985798048623369
+        },
+        {
+          "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+          "rank": 3,
+          "score": 0.5888694143816862
+        },
+        {
+          "source": "01_quy_che_lam_viec.md",
+          "rank": 4,
+          "score": 0.5250072218535452
+        },
+        {
+          "source": "03_quy_che_luong_cong_tac_phi.md",
+          "rank": 5,
+          "score": 0.5250072218535452
+        }
+      ]
+    },
+    {
+      "id": "rag-060",
+      "category": "in_scope_missing",
+      "question": "Khách hàng thân thiết được cộng điểm vào thời điểm nào sau khi thanh toán?",
+      "expected_sources": [],
+      "expected_abstention": true,
+      "retrieved_top_sources": [
+        {
+          "source": "04_chinh_sach_doi_tra.docx",
+          "rank": 1,
+          "score": 0.5564928246788007
+        },
+        {
+          "source": "03_quy_che_luong_cong_tac_phi.md",
+          "rank": 2,
+          "score": 0.5452882214522874
+        },
+        {
+          "source": "07_khuyen_mai_thanh_vien.docx",
+          "rank": 3,
+          "score": 0.5429863349885178
+        },
+        {
+          "source": "11_faq_khach_hang.pdf",
+          "rank": 4,
+          "score": 0.5389484302617484
+        },
+        {
+          "source": "06_chinh_sach_van_chuyen.pdf",
+          "rank": 5,
+          "score": 0.515852891745031
+        }
+      ]
+    }
+  ],
+  "abstention_cases": 24,
+  "abstention_accuracy": 0.4166666666666667,
+  "abstention_note": "Small sample; report count and do not treat the rate as a stable quality estimate."
+}

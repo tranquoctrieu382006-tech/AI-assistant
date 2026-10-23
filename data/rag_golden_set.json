@@ -56,7 +56,7 @@
     "question": "Công ty có văn phòng tại Đà Nẵng không?",
     "answer_contains": "không chứa đủ thông tin",
     "source": null,
-    "category": "out_of_scope_far"
+    "category": "in_scope_missing"
   },
   {
     "id": "rag-006",
@@ -440,7 +440,7 @@
     "question": "Khách có văn phòng nào ở Đà Nẵng?",
     "answer_contains": "không chứa đủ thông tin",
     "source": null,
-    "category": "out_of_scope_far"
+    "category": "in_scope_missing"
   },
   {
     "id": "rag-036",
@@ -568,21 +568,21 @@
   },
   {
     "id": "rag-045",
-    "category": "out_of_scope_far",
+    "category": "in_scope_missing",
     "question": "Doanh thu công ty trong tháng 9 năm 2026 là bao nhiêu?",
     "answer_contains": "không chứa đủ thông tin",
     "source": null
   },
   {
     "id": "rag-046",
-    "category": "out_of_scope_far",
+    "category": "in_scope_missing",
     "question": "Công ty có bao nhiêu nhân viên đang làm việc tại chi nhánh Đà Nẵng?",
     "answer_contains": "không chứa đủ thông tin",
     "source": null
   },
   {
     "id": "rag-047",
-    "category": "out_of_scope_far",
+    "category": "in_scope_missing",
     "question": "Mã số bảo hiểm xã hội của nhân viên Nguyễn Văn An là gì?",
     "answer_contains": "không chứa đủ thông tin",
     "source": null
@@ -650,7 +650,7 @@
   },
   {
     "id": "rag-055",
-    "question": "Khách cần cung cấp giấy tờ gì để đổi sản phẩm đã mở hộp?",
+    "question": "Khách cần gửi yêu cầu đổi trả qua kênh nào?",
     "answer_contains": "không chứa đủ thông tin",
     "source": null,
     "category": "in_scope_missing"
@@ -678,7 +678,7 @@
   },
   {
     "id": "rag-059",
-    "question": "Kho xử lý thế nào nếu nhà cung cấp giao thiếu hàng so với đơn mua?",
+    "question": "Ai cần ký xác nhận biên bản chênh lệch khi hàng nhập thực tế không khớp chứng từ?",
     "answer_contains": "không chứa đủ thông tin",
     "source": null,
     "category": "in_scope_missing"
@@ -689,5 +689,40 @@
     "answer_contains": "không chứa đủ thông tin",
     "source": null,
     "category": "in_scope_missing"
+  },
+  {
+    "id": "rag-061",
+    "question": "Thời tiết Hà Nội ngày mai sẽ thế nào?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null,
+    "category": "out_of_scope_far"
+  },
+  {
+    "id": "rag-062",
+    "question": "Cho tôi công thức nấu bún bò Huế.",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null,
+    "category": "out_of_scope_far"
+  },
+  {
+    "id": "rag-063",
+    "question": "Đội tuyển nào vô địch World Cup 2022?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null,
+    "category": "out_of_scope_far"
+  },
+  {
+    "id": "rag-064",
+    "question": "Viết giúp hàm Python sắp xếp danh sách số theo thứ tự tăng dần.",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null,
+    "category": "out_of_scope_far"
+  },
+  {
+    "id": "rag-065",
+    "question": "Chuyến bay từ Hà Nội đến Bangkok thường mất bao lâu?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null,
+    "category": "out_of_scope_far"
   }
 ]

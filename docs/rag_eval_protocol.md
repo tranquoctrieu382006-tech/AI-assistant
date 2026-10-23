@@ -35,8 +35,12 @@ False positive means retrieval returns a result above the configured cutoff
 for a case that should be refused. The report emits counts for all groups and
 suppresses rates for groups with fewer than 10 cases. This is especially
 important for the five `out_of_scope_far` examples. The development set now has
-14 `in_scope_missing` examples; held-out results must meet the same minimum
+19 `in_scope_missing` examples; held-out results must meet the same minimum
 before reporting a rate.
+
+The expanded development questions and evidence labels were authored during
+implementation and have not had an independent reviewer. Treat this result as
+exploratory until a separate writer/reviewer creates or reviews held-out items.
 
 ## Held-out execution rules
 

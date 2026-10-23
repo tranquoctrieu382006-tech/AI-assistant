@@ -33,10 +33,10 @@
   },
   "development_sets": {
     "data/rag_golden_set.json": {
-      "sha256": "1ff30b046e23e1719454f74dac7983cee3b0b6e99270fc5e7cc0720bac11351a",
-      "case_count": 60,
+      "sha256": "8a54d2fde34199b30e17e502b95e14c3f2d87dade21f2939b241244bece65158",
+      "case_count": 65,
       "categories": {
-        "in_scope_missing": 14,
+        "in_scope_missing": 19,
         "multi_document": 2,
         "out_of_scope_far": 5,
         "paraphrase": 4,
@@ -54,7 +54,7 @@
     "scripts/validate_golden_data.py": "77bff329c412995de7c0d377c73c97f72fdad53a1a9ac7fc5e1b55ef9acc5a4c",
     "scripts/write_development_manifest.py": "7e5f785226a9778162124470c3dd1ca058e3901c4eb6fef602affa6843fd8e5b",
     "tests/test_golden_data_validation.py": "2fdf80f4f8736a0064c73cb31bc5ac46753cae3f8e6bc3f6d388d08eb5d5a57c",
-    "docs/rag_eval_protocol.md": "ce0eecd4edeff5bb5cc821a683f40f5c1d5d0d6ce29f0650a0cf720fe3aeff62"
+    "docs/rag_eval_protocol.md": "819cf63ee81043060428cd5b7236d9cba4a802ef9d348a9891aca4708957cffd"
   },
   "held_out": null
 }
