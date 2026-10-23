@@ -5,7 +5,8 @@ python-dotenv>=1.0.0
 
 # LangChain & LangGraph
 langchain>=0.3.0
-langchain-core>=0.3.0
+# Langfuse Python SDK v5 requires langchain-core v1 or newer.
+langchain-core>=1.0.0
 langchain-openai>=0.2.0
 langchain-ollama>=0.2.0
 langchain-google-genai>=2.0.0
