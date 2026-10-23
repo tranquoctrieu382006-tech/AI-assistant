@@ -1,0 +1,168 @@
+{
+  "dataset": "development M1 only",
+  "definition": "Accepted when top retrieval score >= threshold; false positive means accepting an expected-abstention case.",
+  "thresholds": [
+    0.45,
+    0.5,
+    0.55,
+    0.6,
+    0.65,
+    0.7,
+    0.75
+  ],
+  "score_distributions": {
+    "answerable": {
+      "count": 41,
+      "min": 0.4790348125079803,
+      "p25": 0.6317875071078926,
+      "median": 0.659413714339026,
+      "p75": 0.6912952845517233,
+      "max": 0.7849453732534256
+    },
+    "in_scope_missing": {
+      "count": 19,
+      "min": 0.36181111162106216,
+      "p25": 0.4853462466146041,
+      "median": 0.5728199649775589,
+      "p75": 0.5928723014675663,
+      "max": 0.7780160672063977
+    },
+    "out_of_scope_far": {
+      "count": 5,
+      "min": 0.26113273897214273,
+      "p25": 0.39278278393848665,
+      "median": 0.4339326878746159,
+      "p75": 0.4477872457124228,
+      "max": 0.4994005858540893
+    }
+  },
+  "tradeoffs": [
+    {
+      "threshold": 0.45,
+      "answerable_cases": 41,
+      "answerable_rejected_count": 0,
+      "answerable_rejected_rate": 0.0,
+      "in_scope_missing": {
+        "cases": 19,
+        "false_positive_count": 14,
+        "false_positive_rate": 0.7368421052631579,
+        "rate_note": null
+      },
+      "out_of_scope_far": {
+        "cases": 5,
+        "false_positive_count": 1,
+        "false_positive_rate": null,
+        "rate_note": "Fewer than 10 cases; counts only."
+      }
+    },
+    {
+      "threshold": 0.5,
+      "answerable_cases": 41,
+      "answerable_rejected_count": 1,
+      "answerable_rejected_rate": 0.024390243902439025,
+      "in_scope_missing": {
+        "cases": 19,
+        "false_positive_count": 14,
+        "false_positive_rate": 0.7368421052631579,
+        "rate_note": null
+      },
+      "out_of_scope_far": {
+        "cases": 5,
+        "false_positive_count": 0,
+        "false_positive_rate": null,
+        "rate_note": "Fewer than 10 cases; counts only."
+      }
+    },
+    {
+      "threshold": 0.55,
+      "answerable_cases": 41,
+      "answerable_rejected_count": 2,
+      "answerable_rejected_rate": 0.04878048780487805,
+      "in_scope_missing": {
+        "cases": 19,
+        "false_positive_count": 12,
+        "false_positive_rate": 0.631578947368421,
+        "rate_note": null
+      },
+      "out_of_scope_far": {
+        "cases": 5,
+        "false_positive_count": 0,
+        "false_positive_rate": null,
+        "rate_note": "Fewer than 10 cases; counts only."
+      }
+    },
+    {
+      "threshold": 0.6,
+      "answerable_cases": 41,
+      "answerable_rejected_count": 5,
+      "answerable_rejected_rate": 0.12195121951219512,
+      "in_scope_missing": {
+        "cases": 19,
+        "false_positive_count": 4,
+        "false_positive_rate": 0.21052631578947367,
+        "rate_note": null
+      },
+      "out_of_scope_far": {
+        "cases": 5,
+        "false_positive_count": 0,
+        "false_positive_rate": null,
+        "rate_note": "Fewer than 10 cases; counts only."
+      }
+    },
+    {
+      "threshold": 0.65,
+      "answerable_cases": 41,
+      "answerable_rejected_count": 19,
+      "answerable_rejected_rate": 0.4634146341463415,
+      "in_scope_missing": {
+        "cases": 19,
+        "false_positive_count": 1,
+        "false_positive_rate": 0.05263157894736842,
+        "rate_note": null
+      },
+      "out_of_scope_far": {
+        "cases": 5,
+        "false_positive_count": 0,
+        "false_positive_rate": null,
+        "rate_note": "Fewer than 10 cases; counts only."
+      }
+    },
+    {
+      "threshold": 0.7,
+      "answerable_cases": 41,
+      "answerable_rejected_count": 34,
+      "answerable_rejected_rate": 0.8292682926829268,
+      "in_scope_missing": {
+        "cases": 19,
+        "false_positive_count": 1,
+        "false_positive_rate": 0.05263157894736842,
+        "rate_note": null
+      },
+      "out_of_scope_far": {
+        "cases": 5,
+        "false_positive_count": 0,
+        "false_positive_rate": null,
+        "rate_note": "Fewer than 10 cases; counts only."
+      }
+    },
+    {
+      "threshold": 0.75,
+      "answerable_cases": 41,
+      "answerable_rejected_count": 40,
+      "answerable_rejected_rate": 0.975609756097561,
+      "in_scope_missing": {
+        "cases": 19,
+        "false_positive_count": 1,
+        "false_positive_rate": 0.05263157894736842,
+        "rate_note": null
+      },
+      "out_of_scope_far": {
+        "cases": 5,
+        "false_positive_count": 0,
+        "false_positive_rate": null,
+        "rate_note": "Fewer than 10 cases; counts only."
+      }
+    }
+  ],
+  "limitation": "Descriptive development analysis; thresholds are not validated on held-out data."
+}
