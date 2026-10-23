@@ -1,0 +1,60 @@
+{
+  "manifest": "M1",
+  "purpose": "Frozen corpus, development data, scorer, and retrieval configuration before held-out creation.",
+  "configuration": {
+    "document_dir": "data/demo_sales_warehouse",
+    "excluded_files": [
+      "README.md",
+      "data_dictionary.md",
+      "nguon_dataset.md",
+      "schema_seed.sql"
+    ],
+    "chunking_strategy": "heading",
+    "chunk_size_chars": 900,
+    "chunk_overlap_chars": 150,
+    "top_k": 5,
+    "embedding_model": "bge-m3",
+    "primary_metric": "context_recall@5",
+    "risk_metric": "false_positive_count_by_abstention_type"
+  },
+  "corpus_files": {
+    "data/demo_sales_warehouse/01_quy_che_lam_viec.md": "6e9ee16fcefbcde4610bdb7ebadc8c22b3c990151d3aa8576e9752d6a46cb63f",
+    "data/demo_sales_warehouse/02_quy_che_bao_mat.md": "458c5135deb1e0a4ab4799c364bea780443ff799021c8d6ca68959902fa10111",
+    "data/demo_sales_warehouse/03_quy_che_luong_cong_tac_phi.md": "de17d6643875ac3acd7e1a01682ac1d60fe0861c08fb54e020c34125df5251ef",
+    "data/demo_sales_warehouse/04_chinh_sach_doi_tra.docx": "370fe767554b242d72f7008f7713159b12da5ca232a66f037fc7168b567dd3d1",
+    "data/demo_sales_warehouse/05_chinh_sach_bao_hanh.pdf": "83c9aea4217217cf77e16426b2ef80e2217604c0e8e7a90c25919636d19edc8a",
+    "data/demo_sales_warehouse/06_chinh_sach_van_chuyen.pdf": "642442d381077bcb79f7a36c7f691f2d8c9e657eb537d183aa06b5cf01088c79",
+    "data/demo_sales_warehouse/07_khuyen_mai_thanh_vien.docx": "7d057bc28217b08d4291f823519cca369b7a7165259237d04b667b7399115db0",
+    "data/demo_sales_warehouse/08_quy_trinh_nhap_kho.md": "f13d40ce86f12bc953db02461c1a2d513fac53084ce05b9488781982e207e430",
+    "data/demo_sales_warehouse/09_quy_trinh_xuat_kho_kiem_ke.md": "dca2c6e33afc2ab09a70e06060bc2f5a653c64c368d9f73d44906cde6f80e2b9",
+    "data/demo_sales_warehouse/10_huong_dan_don_hang_khieu_nai.docx": "51a0fa3da3c54dd6453eff08f9424a458adcdd06b00458647f1872891180d7b9",
+    "data/demo_sales_warehouse/11_faq_khach_hang.pdf": "5be27eea0ca85af8267cac85875b6e45044c1ae9649a16986e7eb018b81cb6ea",
+    "data/demo_sales_warehouse/12_faq_nhan_vien.md": "2dd946dfcf58afda1b273f561dcf0cfa2582d16311a512119e175cadfa216c24"
+  },
+  "development_sets": {
+    "data/rag_golden_set.json": {
+      "sha256": "1ff30b046e23e1719454f74dac7983cee3b0b6e99270fc5e7cc0720bac11351a",
+      "case_count": 60,
+      "categories": {
+        "in_scope_missing": 14,
+        "multi_document": 2,
+        "out_of_scope_far": 5,
+        "paraphrase": 4,
+        "simple": 35
+      }
+    },
+    "data/nlq_golden_set.json": {
+      "sha256": "37575c0003520f1341d30e8a81cae7eaa34ae3736265e3ec4525d4f382159a94",
+      "case_count": 30
+    }
+  },
+  "evaluation_code": {
+    "scripts/evaluate_rag_retrieval.py": "031bd0505f8b6b608d025fcfe4ef0652950bfd71ea519e332b4846a1bd7eb100",
+    "scripts/rag_eval_metrics.py": "bc75bb3fa7da79a04f9d032a8a12eddb66b746317a026e85489afe096ad23069",
+    "scripts/validate_golden_data.py": "77bff329c412995de7c0d377c73c97f72fdad53a1a9ac7fc5e1b55ef9acc5a4c",
+    "scripts/write_development_manifest.py": "7e5f785226a9778162124470c3dd1ca058e3901c4eb6fef602affa6843fd8e5b",
+    "tests/test_golden_data_validation.py": "2fdf80f4f8736a0064c73cb31bc5ac46753cae3f8e6bc3f6d388d08eb5d5a57c",
+    "docs/rag_eval_protocol.md": "ce0eecd4edeff5bb5cc821a683f40f5c1d5d0d6ce29f0650a0cf720fe3aeff62"
+  },
+  "held_out": null
+}

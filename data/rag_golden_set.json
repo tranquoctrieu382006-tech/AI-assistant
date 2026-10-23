@@ -4,273 +4,498 @@
     "question": "Nhân viên làm việc vào khung giờ nào?",
     "answer_contains": "08:30–17:30",
     "source": "01_quy_che_lam_viec.md",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "01_quy_che_lam_viec.md",
+        "text": "08:30–17:30"
+      }
+    ]
   },
   {
     "id": "rag-002",
     "question": "Nhân viên cần gửi đề nghị nghỉ phép trước bao lâu?",
     "answer_contains": "2 ngày làm việc",
     "source": "01_quy_che_lam_viec.md",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "01_quy_che_lam_viec.md",
+        "text": "2 ngày làm việc"
+      }
+    ]
   },
   {
     "id": "rag-003",
     "question": "Quy trình nhập kho cần đối chiếu chứng từ nào?",
     "answer_contains": "đơn mua/phiếu điều chuyển",
     "source": "08_quy_trinh_nhap_kho.md",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "08_quy_trinh_nhap_kho.md",
+        "text": "đơn mua/phiếu điều chuyển"
+      }
+    ]
   },
   {
     "id": "rag-004",
     "question": "Khách được yêu cầu đổi hoặc trả trong thời hạn bao lâu kể từ khi giao thành công?",
     "answer_contains": "7 ngày lịch",
     "source": "04_chinh_sach_doi_tra.docx",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "04_chinh_sach_doi_tra.docx",
+        "text": "7 ngày lịch"
+      }
+    ]
   },
   {
     "id": "rag-005",
     "question": "Công ty có văn phòng tại Đà Nẵng không?",
     "answer_contains": "không chứa đủ thông tin",
     "source": null,
-    "category": "out_of_scope"
+    "category": "out_of_scope_far"
   },
   {
     "id": "rag-006",
     "question": "Nhân viên được nghỉ phép năm bao nhiêu ngày sau thử việc?",
     "answer_contains": "12 ngày/năm",
     "source": "01_quy_che_lam_viec.md",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "01_quy_che_lam_viec.md",
+        "text": "12 ngày/năm"
+      }
+    ]
   },
   {
     "id": "rag-007",
     "question": "Nhân viên nghỉ trưa vào giờ nào?",
     "answer_contains": "12:00–13:00",
     "source": "01_quy_che_lam_viec.md",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "01_quy_che_lam_viec.md",
+        "text": "12:00–13:00"
+      }
+    ]
   },
   {
     "id": "rag-008",
     "question": "Nhân viên phải chấm công trước mấy giờ?",
     "answer_contains": "trước 08:35",
     "source": "01_quy_che_lam_viec.md",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "01_quy_che_lam_viec.md",
+        "text": "trước 08:35"
+      }
+    ]
   },
   {
     "id": "rag-009",
     "question": "Có được tải danh sách khách hàng về thiết bị cá nhân không?",
     "answer_contains": "Không tải danh sách khách hàng về thiết bị cá nhân",
     "source": "02_quy_che_bao_mat.md",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "02_quy_che_bao_mat.md",
+        "text": "Không tải danh sách khách hàng về thiết bị cá nhân"
+      }
+    ]
   },
   {
     "id": "rag-010",
     "question": "Sự cố dữ liệu phải được báo trong thời hạn nào?",
     "answer_contains": "4 giờ kể từ khi phát hiện",
     "source": "02_quy_che_bao_mat.md",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "02_quy_che_bao_mat.md",
+        "text": "4 giờ kể từ khi phát hiện"
+      }
+    ]
   },
   {
     "id": "rag-011",
     "question": "Lương được thanh toán vào ngày nào?",
     "answer_contains": "ngày 05 của tháng kế tiếp",
     "source": "03_quy_che_luong_cong_tac_phi.md",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "03_quy_che_luong_cong_tac_phi.md",
+        "text": "ngày 05 của tháng kế tiếp"
+      }
+    ]
   },
   {
     "id": "rag-012",
     "question": "Mức lưu trú tối đa trong công tác phí nội địa là bao nhiêu?",
     "answer_contains": "500.000 đồng/ngày",
     "source": "03_quy_che_luong_cong_tac_phi.md",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "03_quy_che_luong_cong_tac_phi.md",
+        "text": "500.000 đồng/ngày"
+      }
+    ]
   },
   {
     "id": "rag-013",
     "question": "Mức ăn uống tối đa trong công tác phí nội địa là bao nhiêu?",
     "answer_contains": "200.000 đồng/ngày",
     "source": "03_quy_che_luong_cong_tac_phi.md",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "03_quy_che_luong_cong_tac_phi.md",
+        "text": "200.000 đồng/ngày"
+      }
+    ]
   },
   {
     "id": "rag-014",
     "question": "Cần đề nghị tạm ứng công tác phí trước chuyến đi bao lâu?",
     "answer_contains": "trước chuyến đi 3 ngày",
     "source": "03_quy_che_luong_cong_tac_phi.md",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "03_quy_che_luong_cong_tac_phi.md",
+        "text": "trước chuyến đi 3 ngày"
+      }
+    ]
   },
   {
     "id": "rag-015",
     "question": "Sau chuyến công tác, hạn quyết toán là bao lâu?",
     "answer_contains": "5 ngày làm việc sau khi kết thúc",
     "source": "03_quy_che_luong_cong_tac_phi.md",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "03_quy_che_luong_cong_tac_phi.md",
+        "text": "5 ngày làm việc sau khi kết thúc"
+      }
+    ]
   },
   {
     "id": "rag-016",
     "question": "Hàng lỗi do nhà sản xuất được tiếp nhận trong bao lâu?",
     "answer_contains": "30 ngày",
     "source": "04_chinh_sach_doi_tra.docx",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "04_chinh_sach_doi_tra.docx",
+        "text": "30 ngày"
+      }
+    ]
   },
   {
     "id": "rag-017",
     "question": "Thời gian chẩn đoán bảo hành tối đa là bao lâu?",
     "answer_contains": "3 ngày làm việc",
     "source": "05_chinh_sach_bao_hanh.pdf",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "05_chinh_sach_bao_hanh.pdf",
+        "text": "3 ngày làm việc"
+      }
+    ]
   },
   {
     "id": "rag-018",
     "question": "Thời gian sửa chữa bảo hành dự kiến tối đa là bao lâu?",
     "answer_contains": "15 ngày làm việc",
     "source": "05_chinh_sach_bao_hanh.pdf",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "05_chinh_sach_bao_hanh.pdf",
+        "text": "15 ngày làm việc"
+      }
+    ]
   },
   {
     "id": "rag-019",
     "question": "Phí giao hàng cơ bản là bao nhiêu?",
     "answer_contains": "30.000 đồng/đơn",
     "source": "06_chinh_sach_van_chuyen.pdf",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "06_chinh_sach_van_chuyen.pdf",
+        "text": "30.000 đồng/đơn"
+      }
+    ]
   },
   {
     "id": "rag-020",
     "question": "Đơn hàng từ giá trị nào được miễn phí giao hàng?",
     "answer_contains": "1.000.000 đồng trước giảm giá",
     "source": "06_chinh_sach_van_chuyen.pdf",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "06_chinh_sach_van_chuyen.pdf",
+        "text": "1.000.000 đồng trước giảm giá"
+      }
+    ]
   },
   {
     "id": "rag-021",
     "question": "Thời gian giao nội thành dự kiến là bao lâu?",
     "answer_contains": "1–2 ngày làm việc",
     "source": "06_chinh_sach_van_chuyen.pdf",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "06_chinh_sach_van_chuyen.pdf",
+        "text": "1–2 ngày làm việc"
+      }
+    ]
   },
   {
     "id": "rag-022",
     "question": "Khi giao thất bại, đơn vị vận chuyển liên hệ khách tối đa bao nhiêu lần?",
     "answer_contains": "tối đa 2 lần",
     "source": "06_chinh_sach_van_chuyen.pdf",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "06_chinh_sach_van_chuyen.pdf",
+        "text": "tối đa 2 lần"
+      }
+    ]
   },
   {
     "id": "rag-023",
     "question": "Hạng Kim cương được giảm bao nhiêu phần trăm?",
     "answer_contains": "Kim cương giảm 8%",
     "source": "07_khuyen_mai_thanh_vien.docx",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "07_khuyen_mai_thanh_vien.docx",
+        "text": "Kim cương giảm 8%"
+      }
+    ]
   },
   {
     "id": "rag-024",
     "question": "Khách cần chi tiêu tích lũy bao nhiêu để đạt hạng Bạc?",
     "answer_contains": "Bạc từ 5 đến dưới 20 triệu",
     "source": "07_khuyen_mai_thanh_vien.docx",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "07_khuyen_mai_thanh_vien.docx",
+        "text": "Bạc từ 5 đến dưới 20 triệu"
+      }
+    ]
   },
   {
     "id": "rag-025",
     "question": "Một đơn hàng có thể áp dụng bao nhiêu mã khuyến mãi?",
     "answer_contains": "một mã khuyến mãi",
     "source": "07_khuyen_mai_thanh_vien.docx",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "07_khuyen_mai_thanh_vien.docx",
+        "text": "một mã khuyến mãi"
+      }
+    ]
   },
   {
     "id": "rag-026",
     "question": "Ai duyệt phiếu nhập kho và thời hạn duyệt là khi nào?",
     "answer_contains": "quản lý duyệt trong ngày",
     "source": "08_quy_trinh_nhap_kho.md",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "08_quy_trinh_nhap_kho.md",
+        "text": "quản lý duyệt trong ngày"
+      }
+    ]
   },
   {
     "id": "rag-027",
     "question": "Hàng lỗi khi nhập kho được xử lý thế nào với tồn có thể bán?",
     "answer_contains": "đưa vào khu cách ly",
     "source": "08_quy_trinh_nhap_kho.md",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "08_quy_trinh_nhap_kho.md",
+        "text": "đưa vào khu cách ly"
+      }
+    ]
   },
   {
     "id": "rag-028",
     "question": "Kho nên dùng nguyên tắc nào cho hàng có hạn dùng?",
     "answer_contains": "FEFO",
     "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+        "text": "FEFO"
+      }
+    ]
   },
   {
     "id": "rag-029",
     "question": "Kiểm kê luân phiên được thực hiện với tần suất nào?",
     "answer_contains": "hàng tháng",
     "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+        "text": "hàng tháng"
+      }
+    ]
   },
   {
     "id": "rag-030",
     "question": "Kiểm kê toàn bộ phải thực hiện tối thiểu bao lâu một lần?",
     "answer_contains": "tối thiểu mỗi năm",
     "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+        "text": "tối thiểu mỗi năm"
+      }
+    ]
   },
   {
     "id": "rag-031",
     "question": "Đơn mới cần xác nhận tồn kho và địa chỉ trong bao lâu?",
     "answer_contains": "trong 4 giờ làm việc",
     "source": "10_huong_dan_don_hang_khieu_nai.docx",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "10_huong_dan_don_hang_khieu_nai.docx",
+        "text": "trong 4 giờ làm việc"
+      }
+    ]
   },
   {
     "id": "rag-032",
     "question": "Khiếu nại cần được phản hồi lần đầu trong bao lâu?",
     "answer_contains": "1 ngày làm việc",
     "source": "10_huong_dan_don_hang_khieu_nai.docx",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "10_huong_dan_don_hang_khieu_nai.docx",
+        "text": "1 ngày làm việc"
+      }
+    ]
   },
   {
     "id": "rag-033",
     "question": "Khách tra cứu đơn hàng bằng thông tin nào?",
     "answer_contains": "mã đơn hoặc số điện thoại đã xác minh",
     "source": "10_huong_dan_don_hang_khieu_nai.docx",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "10_huong_dan_don_hang_khieu_nai.docx",
+        "text": "mã đơn hoặc số điện thoại đã xác minh"
+      }
+    ]
   },
   {
     "id": "rag-034",
     "question": "Sau khi duyệt, tiền hoàn được xử lý trong bao lâu?",
     "answer_contains": "5–7 ngày làm việc sau khi duyệt",
     "source": "04_chinh_sach_doi_tra.docx",
-    "category": "simple"
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "04_chinh_sach_doi_tra.docx",
+        "text": "5–7 ngày làm việc sau khi duyệt"
+      }
+    ]
   },
   {
     "id": "rag-035",
     "question": "Khách có văn phòng nào ở Đà Nẵng?",
     "answer_contains": "không chứa đủ thông tin",
     "source": null,
-    "category": "out_of_scope"
+    "category": "out_of_scope_far"
   },
   {
     "id": "rag-036",
     "category": "paraphrase",
     "question": "Tôi muốn xin nghỉ phép thường lệ thì phải gửi yêu cầu trước ít nhất mấy ngày?",
     "answer_contains": "2 ngày làm việc",
-    "source": "01_quy_che_lam_viec.md"
+    "source": "01_quy_che_lam_viec.md",
+    "evidence": [
+      {
+        "source": "01_quy_che_lam_viec.md",
+        "text": "2 ngày làm việc"
+      }
+    ]
   },
   {
     "id": "rag-037",
     "category": "paraphrase",
     "question": "Một ngày làm việc bắt đầu và kết thúc lúc nào, khoảng nghỉ giữa ngày là mấy giờ?",
-    "answer_contains": ["08:30–17:30", "12:00–13:00"],
-    "source": "01_quy_che_lam_viec.md"
+    "answer_contains": [
+      "08:30–17:30",
+      "12:00–13:00"
+    ],
+    "source": "01_quy_che_lam_viec.md",
+    "evidence": [
+      {
+        "source": "01_quy_che_lam_viec.md",
+        "text": "08:30–17:30"
+      }
+    ]
   },
   {
     "id": "rag-038",
     "category": "paraphrase",
     "question": "Nếu giao hàng không thành công thì bên vận chuyển gọi lại cho khách nhiều nhất mấy lượt?",
     "answer_contains": "tối đa 2 lần",
-    "source": "06_chinh_sach_van_chuyen.pdf"
+    "source": "06_chinh_sach_van_chuyen.pdf",
+    "evidence": [
+      {
+        "source": "06_chinh_sach_van_chuyen.pdf",
+        "text": "tối đa 2 lần"
+      }
+    ]
   },
   {
     "id": "rag-039",
     "category": "paraphrase",
     "question": "Đơn mua từ mức giá trị nào sẽ được miễn phí giao hàng?",
     "answer_contains": "1.000.000 đồng trước giảm giá",
-    "source": "06_chinh_sach_van_chuyen.pdf"
+    "source": "06_chinh_sach_van_chuyen.pdf",
+    "evidence": [
+      {
+        "source": "06_chinh_sach_van_chuyen.pdf",
+        "text": "1.000.000 đồng trước giảm giá"
+      }
+    ]
   },
   {
     "id": "rag-040",
@@ -284,6 +509,16 @@
     "expected_sources": [
       "01_quy_che_lam_viec.md",
       "02_quy_che_bao_mat.md"
+    ],
+    "evidence": [
+      {
+        "source": "01_quy_che_lam_viec.md",
+        "text": "2 ngày làm việc"
+      },
+      {
+        "source": "02_quy_che_bao_mat.md",
+        "text": "4 giờ kể từ khi phát hiện"
+      }
     ]
   },
   {
@@ -298,48 +533,161 @@
     "expected_sources": [
       "04_chinh_sach_doi_tra.docx",
       "06_chinh_sach_van_chuyen.pdf"
+    ],
+    "evidence": [
+      {
+        "source": "04_chinh_sach_doi_tra.docx",
+        "text": "7 ngày lịch"
+      },
+      {
+        "source": "06_chinh_sach_van_chuyen.pdf",
+        "text": "1.000.000 đồng trước giảm giá"
+      }
     ]
   },
   {
     "id": "rag-042",
-    "category": "out_of_scope",
+    "category": "in_scope_missing",
     "question": "Nhân viên được nghỉ thai sản bao nhiêu ngày theo chính sách công ty?",
     "answer_contains": "không chứa đủ thông tin",
     "source": null
   },
   {
     "id": "rag-043",
-    "category": "out_of_scope",
+    "category": "in_scope_missing",
     "question": "Số điện thoại tổng đài chăm sóc khách hàng là bao nhiêu?",
     "answer_contains": "không chứa đủ thông tin",
     "source": null
   },
   {
     "id": "rag-044",
-    "category": "out_of_scope",
+    "category": "in_scope_missing",
     "question": "Mức lương cơ bản hàng tháng của nhân viên kinh doanh là bao nhiêu?",
     "answer_contains": "không chứa đủ thông tin",
     "source": null
   },
   {
     "id": "rag-045",
-    "category": "out_of_scope",
+    "category": "out_of_scope_far",
     "question": "Doanh thu công ty trong tháng 9 năm 2026 là bao nhiêu?",
     "answer_contains": "không chứa đủ thông tin",
     "source": null
   },
   {
     "id": "rag-046",
-    "category": "out_of_scope",
+    "category": "out_of_scope_far",
     "question": "Công ty có bao nhiêu nhân viên đang làm việc tại chi nhánh Đà Nẵng?",
     "answer_contains": "không chứa đủ thông tin",
     "source": null
   },
   {
     "id": "rag-047",
-    "category": "out_of_scope",
+    "category": "out_of_scope_far",
     "question": "Mã số bảo hiểm xã hội của nhân viên Nguyễn Văn An là gì?",
     "answer_contains": "không chứa đủ thông tin",
     "source": null
+  },
+  {
+    "id": "rag-048",
+    "question": "FAQ nhân viên quy định ai duyệt phiếu nhập kho?",
+    "answer_contains": "Quản lý kho",
+    "source": "12_faq_nhan_vien.md",
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "12_faq_nhan_vien.md",
+        "text": "Quản lý kho duyệt phiếu trong ngày"
+      }
+    ]
+  },
+  {
+    "id": "rag-049",
+    "question": "Khách tra cứu đơn hàng bằng thông tin nào?",
+    "answer_contains": "mã đơn hoặc số điện thoại đã xác minh",
+    "source": "11_faq_khach_hang.pdf",
+    "category": "simple",
+    "evidence": [
+      {
+        "source": "11_faq_khach_hang.pdf",
+        "text": "Dùng mã đơn hoặc số điện thoại đã xác minh"
+      }
+    ]
+  },
+  {
+    "id": "rag-050",
+    "question": "Chính sách có quy định nhân viên làm việc từ xa tối đa bao nhiêu ngày mỗi tuần không?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null,
+    "category": "in_scope_missing"
+  },
+  {
+    "id": "rag-051",
+    "question": "Nhân viên thử việc được hưởng bao nhiêu phần trăm lương chính thức?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null,
+    "category": "in_scope_missing"
+  },
+  {
+    "id": "rag-052",
+    "question": "Mức phụ cấp ăn trưa hàng tháng của nhân viên là bao nhiêu?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null,
+    "category": "in_scope_missing"
+  },
+  {
+    "id": "rag-053",
+    "question": "Khách có thể thanh toán đơn hàng bằng ví điện tử nào?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null,
+    "category": "in_scope_missing"
+  },
+  {
+    "id": "rag-054",
+    "question": "Đơn hàng có hỗ trợ giao hỏa tốc trong ngày không?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null,
+    "category": "in_scope_missing"
+  },
+  {
+    "id": "rag-055",
+    "question": "Khách cần cung cấp giấy tờ gì để đổi sản phẩm đã mở hộp?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null,
+    "category": "in_scope_missing"
+  },
+  {
+    "id": "rag-056",
+    "question": "Sản phẩm điện tử được bảo hành bao nhiêu tháng sau khi hết thời hạn tiêu chuẩn?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null,
+    "category": "in_scope_missing"
+  },
+  {
+    "id": "rag-057",
+    "question": "Công ty hoàn tiền qua ngân hàng nào và có mất phí không?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null,
+    "category": "in_scope_missing"
+  },
+  {
+    "id": "rag-058",
+    "question": "Nhân viên được nghỉ phép khi con ốm tối đa bao nhiêu ngày?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null,
+    "category": "in_scope_missing"
+  },
+  {
+    "id": "rag-059",
+    "question": "Kho xử lý thế nào nếu nhà cung cấp giao thiếu hàng so với đơn mua?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null,
+    "category": "in_scope_missing"
+  },
+  {
+    "id": "rag-060",
+    "question": "Khách hàng thân thiết được cộng điểm vào thời điểm nào sau khi thanh toán?",
+    "answer_contains": "không chứa đủ thông tin",
+    "source": null,
+    "category": "in_scope_missing"
   }
 ]

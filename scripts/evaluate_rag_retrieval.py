@@ -3,6 +3,7 @@ import json
 from pathlib import Path, PurePosixPath
 
 from app.core.config import settings
+from scripts.rag_eval_metrics import context_recall_at_k
 
 
 def source_matches(actual: str, expected: str) -> bool:
@@ -73,17 +74,43 @@ def _category_metrics(records: list[dict], abstentions: list[dict], k: int) -> d
     return output
 
 
+def _abstention_risk_summary(abstentions: list[dict]) -> dict:
+    output = {}
+    for category in sorted({record["category"] for record in abstentions}):
+        group = [record for record in abstentions if record["category"] == category]
+        false_positives = sum(not record["correct"] for record in group)
+        output[category] = {
+            "cases": len(group),
+            "false_positive_count": false_positives,
+            "false_positive_rate": false_positives / len(group) if len(group) >= 10 else None,
+            "rate_reporting_note": None if len(group) >= 10 else "Fewer than 10 cases; report counts only.",
+        }
+    return output
+
+
 def evaluate(k: int = 5) -> dict:
     from app.core.vector_store import similarity_search
     cases = json.loads(Path("data/rag_golden_set.json").read_text(encoding="utf-8"))
     records = []
     abstentions = []
     failure_examples = []
+    context_recall_scores = []
+    false_negative_counts = {}
     abstention_correct = 0
     for case in cases:
         results = similarity_search(case["question"], k=max(k, 5))
         expected_sources = _source_targets(case)
         if expected_sources:
+            context_recall = context_recall_at_k(case, results, k)
+            if context_recall is not None:
+                context_recall_scores.append(context_recall)
+            predicted_abstain = (
+                not results or results[0]["score"] < settings.rag_min_relevance_score
+            )
+            if predicted_abstain:
+                false_negative_counts[case.get("category", "simple")] = (
+                    false_negative_counts.get(case.get("category", "simple"), 0) + 1
+                )
             ranks = [
                 next((i for i, item in enumerate(results, 1)
                       if source_matches(item["source"], expected)), None)
@@ -143,6 +170,8 @@ def evaluate(k: int = 5) -> dict:
     answerable = _retrieval_metrics(records, k)
     categories = _category_metrics(records, abstentions, k)
     total_abstentions = len(abstentions)
+    abstention_risk = _abstention_risk_summary(abstentions)
+    answerable_count = len(records)
     return {
         "answerable_cases": answerable["answerable_cases"],
         "hit@1": answerable["hit@1"],
@@ -150,6 +179,18 @@ def evaluate(k: int = 5) -> dict:
         "hit@5": answerable["hit@5"],
         "mrr": answerable["mrr"],
         f"expected_source_coverage@{k}": answerable[f"expected_source_coverage@{k}"],
+        f"context_recall@{k}": (
+            sum(context_recall_scores) / len(context_recall_scores)
+            if context_recall_scores else None
+        ),
+        "evidence_cases": len(context_recall_scores),
+        "abstention_risk_by_type": abstention_risk,
+        "false_negative_count_answerable": sum(false_negative_counts.values()),
+        "false_negative_rate_answerable": (
+            sum(false_negative_counts.values()) / answerable_count
+            if answerable_count >= 10 else None
+        ),
+        "false_positive_definition": "System returned retrieval results above the cutoff for a case expected to abstain.",
         "by_category": categories,
         "failure_examples": failure_examples,
         "abstention_cases": total_abstentions,
