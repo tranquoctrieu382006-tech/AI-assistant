@@ -27,7 +27,7 @@ flowchart TB
     end
 
     subgraph RAG_Pipeline["RAG Pipeline"]
-        RL["Document Loader\npython-docx / pypdf / text"]
+        RL["Document Loader\nLangChain TextLoader / PyPDFLoader\npython-docx for ordered DOCX structure"]
         SP["Section-aware chunking\nparagraph-packed, 900 / 150"]
         EM["Embedding\nbge-m3"]
         VS["Vector Store\nPGVector"]
@@ -151,7 +151,7 @@ Một lời gọi HTTP trực tiếp tới `/api/rag/ask` với retriever/model 
 
 ```mermaid
 flowchart LR
-    A["Tài liệu\n(PDF/DOCX/MD/TXT)"] --> B["python-docx / pypdf / text"]
+    A["Tài liệu\n(PDF/DOCX/MD/TXT)"] --> B["LangChain TextLoader / PyPDFLoader\npython-docx for ordered DOCX"]
     B --> C["Chunker\n900 chars / 150 overlap"]
     C --> D["Embedding\nbge-m3"]
     D --> E["PGVector\nPostgreSQL"]

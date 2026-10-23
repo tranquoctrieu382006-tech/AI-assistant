@@ -8,7 +8,9 @@
 - The cutoff `RAG_MIN_RELEVANCE_SCORE=0.5` was selected on the development corpus. These results are calibration observations, not held-out quality evidence.
 - `python -m scripts.evaluate_rag_answers` sends the golden questions to the running API and checks `answer_contains`. This is a simple substring smoke check, not semantic evaluation. The expected text is deliberately specific; for example, the exchange window is `7 ngày lịch`.
 - `python -m scripts.evaluate_rag_experiment --roles local strong --judge-role fast` creates/updates a versioned Langfuse Dataset and runs comparable experiments with answer substring, abstention, faithfulness, answer relevancy, and latency scores.
+- `python -m scripts.evaluate_rag_structured_local --limit 30` reuses frozen synthetic contexts from the existing Langfuse Dataset and calls the local model with the production LCEL/Pydantic parser. It writes per-case status and parse counts to a local JSON file and does not create Langfuse traces or upload generated answers.
 - `python -m scripts.evaluate_nlq_golden` executes checked-in reference SQL read-only. Its rate is **seed consistency**, not model accuracy. `python -m scripts.evaluate_nlq_model --model-role local` separately evaluates generated SQL against those expected results.
+- Add `--trace-langfuse` to a fresh `evaluate_nlq_model` run only when Cloud tracing is intended; it creates one generation span per newly generated SQL call. It cannot be used when replaying a saved result file.
 - The model evaluator supplies the actual `CREATE TABLE` statements from `schema_seed.sql`, compares rows in order when generated SQL has a top-level `ORDER BY`, and allows semicolons inside quoted strings/comments while rejecting multiple statements.
 
 ## Previous development-set run (2026-10-23; original 35-case set)
@@ -26,8 +28,9 @@ Review found literal question marks replacing Vietnamese diacritics in the 12 re
 ## AI05–AI07 follow-up
 
 - A full local `gemma3:12b` model-generated SQL evaluation ran all 30 NLQ cases read-only: 16 pass, 14 fail, no rejected query or execution error (0.533 exact-result accuracy). Example failures: `nlq-017` returned one annual order count instead of monthly rows; `nlq-023` returned per-order rows instead of one total; `nlq-022` averaged shipping fee instead of order value. Full SQL and actual/expected rows are in `eval/nlq_model_local_2026-10-23.json`. With user approval, Dataset `ai-assistant-nlq-golden-v1` and a 30-item Langfuse experiment replay were created; the replay reused saved outputs and did not call the model again. It records 16 pass, 14 fail, 0 rejected, 0 errors (0.533 accuracy).
-- Ingestion stores a `section` for Markdown headings and DOCX Heading styles, plus PDF page numbers; section is returned with sources and placed into the RAG context. PDFs do not infer headings. The default chunking strategy packs paragraphs within section/page boundaries; an alternate paragraph-block strategy is available for comparison. Existing format-specific `python-docx`/`pypdf` loaders remain in use. Docling or LangChain community loaders were not added because no project requirement mandates them and replacing tested loaders would add dependencies without demonstrated benefit.
-- Chunking comparison on the 47-case set: current section-packed paragraphs made 30 chunks and scored Hit@1/3/5 0.897/1.000/1.000, MRR 0.962 and abstention 5/8. The paragraph-block-preserving variant made 33 chunks and scored 0.897/0.974/1.000, MRR 0.962 and abstention 5/8. The existing default remains; this is development-set evidence only. Full metrics and failure examples are in `eval/chunking_comparison_2026-10-23.json`.
+- A separate fresh run used `python -m scripts.evaluate_nlq_model --model-role local --trace-langfuse --output eval/nlq_model_traced_2026-10-23.json`. It made and traced 30 real Gemma SQL-generation calls; Langfuse verification found 30 generation spans and a `ChatOllama` generation observation in each of their 30 traces. The rerun reproduced 16 pass, 14 fail, 0 rejected and 0 execution errors. Detailed SQL/results stay in the local JSON; the Cloud traces contain the synthetic question/schema/model prompt and generated SQL. [View a sample NLQ trace](https://cloud.langfuse.com/project/cmvj0s4r600axad0jz9ji8ki1/traces/ca56f1959678ac2a7f3a20f8a70bdc8e).
+- Ingestion uses LangChain `TextLoader` for MD/TXT and `PyPDFLoader` for PDF. DOCX deliberately retains the ordered `python-docx` parser: `Docx2txtLoader` discards Heading styles and table ordering, while `UnstructuredWordDocumentLoader` would add the much heavier `unstructured` dependency. Tests verify DOCX heading/table retention and one-based PDF page metadata. This hybrid preserves the rubric's content requirements while using LangChain document loaders where they do not lose structure; document the DOCX exception in the AI06 submission. Section metadata is returned with sources and placed in RAG context; PDFs do not infer headings. Current `langchain-community` emits an upstream sunset warning, so review migration to a standalone loader package if the upstream split stabilizes.
+- The rubric-aligned comparison on all 47 cases tested fixed-size+overlap and heading-bounded chunking. Fixed-size made 13 chunks (Hit@1/3/5 0.846/1.000/1.000; MRR 0.936; abstention 5/8); heading-bounded made 30 chunks (0.897/1.000/1.000; MRR 0.962; abstention 5/8). Heading-bounded remains the default. This is development-set evidence only; the active vector store was not modified. Full metrics and failures are in `eval/chunking_fixed_size_vs_heading_2026-10-23.json`.
 - `/api/rag/ask` now uses LCEL (`ChatPromptTemplate | ChatModel | PydanticOutputParser`) and validates generated `{answer, abstain}` with `RagGeneratedAnswer`; malformed output fails as HTTP 502 rather than being returned as a success-shaped answer. The public API shape remains `answer: str` plus retrieval-generated `sources`, so no model-generated citation is trusted. A direct local HTTP request with synthetic question/context and a mocked retriever/model produced a trace confirmed through the Langfuse Cloud observations API. The Cloud trace includes request, retrieval, LCEL sequence, prompt, synthetic model and parser observations: https://cloud.langfuse.com/project/cmvj0s4r600axad0jz9ji8ki1/traces/32281c435ef6271194aab67b1b5e910e. This confirms trace delivery but does not validate a real model-provider call or live retrieval.
 
 The RAG model-comparison script stores the synthetic questions, retrieved context, expected answer fragments, and generated answers in Langfuse Cloud. The current demo documents and seed are synthetic. Do not point the experiment at real or confidential corpora without confirming authorization and retention requirements.
@@ -53,6 +56,26 @@ The Groq judge reached its daily token limit (HTTP 429). It scored 32/33 local s
 - [Local Gemma experiment](https://cloud.langfuse.com/project/cmvj0s4r600axad0jz9ji8ki1/experiments/results?baseline=37eb4cf19217b692)
 - [Groq strong experiment](https://cloud.langfuse.com/project/cmvj0s4r600axad0jz9ji8ki1/experiments/results?baseline=cb9132e5ab224119)
 
-`pytest -q` is the reproducible test command. Latest full run: **88 passed**. Automated HTTP-boundary tests use mocked tracing/model components; the separate synthetic HTTP check above verifies actual Langfuse Cloud delivery.
+## Current structured-output comparison (v4)
+
+The current `structured-pydantic-v1` prompt was run on a fresh 47-item Langfuse Dataset v4 to keep these results separate from the legacy v3 prompt. Both candidates completed 41 calls with **0 parse failures**; six cases had no frozen retrieval context (one simple, five out of scope).
+
+| Category | Candidate | Answer-fragment match | Expected behavior | Faithfulness | Answer relevancy |
+|---|---|---:|---:|---:|---:|
+| Simple | Local Gemma | 0.848 (28/33) | 0.970 (32/33) | 1.000 (2/2) | 1.000 (2/2) |
+| Simple | Groq strong | 0.545 (18/33) | 0.970 (32/33) | Not scored (0/33) | Not scored (0/33) |
+| Paraphrase | Local Gemma | 1.000 (4/4) | 1.000 (4/4) | 1.000 (4/4) | 0.975 (4/4) |
+| Paraphrase | Groq strong | 0.500 (2/4) | 1.000 (4/4) | Not scored (0/4) | Not scored (0/4) |
+| Multi-document | Local Gemma | 1.000 (2/2) | 1.000 (2/2) | 1.000 (2/2) | 1.000 (2/2) |
+| Multi-document | Groq strong | 0.500 (1/2) | 1.000 (2/2) | 1.000 (1/1) | 1.000 (1/1) |
+| Out of scope | Both | 1.000 (8/8) | 1.000 (8/8) | Not applicable | Not applicable |
+
+The substring result for out-of-scope cases checks the expected refusal text; it does not establish semantic correctness. The Groq judge returned HTTP 429 and was disabled for the remaining cases. Coverage is insufficient for a balanced strong-model quality comparison, so AI08 remains in progress despite the completed structured-generation rerun.
+
+- [Local Gemma v4 experiment](https://cloud.langfuse.com/project/cmvj0s4r600axad0jz9ji8ki1/experiments/results?baseline=4f7bde5098a1be3e)
+- [Groq strong v4 experiment](https://cloud.langfuse.com/project/cmvj0s4r600axad0jz9ji8ki1/experiments/results?baseline=365be450c96433de)
+- Local result summary: `eval/rag_experiment_v4_2026-10-23.json`
+
+`pytest -q` is the reproducible test command. Latest full run: **91 passed** (one upstream `langchain-community` sunset warning). Automated HTTP-boundary tests use mocked tracing/model components; the separate live HTTP check above verifies actual retrieval, local model execution, and Langfuse Cloud delivery.
 
 Faithfulness and answer relevancy are LLM-as-a-judge metrics; they are comparative indicators, not human-validated truth. Use the same judge model and fixed corpus across candidate runs, review disagreements manually, and keep held-out questions separate from the development set.

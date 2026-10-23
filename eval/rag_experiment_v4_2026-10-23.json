@@ -1,0 +1,499 @@
+{
+  "dataset": "ai-assistant-rag-golden-v4",
+  "dataset_version": "v4",
+  "prompt_version": "structured-pydantic-v1",
+  "judge_role": "fast",
+  "judge_model": "groq/openai/gpt-oss-20b",
+  "cases": 47,
+  "results": [
+    {
+      "model_role": "local",
+      "model": "ollama/gemma3:12b",
+      "items": 47,
+      "experiment_url": "https://cloud.langfuse.com/project/cmvj0s4r600axad0jz9ji8ki1/experiments/results?baseline=4f7bde5098a1be3e",
+      "scores": [
+        {
+          "name": "multi_document_abstention_correct_mean",
+          "value": 1.0
+        },
+        {
+          "name": "multi_document_abstention_correct_count",
+          "value": 2
+        },
+        {
+          "name": "multi_document_answer_contains_mean",
+          "value": 1.0
+        },
+        {
+          "name": "multi_document_answer_contains_count",
+          "value": 2
+        },
+        {
+          "name": "multi_document_answer_contains_normalized_mean",
+          "value": 1.0
+        },
+        {
+          "name": "multi_document_answer_contains_normalized_count",
+          "value": 2
+        },
+        {
+          "name": "multi_document_answer_relevancy_mean",
+          "value": 1.0
+        },
+        {
+          "name": "multi_document_answer_relevancy_count",
+          "value": 2
+        },
+        {
+          "name": "multi_document_faithfulness_mean",
+          "value": 1.0
+        },
+        {
+          "name": "multi_document_faithfulness_count",
+          "value": 2
+        },
+        {
+          "name": "out_of_scope_abstention_correct_mean",
+          "value": 1.0
+        },
+        {
+          "name": "out_of_scope_abstention_correct_count",
+          "value": 8
+        },
+        {
+          "name": "out_of_scope_answer_contains_mean",
+          "value": 1.0
+        },
+        {
+          "name": "out_of_scope_answer_contains_count",
+          "value": 8
+        },
+        {
+          "name": "out_of_scope_answer_contains_normalized_mean",
+          "value": 1.0
+        },
+        {
+          "name": "out_of_scope_answer_contains_normalized_count",
+          "value": 8
+        },
+        {
+          "name": "paraphrase_abstention_correct_mean",
+          "value": 1.0
+        },
+        {
+          "name": "paraphrase_abstention_correct_count",
+          "value": 4
+        },
+        {
+          "name": "paraphrase_answer_contains_mean",
+          "value": 1.0
+        },
+        {
+          "name": "paraphrase_answer_contains_count",
+          "value": 4
+        },
+        {
+          "name": "paraphrase_answer_contains_normalized_mean",
+          "value": 1.0
+        },
+        {
+          "name": "paraphrase_answer_contains_normalized_count",
+          "value": 4
+        },
+        {
+          "name": "paraphrase_answer_relevancy_mean",
+          "value": 0.975
+        },
+        {
+          "name": "paraphrase_answer_relevancy_count",
+          "value": 4
+        },
+        {
+          "name": "paraphrase_faithfulness_mean",
+          "value": 1.0
+        },
+        {
+          "name": "paraphrase_faithfulness_count",
+          "value": 4
+        },
+        {
+          "name": "simple_abstention_correct_mean",
+          "value": 0.9696969696969697
+        },
+        {
+          "name": "simple_abstention_correct_count",
+          "value": 33
+        },
+        {
+          "name": "simple_answer_contains_mean",
+          "value": 0.8484848484848485
+        },
+        {
+          "name": "simple_answer_contains_count",
+          "value": 33
+        },
+        {
+          "name": "simple_answer_contains_normalized_mean",
+          "value": 0.8484848484848485
+        },
+        {
+          "name": "simple_answer_contains_normalized_count",
+          "value": 33
+        },
+        {
+          "name": "simple_answer_relevancy_mean",
+          "value": 1.0
+        },
+        {
+          "name": "simple_answer_relevancy_count",
+          "value": 2
+        },
+        {
+          "name": "simple_faithfulness_mean",
+          "value": 1.0
+        },
+        {
+          "name": "simple_faithfulness_count",
+          "value": 2
+        },
+        {
+          "name": "simple_judge_rate_limited_mean",
+          "value": 1.0
+        },
+        {
+          "name": "simple_judge_rate_limited_count",
+          "value": 1
+        },
+        {
+          "name": "simple_judge_skipped_after_rate_limit_mean",
+          "value": 1.0
+        },
+        {
+          "name": "simple_judge_skipped_after_rate_limit_count",
+          "value": 29
+        },
+        {
+          "name": "multi_document_latency_ms_mean",
+          "value": 17142.21329999964
+        },
+        {
+          "name": "out_of_scope_latency_ms_mean",
+          "value": 16895.27889999954
+        },
+        {
+          "name": "paraphrase_latency_ms_mean",
+          "value": 13022.150650000185
+        },
+        {
+          "name": "simple_latency_ms_mean",
+          "value": 8843.318456250074
+        },
+        {
+          "name": "multi_document_generation_model_calls_count",
+          "value": 2
+        },
+        {
+          "name": "multi_document_generation_success_count",
+          "value": 2
+        },
+        {
+          "name": "multi_document_generation_total_count",
+          "value": 2
+        },
+        {
+          "name": "multi_document_generation_parse_failure_rate",
+          "value": 0.0
+        },
+        {
+          "name": "out_of_scope_generation_abstained_count",
+          "value": 3
+        },
+        {
+          "name": "out_of_scope_generation_model_calls_count",
+          "value": 3
+        },
+        {
+          "name": "out_of_scope_generation_no_context_count",
+          "value": 5
+        },
+        {
+          "name": "out_of_scope_generation_total_count",
+          "value": 8
+        },
+        {
+          "name": "out_of_scope_generation_parse_failure_rate",
+          "value": 0.0
+        },
+        {
+          "name": "paraphrase_generation_model_calls_count",
+          "value": 4
+        },
+        {
+          "name": "paraphrase_generation_success_count",
+          "value": 4
+        },
+        {
+          "name": "paraphrase_generation_total_count",
+          "value": 4
+        },
+        {
+          "name": "paraphrase_generation_parse_failure_rate",
+          "value": 0.0
+        },
+        {
+          "name": "simple_generation_model_calls_count",
+          "value": 32
+        },
+        {
+          "name": "simple_generation_no_context_count",
+          "value": 1
+        },
+        {
+          "name": "simple_generation_success_count",
+          "value": 32
+        },
+        {
+          "name": "simple_generation_total_count",
+          "value": 33
+        },
+        {
+          "name": "simple_generation_parse_failure_rate",
+          "value": 0.0
+        }
+      ]
+    },
+    {
+      "model_role": "strong",
+      "model": "groq/openai/gpt-oss-120b",
+      "items": 47,
+      "experiment_url": "https://cloud.langfuse.com/project/cmvj0s4r600axad0jz9ji8ki1/experiments/results?baseline=365be450c96433de",
+      "scores": [
+        {
+          "name": "multi_document_abstention_correct_mean",
+          "value": 1.0
+        },
+        {
+          "name": "multi_document_abstention_correct_count",
+          "value": 2
+        },
+        {
+          "name": "multi_document_answer_contains_mean",
+          "value": 0.5
+        },
+        {
+          "name": "multi_document_answer_contains_count",
+          "value": 2
+        },
+        {
+          "name": "multi_document_answer_contains_normalized_mean",
+          "value": 0.5
+        },
+        {
+          "name": "multi_document_answer_contains_normalized_count",
+          "value": 2
+        },
+        {
+          "name": "multi_document_answer_relevancy_mean",
+          "value": 1.0
+        },
+        {
+          "name": "multi_document_answer_relevancy_count",
+          "value": 1
+        },
+        {
+          "name": "multi_document_faithfulness_mean",
+          "value": 1.0
+        },
+        {
+          "name": "multi_document_faithfulness_count",
+          "value": 1
+        },
+        {
+          "name": "multi_document_judge_rate_limited_mean",
+          "value": 1.0
+        },
+        {
+          "name": "multi_document_judge_rate_limited_count",
+          "value": 1
+        },
+        {
+          "name": "out_of_scope_abstention_correct_mean",
+          "value": 1.0
+        },
+        {
+          "name": "out_of_scope_abstention_correct_count",
+          "value": 8
+        },
+        {
+          "name": "out_of_scope_answer_contains_mean",
+          "value": 1.0
+        },
+        {
+          "name": "out_of_scope_answer_contains_count",
+          "value": 8
+        },
+        {
+          "name": "out_of_scope_answer_contains_normalized_mean",
+          "value": 1.0
+        },
+        {
+          "name": "out_of_scope_answer_contains_normalized_count",
+          "value": 8
+        },
+        {
+          "name": "paraphrase_abstention_correct_mean",
+          "value": 1.0
+        },
+        {
+          "name": "paraphrase_abstention_correct_count",
+          "value": 4
+        },
+        {
+          "name": "paraphrase_answer_contains_mean",
+          "value": 0.5
+        },
+        {
+          "name": "paraphrase_answer_contains_count",
+          "value": 4
+        },
+        {
+          "name": "paraphrase_answer_contains_normalized_mean",
+          "value": 0.5
+        },
+        {
+          "name": "paraphrase_answer_contains_normalized_count",
+          "value": 4
+        },
+        {
+          "name": "paraphrase_judge_skipped_after_rate_limit_mean",
+          "value": 1.0
+        },
+        {
+          "name": "paraphrase_judge_skipped_after_rate_limit_count",
+          "value": 4
+        },
+        {
+          "name": "simple_abstention_correct_mean",
+          "value": 0.9696969696969697
+        },
+        {
+          "name": "simple_abstention_correct_count",
+          "value": 33
+        },
+        {
+          "name": "simple_answer_contains_mean",
+          "value": 0.5454545454545454
+        },
+        {
+          "name": "simple_answer_contains_count",
+          "value": 33
+        },
+        {
+          "name": "simple_answer_contains_normalized_mean",
+          "value": 0.5454545454545454
+        },
+        {
+          "name": "simple_answer_contains_normalized_count",
+          "value": 33
+        },
+        {
+          "name": "simple_judge_skipped_after_rate_limit_mean",
+          "value": 1.0
+        },
+        {
+          "name": "simple_judge_skipped_after_rate_limit_count",
+          "value": 32
+        },
+        {
+          "name": "multi_document_latency_ms_mean",
+          "value": 1129.2113999998037
+        },
+        {
+          "name": "out_of_scope_latency_ms_mean",
+          "value": 826.8995666670284
+        },
+        {
+          "name": "paraphrase_latency_ms_mean",
+          "value": 9363.93307500066
+        },
+        {
+          "name": "simple_latency_ms_mean",
+          "value": 10434.871428124894
+        },
+        {
+          "name": "multi_document_generation_model_calls_count",
+          "value": 2
+        },
+        {
+          "name": "multi_document_generation_success_count",
+          "value": 2
+        },
+        {
+          "name": "multi_document_generation_total_count",
+          "value": 2
+        },
+        {
+          "name": "multi_document_generation_parse_failure_rate",
+          "value": 0.0
+        },
+        {
+          "name": "out_of_scope_generation_abstained_count",
+          "value": 3
+        },
+        {
+          "name": "out_of_scope_generation_model_calls_count",
+          "value": 3
+        },
+        {
+          "name": "out_of_scope_generation_no_context_count",
+          "value": 5
+        },
+        {
+          "name": "out_of_scope_generation_total_count",
+          "value": 8
+        },
+        {
+          "name": "out_of_scope_generation_parse_failure_rate",
+          "value": 0.0
+        },
+        {
+          "name": "paraphrase_generation_model_calls_count",
+          "value": 4
+        },
+        {
+          "name": "paraphrase_generation_success_count",
+          "value": 4
+        },
+        {
+          "name": "paraphrase_generation_total_count",
+          "value": 4
+        },
+        {
+          "name": "paraphrase_generation_parse_failure_rate",
+          "value": 0.0
+        },
+        {
+          "name": "simple_generation_model_calls_count",
+          "value": 32
+        },
+        {
+          "name": "simple_generation_no_context_count",
+          "value": 1
+        },
+        {
+          "name": "simple_generation_success_count",
+          "value": 32
+        },
+        {
+          "name": "simple_generation_total_count",
+          "value": 33
+        },
+        {
+          "name": "simple_generation_parse_failure_rate",
+          "value": 0.0
+        }
+      ]
+    }
+  ],
+  "note": "Faithfulness and answer relevancy use one unblinded LLM judge. Scores are comparative development evidence, not human-validated quality."
+}

@@ -1,0 +1,247 @@
+{
+  "corpus_directory": "data/demo_sales_warehouse",
+  "golden_cases": 47,
+  "top_k": 5,
+  "abstention_threshold": 0.5,
+  "strategies": {
+    "fixed_size": {
+      "chunks": 13,
+      "sources": 12,
+      "answerable_cases": 39,
+      "out_of_scope_cases": 8,
+      "metrics": {
+        "hit@1": 0.8461538461538461,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "mrr": 0.9358974358974359,
+        "expected_source_coverage@5": 1.0,
+        "abstention_accuracy": 0.625
+      },
+      "failure_examples": [
+        {
+          "id": "rag-042",
+          "category": "out_of_scope",
+          "expected_sources": [],
+          "expected_source_ranks": [],
+          "top_sources": [
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 0,
+              "score": 0.5885688757794589
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 0,
+              "score": 0.534735715340731
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5082051753682286
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 0,
+              "score": 0.49886581738615854
+            },
+            {
+              "source": "05_chinh_sach_bao_hanh.pdf",
+              "chunk_index": 0,
+              "score": 0.49638499171744804
+            }
+          ]
+        },
+        {
+          "id": "rag-043",
+          "category": "out_of_scope",
+          "expected_sources": [],
+          "expected_source_ranks": [],
+          "top_sources": [
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 0,
+              "score": 0.565757049094852
+            },
+            {
+              "source": "05_chinh_sach_bao_hanh.pdf",
+              "chunk_index": 0,
+              "score": 0.5371696383010653
+            },
+            {
+              "source": "02_quy_che_bao_mat.md",
+              "chunk_index": 0,
+              "score": 0.5238342069929373
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.516624079689904
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 0,
+              "score": 0.49331543942212513
+            }
+          ]
+        },
+        {
+          "id": "rag-044",
+          "category": "out_of_scope",
+          "expected_sources": [],
+          "expected_source_ranks": [],
+          "top_sources": [
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 0,
+              "score": 0.5567860157371589
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5133862691892961
+            },
+            {
+              "source": "07_khuyen_mai_thanh_vien.docx",
+              "chunk_index": 0,
+              "score": 0.49188670457512124
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.47022088003956003
+            },
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 0,
+              "score": 0.44313854917248346
+            }
+          ]
+        }
+      ]
+    },
+    "heading": {
+      "chunks": 30,
+      "sources": 12,
+      "answerable_cases": 39,
+      "out_of_scope_cases": 8,
+      "metrics": {
+        "hit@1": 0.8974358974358975,
+        "hit@3": 1.0,
+        "hit@5": 1.0,
+        "mrr": 0.9615384615384616,
+        "expected_source_coverage@5": 1.0,
+        "abstention_accuracy": 0.625
+      },
+      "failure_examples": [
+        {
+          "id": "rag-042",
+          "category": "out_of_scope",
+          "expected_sources": [],
+          "expected_source_ranks": [],
+          "top_sources": [
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 1,
+              "score": 0.5840784679790391
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.5103080599887182
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5082051753682286
+            },
+            {
+              "source": "05_chinh_sach_bao_hanh.pdf",
+              "chunk_index": 0,
+              "score": 0.49638499171744804
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.48608001262754724
+            }
+          ]
+        },
+        {
+          "id": "rag-043",
+          "category": "out_of_scope",
+          "expected_sources": [],
+          "expected_source_ranks": [],
+          "top_sources": [
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.5558044701364384
+            },
+            {
+              "source": "05_chinh_sach_bao_hanh.pdf",
+              "chunk_index": 0,
+              "score": 0.5371696383010653
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.516624079689904
+            },
+            {
+              "source": "02_quy_che_bao_mat.md",
+              "chunk_index": 0,
+              "score": 0.5020650941112483
+            },
+            {
+              "source": "02_quy_che_bao_mat.md",
+              "chunk_index": 1,
+              "score": 0.49890459129796993
+            }
+          ]
+        },
+        {
+          "id": "rag-044",
+          "category": "out_of_scope",
+          "expected_sources": [],
+          "expected_source_ranks": [],
+          "top_sources": [
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.5490064280354912
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5133862691892961
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 0,
+              "score": 0.5002652050292097
+            },
+            {
+              "source": "07_khuyen_mai_thanh_vien.docx",
+              "chunk_index": 1,
+              "score": 0.48225235340055944
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.47022088003956003
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "paired_comparison": {
+    "paired_cases": 47,
+    "same_top_source": 40,
+    "same_ordered_top_k_sources": 7,
+    "same_top_chunk": 10,
+    "changed_expected_source_ranks": 5,
+    "mean_absolute_top_score_delta": 0.019152385047801125
+  },
+  "limitations": "Compares fixed-size chunks with chunks bounded by extracted heading sections using the configured embedding model; not a held-out quality estimate. The active vector store is not modified."
+}

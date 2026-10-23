@@ -41,6 +41,26 @@ def test_paragraph_block_strategy_preserves_extracted_boundaries_and_headings():
     assert all(chunk["section"] == "Policy" for chunk in separated)
 
 
+def test_fixed_size_and_heading_strategies_are_distinct():
+    blocks = [
+        (None, "Policy > Leave", "## Leave"),
+        (None, "Policy > Leave", "Annual leave details."),
+        (None, "Policy > Returns", "## Returns"),
+        (None, "Policy > Returns", "Return details."),
+    ]
+
+    fixed_size = chunk_document_blocks(blocks, strategy="fixed_size")
+    heading = chunk_document_blocks(blocks, strategy="heading")
+
+    assert len(fixed_size) == 1
+    assert fixed_size[0]["section"] is None
+    assert "## Leave" in fixed_size[0]["content"]
+    assert {chunk["section"] for chunk in heading} == {
+        "Policy > Leave",
+        "Policy > Returns",
+    }
+
+
 def test_chunk_document_blocks_rejects_unknown_strategy():
     try:
         chunk_document_blocks([(None, None, "text")], strategy="unknown")
@@ -88,20 +108,46 @@ def test_docx_preserves_paragraph_table_order_and_deduplicates_merged_cells(tmp_
 
 def test_pdf_loader_keeps_one_based_page_metadata(monkeypatch, tmp_path: Path):
     class Page:
-        def __init__(self, text): self.text = text
-        def extract_text(self): return self.text
+        def __init__(self, text, number):
+            self.page_content = text
+            self.metadata = {"page": number}
 
     class Reader:
-        def __init__(self, path): self.pages = [Page("first page"), Page("second page")]
+        def __init__(self, path): self.path = path
+        def load(self): return [Page("first page", 0), Page("second page", 1)]
 
-    fake_pypdf = types.ModuleType("pypdf")
-    fake_pypdf.PdfReader = Reader
-    monkeypatch.setitem(sys.modules, "pypdf", fake_pypdf)
+    monkeypatch.setattr(
+        "langchain_community.document_loaders.PyPDFLoader",
+        Reader,
+    )
     from app.core.ingestion import load_document_blocks, load_document_pages
     assert load_document_pages(tmp_path / "sample.pdf") == [(1, "first page"), (2, "second page")]
     assert load_document_blocks(tmp_path / "sample.pdf") == [
         (1, None, "first page"), (2, None, "second page")
     ]
+
+
+def test_pdf_loader_rejects_missing_page_metadata(monkeypatch, tmp_path: Path):
+    class Page:
+        page_content = "text"
+        metadata = {}
+
+    class Reader:
+        def __init__(self, path): pass
+        def load(self): return [Page()]
+
+    monkeypatch.setattr(
+        "langchain_community.document_loaders.PyPDFLoader",
+        Reader,
+    )
+    from app.core.ingestion import load_document_blocks
+
+    try:
+        load_document_blocks(tmp_path / "sample.pdf")
+    except ValueError as exc:
+        assert "invalid page number" in str(exc)
+    else:
+        raise AssertionError("Missing PDF page metadata should fail explicitly")
 
 
 def test_markdown_sections_are_kept_on_chunks(tmp_path: Path):

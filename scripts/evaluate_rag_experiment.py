@@ -1,5 +1,6 @@
 """Compare RAG answer models with a judge and a Langfuse dataset experiment."""
 import argparse
+from collections import Counter
 import json
 import logging
 from pathlib import Path
@@ -9,6 +10,7 @@ from typing import Any
 import unicodedata
 import uuid
 
+from langchain_core.exceptions import OutputParserException
 from langfuse import Evaluation, get_client
 from pydantic import BaseModel, Field
 
@@ -17,7 +19,8 @@ from app.core.llm import get_available_models, get_llm
 from app.core.rag_prompt import NO_ANSWER, build_rag_chain, format_context
 from app.core.tracing import flush_langfuse, init_tracing, is_langfuse_configured
 
-DATASET_VERSION = "v3"
+DATASET_VERSION = "v4"
+PROMPT_VERSION = "structured-pydantic-v1"
 DATASET_NAME = f"ai-assistant-rag-golden-{DATASET_VERSION}"
 logger = logging.getLogger(__name__)
 
@@ -54,7 +57,11 @@ def _ensure_dataset(client, dataset_name: str, cases: list[dict]):
         client.create_dataset(
             name=dataset_name,
             description="Synthetic Vietnamese RAG golden set with answer and source expectations.",
-            metadata={"version": DATASET_VERSION, "data_classification": "synthetic"},
+            metadata={
+                "version": DATASET_VERSION,
+                "prompt_version": PROMPT_VERSION,
+                "data_classification": "synthetic",
+            },
         )
         dataset = client.get_dataset(dataset_name, fetch_items_page_size=100)
 
@@ -126,17 +133,48 @@ def _make_task(role: str):
         item_input = item.input if hasattr(item, "input") else item["input"]
         context = item_input["context"]
         if not context:
-            return {"answer": NO_ANSWER, "latency_ms": 0.0}
+            return {
+                "answer": NO_ANSWER,
+                "latency_ms": 0.0,
+                "generation_status": "no_context",
+                "error_type": None,
+            }
 
         started = time.perf_counter()
-        generated = chain.invoke({
-            "question": item_input["question"],
-            "context": context,
-        })
+        try:
+            generated = chain.invoke({
+                "question": item_input["question"],
+                "context": context,
+            })
+        except OutputParserException as exc:
+            logger.warning(
+                "Structured answer parse failed for dataset item %s.",
+                getattr(item, "id", "unknown"),
+            )
+            return {
+                "answer": NO_ANSWER,
+                "latency_ms": (time.perf_counter() - started) * 1000,
+                "generation_status": "parse_error",
+                "error_type": type(exc).__name__,
+            }
+        except Exception as exc:
+            logger.warning(
+                "Structured answer generation failed for dataset item %s (%s).",
+                getattr(item, "id", "unknown"),
+                type(exc).__name__,
+            )
+            return {
+                "answer": NO_ANSWER,
+                "latency_ms": (time.perf_counter() - started) * 1000,
+                "generation_status": "generation_error",
+                "error_type": type(exc).__name__,
+            }
         answer = NO_ANSWER if generated.abstain else generated.answer.strip()
         return {
             "answer": answer or NO_ANSWER,
             "latency_ms": (time.perf_counter() - started) * 1000,
+            "generation_status": "abstained" if generated.abstain else "success",
+            "error_type": None,
         }
 
     return task
@@ -144,8 +182,10 @@ def _make_task(role: str):
 
 def _make_evaluators(judge, judge_model: str):
     def answer_contains(*, output, expected_output, **kwargs):
-        answer = output["answer"].casefold()
+        answer = output.get("answer", NO_ANSWER).casefold()
         passed = all(part.casefold() in answer for part in _expected_parts(expected_output))
+        if output.get("generation_status") in {"parse_error", "generation_error"}:
+            passed = False
         return Evaluation(
             name="answer_contains",
             value=passed,
@@ -155,11 +195,13 @@ def _make_evaluators(judge, judge_model: str):
         )
 
     def answer_contains_normalized(*, output, expected_output, **kwargs):
-        answer = _normalize_answer_fragment(output["answer"])
+        answer = _normalize_answer_fragment(output.get("answer", NO_ANSWER))
         passed = all(
             _normalize_answer_fragment(part) in answer
             for part in _expected_parts(expected_output)
         )
+        if output.get("generation_status") in {"parse_error", "generation_error"}:
+            passed = False
         return Evaluation(
             name="answer_contains_normalized",
             value=passed,
@@ -171,8 +213,10 @@ def _make_evaluators(judge, judge_model: str):
         )
 
     def abstention_correct(*, input, output, expected_output, metadata, **kwargs):
+        if output.get("generation_status") in {"parse_error", "generation_error"}:
+            return Evaluation(name="abstention_correct", value=False, data_type="BOOLEAN")
         should_abstain = not metadata.get("expected_sources")
-        actually_abstained = output["answer"] == NO_ANSWER
+        actually_abstained = output.get("answer") == NO_ANSWER
         return Evaluation(
             name="abstention_correct",
             value=should_abstain == actually_abstained,
@@ -183,7 +227,11 @@ def _make_evaluators(judge, judge_model: str):
 
     def quality_judge(*, input, output, **kwargs):
         nonlocal judge_rate_limited
-        if not input["context"] or output["answer"] == NO_ANSWER:
+        if (
+            not input["context"]
+            or output.get("answer") == NO_ANSWER
+            or output.get("generation_status") in {"parse_error", "generation_error"}
+        ):
             return []
         if judge_rate_limited:
             return Evaluation(
@@ -264,11 +312,19 @@ def _make_evaluators(judge, judge_model: str):
 def _aggregate_run(*, item_results, **kwargs):
     grouped: dict[str, dict[str, list[float]]] = {}
     latencies: dict[str, list[float]] = {}
+    generation_counts: dict[str, Counter[str]] = {}
     for item_result in item_results:
         item = item_result.item
         metadata = item.metadata if hasattr(item, "metadata") else item.get("metadata", {})
         category = metadata.get("category", "unknown")
-        latency = item_result.output.get("latency_ms", 0)
+        output = item_result.output or {}
+        generation_status = output.get("generation_status", "unknown")
+        category_counts = generation_counts.setdefault(category, Counter())
+        category_counts["total"] += 1
+        category_counts[generation_status] += 1
+        if generation_status in {"success", "abstained", "parse_error", "generation_error"}:
+            category_counts["model_calls"] += 1
+        latency = output.get("latency_ms", 0)
         if latency:
             latencies.setdefault(category, []).append(float(latency))
         for evaluation in item_result.evaluations:
@@ -300,6 +356,21 @@ def _aggregate_run(*, item_results, **kwargs):
             name=f"{category}_latency_ms_mean",
             value=sum(values) / len(values),
             comment=f"Mean generation latency over {len(values)} completed cases.",
+            data_type="NUMERIC",
+        ))
+    for category, counts in sorted(generation_counts.items()):
+        for status, count in sorted(counts.items()):
+            results.append(Evaluation(
+                name=f"{category}_generation_{status}_count",
+                value=count,
+                comment=f"Generation status count for category '{category}'.",
+                data_type="NUMERIC",
+            ))
+        model_calls = counts["model_calls"]
+        results.append(Evaluation(
+            name=f"{category}_generation_parse_failure_rate",
+            value=counts["parse_error"] / model_calls if model_calls else 0.0,
+            comment=f"Parse failures divided by attempted model calls in '{category}'.",
             data_type="NUMERIC",
         ))
     return results
@@ -342,7 +413,8 @@ def run_experiment(
             run_name=f"{dataset_name}-{role}-{run_suffix}",
             description=(
                 "RAG model comparison using the same retrieved context. "
-                "Faithfulness and answer relevancy are LLM-as-a-judge scores."
+                "Structured Pydantic output; faithfulness and answer relevancy "
+                "are LLM-as-a-judge scores."
             ),
             data=dataset_items,
             task=_make_task(role),
@@ -355,6 +427,7 @@ def run_experiment(
                 "judge_model": available_models[judge_role],
                 "corpus": settings.rag_document_dir,
                 "dataset_version": DATASET_VERSION,
+                "prompt_version": PROMPT_VERSION,
                 "data_sharing": "user-approved synthetic question/context/answer evaluation",
             },
         )
@@ -372,6 +445,8 @@ def run_experiment(
     client.flush()
     return {
         "dataset": dataset_name,
+        "dataset_version": DATASET_VERSION,
+        "prompt_version": PROMPT_VERSION,
         "judge_role": judge_role,
         "judge_model": available_models[judge_role],
         "cases": len(cases),
@@ -390,13 +465,24 @@ if __name__ == "__main__":
     parser.add_argument("--judge-role", choices=("local", "strong", "fast", "default"), default="fast")
     parser.add_argument("--limit", type=int)
     parser.add_argument("--dataset-name", default=DATASET_NAME)
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     try:
-        print(json.dumps(
-            run_experiment(args.roles, args.judge_role, args.limit, args.dataset_name),
+        result = run_experiment(
+            args.roles,
+            args.judge_role,
+            args.limit,
+            args.dataset_name,
+        )
+        rendered = json.dumps(
+            result,
             ensure_ascii=False,
             indent=2,
-        ))
+        )
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(rendered + "\n", encoding="utf-8")
+        print(rendered)
     finally:
         from app.core.vector_store import close_pool
         flush_langfuse()

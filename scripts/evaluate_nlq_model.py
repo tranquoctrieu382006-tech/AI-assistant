@@ -12,7 +12,14 @@ from sqlglot import exp, parse
 
 from app.core.config import settings
 from app.core.llm import get_llm
-from app.core.tracing import init_tracing, is_langfuse_configured
+from app.core.tracing import (
+    flush_langfuse,
+    get_langfuse_handler,
+    init_tracing,
+    is_langfuse_configured,
+    langfuse_observation,
+    update_langfuse_observation,
+)
 from scripts.evaluate_nlq_golden import is_read_only_query, results_match
 
 LANGFUSE_DATASET_NAME = "ai-assistant-nlq-golden-v1"
@@ -61,7 +68,16 @@ def _load_schema_ddl() -> str:
     return "\n".join(statements)
 
 
-def evaluate(model_role: str = "local", limit: int | None = None) -> dict:
+def evaluate(
+    model_role: str = "local",
+    limit: int | None = None,
+    *,
+    trace_langfuse: bool = False,
+) -> dict:
+    if trace_langfuse and not is_langfuse_configured():
+        raise RuntimeError("Langfuse Cloud tracing was requested but is not configured.")
+    if trace_langfuse:
+        init_tracing()
     cases = json.loads(Path("data/nlq_golden_set.json").read_text(encoding="utf-8"))
     if limit is not None:
         if limit < 1:
@@ -79,7 +95,24 @@ def evaluate(model_role: str = "local", limit: int | None = None) -> dict:
             "\nQUESTION:\n" + case["question"]
         )
         try:
-            sql = _extract_sql(str(llm.invoke(prompt).content))
+            if trace_langfuse:
+                with langfuse_observation(
+                    name="nlq-sql-generation",
+                    input={"question": case["question"], "schema": schema},
+                ) as observation:
+                    handler = get_langfuse_handler()
+                    if handler is None:
+                        raise RuntimeError("Langfuse callback handler could not be created.")
+                    sql = _extract_sql(str(llm.invoke(
+                        prompt,
+                        config={"callbacks": [handler]},
+                    ).content))
+                    update_langfuse_observation(
+                        observation,
+                        output={"generated_sql": sql},
+                    )
+            else:
+                sql = _extract_sql(str(llm.invoke(prompt).content))
             result["generated_sql"] = sql
             statement_count, ordered = _sql_features(sql)
             if (not is_read_only_query(sql)
@@ -117,6 +150,8 @@ def evaluate(model_role: str = "local", limit: int | None = None) -> dict:
         for status in ("pass", "fail", "rejected", "error")
     }
     total = len(cases)
+    if trace_langfuse:
+        flush_langfuse()
     return {
         "model_role": model_role,
         "cases": total,
@@ -129,7 +164,7 @@ def evaluate(model_role: str = "local", limit: int | None = None) -> dict:
         ),
         "counts": counts,
         "model_evaluated": True,
-        "trace_uploaded": False,
+        "trace_uploaded": trace_langfuse,
         "results": results,
     }
 
@@ -288,16 +323,27 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, help="Write the complete result JSON to this path.")
     parser.add_argument("--langfuse", action="store_true",
                         help="Upload this completed synthetic evaluation to Langfuse.")
+    parser.add_argument(
+        "--trace-langfuse",
+        action="store_true",
+        help="Send one Langfuse generation trace per newly executed model call.",
+    )
     parser.add_argument("--upload-results", type=Path,
                         help="Upload an existing evaluation JSON without rerunning the model.")
     parser.add_argument("--dataset-name", default=LANGFUSE_DATASET_NAME)
     args = parser.parse_args()
     if args.upload_results and not args.langfuse:
         parser.error("--upload-results requires the explicit --langfuse opt-in.")
+    if args.trace_langfuse and args.upload_results:
+        parser.error("--trace-langfuse requires model execution; it cannot replay a saved file.")
     if args.upload_results:
         result = json.loads(args.upload_results.read_text(encoding="utf-8"))
     else:
-        result = evaluate(args.model_role, args.limit)
+        result = evaluate(
+            args.model_role,
+            args.limit,
+            trace_langfuse=args.trace_langfuse,
+        )
     if args.langfuse:
         result["langfuse"] = upload_langfuse_experiment(result, args.dataset_name)
     output = json.dumps(result, ensure_ascii=False, indent=2, default=str)

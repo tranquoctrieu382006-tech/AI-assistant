@@ -98,6 +98,7 @@ ai-assistant/
 │   ├── compare_chunking_strategies.py
 │   ├── evaluate_rag_answers.py
 │   ├── evaluate_rag_experiment.py
+│   ├── evaluate_rag_structured_local.py
 │   ├── evaluate_nlq_golden.py
 │   └── evaluate_nlq_model.py
 ├── tests/
@@ -137,10 +138,10 @@ Mặc định corpus gồm 12 tài liệu nghiệp vụ trong `data/demo_sales_w
 
 ```bash
 ollama pull bge-m3
-python -m scripts.ingest_documents
+python -m scripts.ingest_documents --strategy heading
 ```
 
-Pipeline đọc MD/TXT/DOCX/PDF, chia chunk rồi ghi embedding vào bảng `rag_chunks` (tự tạo nếu chưa có). Chunk giữ metadata nguồn, mục heading (Markdown/DOCX) và trang PDF. Sau khi cập nhật phiên bản có metadata mục, cần chạy lại ingestion để migrate schema và tái lập chỉ mục. `RAG_MIN_RELEVANCE_SCORE` cấu hình ngưỡng để API từ chối câu hỏi không có đoạn liên quan đủ mạnh. Hỏi tài liệu qua:
+Pipeline mặc định chia theo heading (`--strategy heading`); có thể chọn `--strategy fixed_size` để chia kích thước cố định có overlap. Hai cách được so sánh độc lập, không ghi vào vector store, bằng `python -m scripts.compare_chunking_strategies`. Pipeline dùng LangChain `TextLoader` cho MD/TXT và `PyPDFLoader` cho PDF; DOCX tiếp tục dùng parser `python-docx` để giữ thứ tự đoạn/bảng và style Heading mà `Docx2txtLoader` làm mất. Sau đó, pipeline ghi embedding vào bảng `rag_chunks` (tự tạo nếu chưa có). Chunk giữ metadata nguồn, mục heading (Markdown/DOCX) và trang PDF; chunk fixed-size trộn nhiều mục sẽ để section trống thay vì gắn sai mục. Sau khi cập nhật phiên bản có metadata mục, cần chạy lại ingestion để migrate schema và tái lập chỉ mục. `RAG_MIN_RELEVANCE_SCORE` cấu hình ngưỡng để API từ chối câu hỏi không có đoạn liên quan đủ mạnh. Hỏi tài liệu qua:
 
 ```bash
 curl -X POST http://localhost:8000/api/rag/ask \

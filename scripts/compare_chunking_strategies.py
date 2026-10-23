@@ -1,4 +1,4 @@
-"""Compare section-packed and paragraph-preserving chunking on the RAG golden set."""
+"""Compare fixed-size and heading-aware chunking on the RAG golden set."""
 import argparse
 import json
 import math
@@ -158,11 +158,11 @@ def evaluate() -> dict:
     top_k = max(settings.rag_top_k, 5)
     strategies = {
         strategy: _evaluate_strategy(strategy, cases, top_k)
-        for strategy in ("paragraph", "paragraph_blocks")
+        for strategy in ("fixed_size", "heading")
     }
     strategy_pairs = (
-        ("paragraph", strategies["paragraph"]["query_results"]),
-        ("paragraph_blocks", strategies["paragraph_blocks"]["query_results"]),
+        ("fixed_size", strategies["fixed_size"]["query_results"]),
+        ("heading", strategies["heading"]["query_results"]),
     )
     baseline, candidate = (pair[1] for pair in strategy_pairs)
     paired_ids = sorted(baseline.keys() & candidate.keys())
@@ -207,8 +207,8 @@ def evaluate() -> dict:
         "strategies": strategies,
         "paired_comparison": comparison,
         "limitations": (
-            "Compares section-packed text with extracted paragraph boundaries using "
-            "the configured embedding model; "
+            "Compares fixed-size chunks with chunks bounded by extracted heading "
+            "sections using the configured embedding model; "
             "not a held-out quality estimate. The active vector store is not modified."
         ),
     }
@@ -219,7 +219,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("eval/chunking_comparison_2026-10-23.json"),
+        default=Path("eval/chunking_fixed_size_vs_heading_2026-10-23.json"),
     )
     args = parser.parse_args()
     result = evaluate()

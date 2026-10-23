@@ -20,6 +20,8 @@ from scripts.evaluate_rag_experiment import _ensure_dataset
 from scripts.evaluate_rag_answers import evaluate as evaluate_rag_answers
 from langfuse import Evaluation
 from types import SimpleNamespace
+from langchain_core.exceptions import OutputParserException
+from app.core.rag_prompt import NO_ANSWER
 
 
 def test_nlq_accepts_select_and_with_queries_in_read_only_transaction():
@@ -270,22 +272,62 @@ def test_normalized_answer_evaluator_does_not_treat_synonyms_as_exact_match():
 def test_rag_experiment_aggregates_metric_denominators():
     item_result = SimpleNamespace(
         item=SimpleNamespace(metadata={"category": "simple"}),
-        output={"latency_ms": 25.0},
+        output={"latency_ms": 25.0, "generation_status": "success"},
         evaluations=[
             Evaluation(name="faithfulness", value=0.8, data_type="NUMERIC"),
             Evaluation(name="answer_contains", value=True, data_type="BOOLEAN"),
         ],
     )
+    parse_error_result = SimpleNamespace(
+        item=SimpleNamespace(metadata={"category": "simple"}),
+        output={
+            "latency_ms": 10.0,
+            "generation_status": "parse_error",
+            "error_type": "OutputParserException",
+        },
+        evaluations=[
+            Evaluation(name="answer_contains", value=False, data_type="BOOLEAN"),
+        ],
+    )
 
     scores = {
         score.name: score.value
-        for score in _aggregate_run(item_results=[item_result])
+        for score in _aggregate_run(item_results=[item_result, parse_error_result])
     }
 
     assert scores["simple_faithfulness_mean"] == 0.8
     assert scores["simple_faithfulness_count"] == 1
-    assert scores["simple_answer_contains_count"] == 1
-    assert scores["simple_latency_ms_mean"] == 25.0
+    assert scores["simple_answer_contains_count"] == 2
+    assert scores["simple_latency_ms_mean"] == 17.5
+    assert scores["simple_generation_parse_error_count"] == 1
+    assert scores["simple_generation_success_count"] == 1
+    assert scores["simple_generation_parse_failure_rate"] == 0.5
+
+
+def test_rag_experiment_task_records_parse_failure_without_aborting():
+    from unittest.mock import patch
+    from scripts.evaluate_rag_experiment import _make_task
+
+    class BrokenChain:
+        def invoke(self, value):
+            raise OutputParserException("invalid structured answer")
+
+    with patch("scripts.evaluate_rag_experiment.get_llm", return_value=object()):
+        with patch(
+            "scripts.evaluate_rag_experiment.build_rag_chain",
+            return_value=BrokenChain(),
+        ):
+            task = _make_task("local")
+
+    result = task(item=SimpleNamespace(
+        id="item-1",
+        input={"question": "Question?", "context": "Evidence."},
+    ))
+
+    assert result["answer"] == NO_ANSWER
+    assert result["generation_status"] == "parse_error"
+    assert result["error_type"] == "OutputParserException"
+    assert result["latency_ms"] >= 0
 
 
 def test_langfuse_dataset_creation_is_idempotent_for_existing_items():
@@ -293,7 +335,7 @@ def test_langfuse_dataset_creation_is_idempotent_for_existing_items():
     from unittest.mock import MagicMock, patch
 
     case_id = "rag-001"
-    item_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"ai-assistant-rag-v3-{case_id}"))
+    item_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"ai-assistant-rag-v4-{case_id}"))
     existing_item = SimpleNamespace(
         id=item_id,
         input={"question": "question", "context": "frozen context"},
@@ -330,7 +372,7 @@ def test_langfuse_dataset_rejects_stale_existing_golden_item():
     from unittest.mock import MagicMock, patch
 
     item_id = str(uuid.uuid5(
-        uuid.NAMESPACE_URL, "ai-assistant-rag-v3-rag-001"
+        uuid.NAMESPACE_URL, "ai-assistant-rag-v4-rag-001"
     ))
     stale_item = SimpleNamespace(
         id=item_id,

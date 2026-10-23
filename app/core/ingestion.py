@@ -14,7 +14,10 @@ def load_document_blocks(path: Path) -> list[tuple[int | None, str | None, str]]
     if suffix in {".md", ".txt"}:
         blocks = []
         sections: list[tuple[int, str]] = []
-        for line in path.read_text(encoding="utf-8-sig").splitlines():
+        from langchain_community.document_loaders import TextLoader
+
+        loaded = TextLoader(str(path), encoding="utf-8-sig").load()
+        for line in loaded[0].page_content.splitlines():
             text = line.strip()
             if not text:
                 continue
@@ -63,9 +66,18 @@ def load_document_blocks(path: Path) -> list[tuple[int | None, str | None, str]]
                         blocks.append((None, section, " | ".join(cells)))
         return blocks
     if suffix == ".pdf":
-        from pypdf import PdfReader
-        return [(number, None, page.extract_text() or "")
-                for number, page in enumerate(PdfReader(str(path)).pages, 1)]
+        from langchain_community.document_loaders import PyPDFLoader
+
+        pages = PyPDFLoader(str(path)).load()
+        blocks = []
+        for page in pages:
+            page_number = page.metadata.get("page")
+            if not isinstance(page_number, int) or page_number < 0:
+                raise ValueError(
+                    f"LangChain PDF loader returned an invalid page number for {path}."
+                )
+            blocks.append((page_number + 1, None, page.page_content or ""))
+        return blocks
     return []
 
 
@@ -157,10 +169,12 @@ def chunk_text(text: str, size: int | None = None, overlap: int | None = None) -
 
 def chunk_document_blocks(
     blocks: list[tuple[int | None, str | None, str]],
-    strategy: str = "paragraph",
+    strategy: str = "heading",
 ) -> list[dict]:
-    """Chunk document blocks, optionally preserving their extracted boundaries."""
-    if strategy not in {"paragraph", "paragraph_blocks"}:
+    """Chunk by fixed size or within extracted heading boundaries."""
+    if strategy == "paragraph":
+        strategy = "heading"
+    if strategy not in {"fixed_size", "heading", "paragraph_blocks"}:
         raise ValueError(f"Unsupported chunking strategy: {strategy}")
     if strategy == "paragraph_blocks":
         chunks = []
@@ -214,6 +228,26 @@ def chunk_document_blocks(
             )
         return chunks
 
+    if strategy == "fixed_size":
+        runs: list[tuple[int | None, set[str | None], str]] = []
+        for page_number, section, text in blocks:
+            if not text.strip():
+                continue
+            if runs and runs[-1][0] == page_number:
+                page, sections, current_text = runs[-1]
+                sections.add(section)
+                runs[-1] = (page, sections, f"{current_text}\n{text.strip()}")
+            else:
+                runs.append((page_number, {section}, text.strip()))
+        chunks = []
+        for page_number, sections, text in runs:
+            section = next(iter(sections)) if len(sections) == 1 else None
+            chunks.extend(
+                {"content": content, "section": section, "page_number": page_number}
+                for content in chunk_text(text)
+            )
+        return chunks
+
     runs: list[tuple[int | None, str | None, str]] = []
     for page_number, section, text in blocks:
         if not text.strip():
@@ -235,7 +269,7 @@ def chunk_document_blocks(
 
 def build_corpus_chunks(
     directory: str | Path | None = None,
-    strategy: str = "paragraph",
+    strategy: str = "heading",
 ) -> tuple[list[dict], list[str]]:
     """Build indexed chunks without changing the vector store."""
     root = Path(directory or settings.rag_document_dir)
@@ -256,9 +290,18 @@ def build_corpus_chunks(
     return records, sources
 
 
-def ingest_directory(directory: str | Path | None = None) -> dict:
+def ingest_directory(
+    directory: str | Path | None = None,
+    *,
+    strategy: str = "heading",
+) -> dict:
     from app.core.vector_store import replace_corpus_chunks
     root = Path(directory or settings.rag_document_dir)
-    records, sources = build_corpus_chunks(root)
+    records, sources = build_corpus_chunks(root, strategy=strategy)
     stored = replace_corpus_chunks(records, sources)
-    return {"files": len(sources), "chunks": stored, "directory": str(root)}
+    return {
+        "files": len(sources),
+        "chunks": stored,
+        "directory": str(root),
+        "chunking_strategy": strategy,
+    }
