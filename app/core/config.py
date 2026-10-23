@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     fast_model: str = "openai/gpt-4o-mini"
     local_model: str = "ollama/gemma3:12b"
     ollama_base_url: str = "http://localhost:11434"
+    embedding_model: str = "bge-m3"
+    database_url: str = "postgresql://postgres:postgres@localhost:5432/ai_assistant_demo"
+    rag_document_dir: str = "data/demo_sales_warehouse"
+    rag_chunk_size: int = 900
+    rag_chunk_overlap: int = 150
+    rag_top_k: int = 5
 
     # ── API Keys ────────────────────────────────────────────────
     openai_api_key: str = ""

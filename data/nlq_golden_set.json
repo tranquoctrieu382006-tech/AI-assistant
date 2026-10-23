@@ -1,0 +1,6 @@
+[
+  {"id":"nlq-001","question":"Có bao nhiêu sản phẩm?","sql":"SELECT COUNT(*) AS product_count FROM products;","expected":{"product_count":80}},
+  {"id":"nlq-002","question":"Có bao nhiêu khách hàng?","sql":"SELECT COUNT(*) AS customer_count FROM customers;","expected":{"customer_count":200}},
+  {"id":"nlq-003","question":"Có bao nhiêu đơn hàng?","sql":"SELECT COUNT(*) AS order_count FROM orders;","expected":{"order_count":300}},
+  {"id":"nlq-004","question":"Có bao nhiêu kho hàng?","sql":"SELECT COUNT(*) AS warehouse_count FROM warehouses;","expected":{"warehouse_count":3}}
+]

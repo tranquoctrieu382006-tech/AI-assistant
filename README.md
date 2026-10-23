@@ -89,6 +89,25 @@ psql -d ai_assistant_demo -f data/demo_sales_warehouse/schema_seed.sql
 
 Toàn bộ tên và email khách hàng trong seed là giả lập (`example.test`). Các quy chế/chính sách trong tài liệu cũng là nội dung mô phỏng để thử nghiệm, không dùng thay quy định doanh nghiệp thật.
 
+### Nạp tài liệu và hỏi đáp RAG
+
+Đảm bảo PostgreSQL có extension pgvector, Ollama đang chạy, sau đó tải model embedding và cấu hình `DATABASE_URL`, `RAG_DOCUMENT_DIR` trong `.env`:
+
+```bash
+ollama pull bge-m3
+python -m scripts.ingest_documents
+```
+
+Pipeline đọc MD/TXT/DOCX/PDF, chia chunk rồi ghi embedding vào bảng `rag_chunks` (tự tạo nếu chưa có). Hỏi tài liệu qua:
+
+```bash
+curl -X POST http://localhost:8000/api/rag/ask \
+  -H "Content-Type: application/json" \\
+  -d '{"question":"Nhân viên được nghỉ phép năm bao nhiêu ngày?","top_k":5}'
+```
+
+Phản hồi gồm `answer` và danh sách `sources`. Khi không có đoạn phù hợp, API trả lời rằng tài liệu hiện có chưa đủ thông tin. Golden set và lệnh đo Hit@k/MRR nằm trong `data/rag_golden_set.json` và `scripts/evaluate_rag_retrieval.py`.
+
 ## Benchmark mô hình
 
 Đặt API keys trong `.env`, cài dependencies từ `requirements.txt`, bảo đảm Ollama đang chạy và model `gemma3:12b` đã được tải. Sau đó chạy từ thư mục repo:
