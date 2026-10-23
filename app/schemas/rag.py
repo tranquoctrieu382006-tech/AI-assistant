@@ -18,3 +18,10 @@ class RagSource(BaseModel):
 class RagAskResponse(BaseModel):
     answer: str
     sources: list[RagSource]
+
+
+class RagGeneratedAnswer(BaseModel):
+    answer: str = Field(min_length=1, description="Câu trả lời tiếng Việt hoặc thông báo từ chối.")
+    abstain: bool = Field(
+        description="True nếu context không đủ thông tin để trả lời câu hỏi."
+    )

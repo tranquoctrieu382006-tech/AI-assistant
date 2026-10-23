@@ -46,13 +46,13 @@ Failure analysis: all four corrected paraphrases and both multi-document questio
 
 - One local RAG smoke answer correctly stated the seven-calendar-day return window and returned sources.
 - `answer_contains` remains a strict substring check, not a semantic correctness metric. The corrected v3 model comparison is complete; judge coverage is uneven because Groq returned HTTP 429, as detailed below.
-- `/api/rag/ask` now uses an LCEL chain (`ChatPromptTemplate | ChatModel | StrOutputParser`); the API answer remains a string and `sources` are still assembled from retrieval.
-- A direct HTTP request to `/api/rag/ask` returned 200 using only synthetic question/context and a mocked model/retriever. The Langfuse Cloud API then returned six observations for the trace: request, retrieval, LCEL sequence, prompt, synthetic model and output parser. [View the synthetic trace](https://cloud.langfuse.com/project/cmvj0s4r600axad0jz9ji8ki1/traces/470eb0d013621fc6b3d6112a83b0cdd4). This confirms Cloud delivery and request/callback wiring, not live retrieval or a real provider-model trace.
+- `/api/rag/ask` now uses an LCEL chain (`ChatPromptTemplate | ChatModel | PydanticOutputParser`) to validate generated `{answer, abstain}`. The public API remains `answer: str` and `sources` assembled from retrieval; malformed model output fails as HTTP 502.
+- A direct HTTP request to `/api/rag/ask` returned 200 using only synthetic question/context and a mocked model/retriever. The Langfuse Cloud API confirmed six observations: request, retrieval, LCEL sequence, prompt, synthetic model and `PydanticOutputParser`. [View the structured-output synthetic trace](https://cloud.langfuse.com/project/cmvj0s4r600axad0jz9ji8ki1/traces/32281c435ef6271194aab67b1b5e910e). This confirms Cloud delivery and request/callback wiring, not live retrieval or a real provider-model trace.
 - Compared section-packed chunking with paragraph-block-preserving chunking over the same 47-case set and local bge-m3 embeddings. Results: packed paragraph — 30 chunks, Hit@1 0.897, Hit@3 1.000, Hit@5 1.000, MRR 0.962, abstention 5/8; preserved blocks — 33 chunks, Hit@1 0.897, Hit@3 0.974, Hit@5 1.000, MRR 0.962, abstention 5/8. The block variant changed expected-source ranks for one case and did not improve retrieval, so the existing default remains. This is a development-set result, not held-out evidence; the active vector store was not modified. Full output: `eval/chunking_comparison_2026-10-23.json`.
 
 ## Tests and limitations
 
-- Current suite: **84 passed**, captured with `.venv\Scripts\python.exe -m pytest -q`. `pytest -q` is the reproducible command.
+- Current suite: **88 passed**, captured with `.venv\Scripts\python.exe -m pytest -q`. `pytest -q` is the reproducible command.
 - Python compile check passed. Live ingestion, retrieval, and the full 30-case NLQ evaluation were run. The earlier RAG model comparison used malformed new golden questions; its category scores are superseded pending the v3 rerun.
 - The benchmark script now warm-ups each model and reports median latency over three measured samples. Cost remains comparable only for the two Groq models with configured rates; other models report no cost estimate.
 - API key authentication and a 60-requests/minute per-IP in-process limit are now implemented. Multi-worker deployments still need a shared limiter or proxy-level enforcement.
@@ -75,6 +75,22 @@ The previous Langfuse v1 run used malformed additions; v2 was stopped with parti
 The Groq judge hit its daily token limit (HTTP 429) during the run. Counts show the judge denominator explicitly: it scored 32/33 local simple cases, all local paraphrase and multi-document cases, but only 1/33 strong simple cases and none of the strong paraphrase/multi-document cases. Do not compare the two candidates' judge means as if they had equal coverage. The runner was subsequently changed to stop calling a judge after its first 429; this circuit breaker was not active during this v3 run.
 
 The exact-answer metric is substring matching and is not semantic correctness; out-of-scope substring matches reflect the fixed refusal text. The single unblinded LLM judge is not human-validated. Results are development-set signals, not held-out evidence or a production model recommendation.
+
+### Manual review of strong-model answer misses
+
+The stored strong-candidate v3 outputs were reviewed against their dataset expectations; no model was rerun and no new data was uploaded. Strict substring scoring is sensitive to formatting and expected-fragment wording:
+
+| Category | Strict raw substring | After deterministic format normalization |
+|---|---:|---:|
+| Simple | 11/33 | 18/33 |
+| Paraphrase | 1/4 | 2/4 |
+| Multi-document | 0/2 | 0/2 |
+| Out of scope | 8/8 | 8/8 |
+| Total | 20/47 | 28/47 |
+
+The normalizer handles Unicode compatibility spaces/dashes and Markdown emphasis only; it deliberately does not infer synonyms. For example, `rag-001` answers the expected `08:30–17:30` as `**08:30 – 17:30**`, so typography alone caused the raw miss. Other raw misses use different but equivalent wording: `rag-003` says “đơn mua và phiếu điều chuyển” where the expected fragment joins terms with `/`; `rag-006` says “12 ngày mỗi năm” instead of “12 ngày/năm”; `rag-007` says “12:00 đến 13:00” instead of a dash-separated range. This shows the strict score understates some correct responses, but does not explain every miss.
+
+Some misses are end-to-end retrieval failures rather than answer formatting: `rag-029` is a supported inventory question, but its stored golden context is empty after the relevance cutoff, so the model abstains. Both multi-document exact-fragment checks still fail after normalization. The judge scored too few strong answers to conclude whether the remaining misses are factual errors or valid paraphrases. Future experiments emit both `answer_contains` (unchanged for continuity) and `answer_contains_normalized`; the normalized historical counts above were recalculated from existing Cloud outputs without rerunning the model.
 
 - Local experiment: https://cloud.langfuse.com/project/cmvj0s4r600axad0jz9ji8ki1/experiments/results?baseline=37eb4cf19217b692
 - Strong experiment: https://cloud.langfuse.com/project/cmvj0s4r600axad0jz9ji8ki1/experiments/results?baseline=cb9132e5ab224119

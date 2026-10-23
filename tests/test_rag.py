@@ -1,4 +1,5 @@
 import asyncio
+import json
 import sys
 import types
 import httpx
@@ -24,7 +25,10 @@ class FakeModel(RunnableLambda):
         async def invoke(prompt_value, config):
             self.prompt = prompt_value.to_messages()
             self.config = config
-            return AIMessage(content=self.content)
+            return AIMessage(content=json.dumps({
+                "answer": self.content,
+                "abstain": self.content == rag.NO_ANSWER,
+            }, ensure_ascii=False))
 
         super().__init__(invoke)
 
@@ -111,6 +115,51 @@ def test_rag_clears_sources_when_model_abstains():
             response = run_inline(rag.ask_rag(RagAskRequest(question="Câu hỏi?")))
     assert response.answer == rag.NO_ANSWER
     assert response.sources == []
+
+
+def test_rag_returns_pydantic_parsed_answer_and_honors_abstain_flag():
+    fake_store = types.ModuleType("app.core.vector_store")
+    fake_store.similarity_search = lambda question, k: [{
+        "content": "Evidence", "source": "policy.md", "chunk_index": 0, "score": 0.8
+    }]
+    model = FakeModel("The generated field is valid.")
+    with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
+          patch.object(rag, "get_llm", return_value=model),
+          patch.object(rag, "run_in_threadpool", inline_threadpool),
+          patch.object(rag, "get_langfuse_handler", return_value=None)):
+        with patch.object(rag.vector_store, "similarity_search", fake_store.similarity_search):
+            response = run_inline(rag.ask_rag(RagAskRequest(question="Question?")))
+
+    assert response.answer == "The generated field is valid."
+    assert '"answer"' in model.prompt[1].content
+    assert '"abstain"' in model.prompt[1].content
+
+
+def test_rag_rejects_invalid_structured_generation():
+    fake_store = types.ModuleType("app.core.vector_store")
+    fake_store.similarity_search = lambda question, k: [{
+        "content": "Evidence", "source": "policy.md", "chunk_index": 0, "score": 0.8
+    }]
+
+    class InvalidModel(RunnableLambda):
+        def __init__(self):
+            async def invoke(prompt_value, config):
+                return AIMessage(content="not valid structured output")
+
+            super().__init__(invoke)
+
+    with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
+          patch.object(rag, "get_llm", return_value=InvalidModel()),
+          patch.object(rag, "run_in_threadpool", inline_threadpool),
+          patch.object(rag, "get_langfuse_handler", return_value=None)):
+        with patch.object(rag.vector_store, "similarity_search", fake_store.similarity_search):
+            try:
+                run_inline(rag.ask_rag(RagAskRequest(question="Question?")))
+            except HTTPException as exc:
+                assert exc.status_code == 502
+                assert exc.detail == "RAG answer generation failed"
+            else:
+                raise AssertionError("Expected invalid structured output to fail")
 
 
 def test_rag_reports_retrieval_failure_without_leaking_exception_details():

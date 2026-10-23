@@ -3,8 +3,10 @@ import argparse
 import json
 import logging
 from pathlib import Path
+import re
 import time
 from typing import Any
+import unicodedata
 import uuid
 
 from langfuse import Evaluation, get_client
@@ -12,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.core.llm import get_available_models, get_llm
-from app.core.rag_prompt import NO_ANSWER, build_rag_messages, format_context
+from app.core.rag_prompt import NO_ANSWER, build_rag_chain, format_context
 from app.core.tracing import flush_langfuse, init_tracing, is_langfuse_configured
 
 DATASET_VERSION = "v3"
@@ -33,6 +35,14 @@ class QualityJudgment(BaseModel):
 def _expected_parts(expected_output: dict[str, Any]) -> list[str]:
     expected = expected_output["answer_contains"]
     return expected if isinstance(expected, list) else [expected]
+
+
+def _normalize_answer_fragment(value: str) -> str:
+    normalized = unicodedata.normalize("NFKC", value).casefold()
+    normalized = re.sub(r"[*_`]", "", normalized)
+    normalized = re.sub(r"[\u2010-\u2015\u2212]", "-", normalized)
+    normalized = re.sub(r"\s*-\s*", "-", normalized)
+    return " ".join(normalized.split())
 
 
 def _ensure_dataset(client, dataset_name: str, cases: list[dict]):
@@ -110,6 +120,7 @@ def _ensure_dataset(client, dataset_name: str, cases: list[dict]):
 
 def _make_task(role: str):
     llm = get_llm(role, temperature=0, max_retries=5)
+    chain = build_rag_chain(llm)
 
     def task(*, item, **kwargs):
         item_input = item.input if hasattr(item, "input") else item["input"]
@@ -118,9 +129,11 @@ def _make_task(role: str):
             return {"answer": NO_ANSWER, "latency_ms": 0.0}
 
         started = time.perf_counter()
-        answer = str(llm.invoke(
-            build_rag_messages(item_input["question"], context)
-        ).content).strip()
+        generated = chain.invoke({
+            "question": item_input["question"],
+            "context": context,
+        })
+        answer = NO_ANSWER if generated.abstain else generated.answer.strip()
         return {
             "answer": answer or NO_ANSWER,
             "latency_ms": (time.perf_counter() - started) * 1000,
@@ -139,6 +152,22 @@ def _make_evaluators(judge, judge_model: str):
             data_type="BOOLEAN",
             comment="All required golden answer fragments are present." if passed
             else "One or more required golden answer fragments are missing.",
+        )
+
+    def answer_contains_normalized(*, output, expected_output, **kwargs):
+        answer = _normalize_answer_fragment(output["answer"])
+        passed = all(
+            _normalize_answer_fragment(part) in answer
+            for part in _expected_parts(expected_output)
+        )
+        return Evaluation(
+            name="answer_contains_normalized",
+            value=passed,
+            data_type="BOOLEAN",
+            comment=(
+                "All required fragments match after Unicode compatibility, "
+                "Markdown emphasis, and spacing normalization."
+            ),
         )
 
     def abstention_correct(*, input, output, expected_output, metadata, **kwargs):
@@ -224,7 +253,12 @@ def _make_evaluators(judge, judge_model: str):
             ),
         ]
 
-    return [answer_contains, abstention_correct, quality_judge]
+    return [
+        answer_contains,
+        answer_contains_normalized,
+        abstention_correct,
+        quality_judge,
+    ]
 
 
 def _aggregate_run(*, item_results, **kwargs):

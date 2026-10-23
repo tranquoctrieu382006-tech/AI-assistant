@@ -11,7 +11,11 @@ from scripts.evaluate_nlq_model import (
     upload_langfuse_experiment,
 )
 from scripts.evaluate_rag_retrieval import _category_metrics, _retrieval_metrics
-from scripts.evaluate_rag_experiment import _aggregate_run, _make_evaluators
+from scripts.evaluate_rag_experiment import (
+    _aggregate_run,
+    _make_evaluators,
+    _normalize_answer_fragment,
+)
 from scripts.evaluate_rag_experiment import _ensure_dataset
 from scripts.evaluate_rag_answers import evaluate as evaluate_rag_answers
 from langfuse import Evaluation
@@ -200,7 +204,9 @@ def test_rag_quality_evaluator_scores_faithfulness_and_relevance():
                 '"answer_relevancy":{"score":0.8,"reason":"Direct"}}'
             ))
 
-    answer_contains, abstention, quality = _make_evaluators(FakeJudge(), "groq/judge")
+    answer_contains, answer_contains_normalized, abstention, quality = _make_evaluators(
+        FakeJudge(), "groq/judge"
+    )
     input_value = {
         "question": "Bao lâu?",
         "context": "Thời hạn là bảy ngày.",
@@ -208,6 +214,7 @@ def test_rag_quality_evaluator_scores_faithfulness_and_relevance():
     expected = {"answer_contains": "bảy ngày"}
     output = {"answer": "Khách có bảy ngày.", "latency_ms": 25.0}
     assert answer_contains(output=output, expected_output=expected).value is True
+    assert answer_contains_normalized(output=output, expected_output=expected).value is True
     assert abstention(
         input=input_value, output=output, expected_output=expected,
         metadata={"expected_sources": ["returns.pdf"]},
@@ -233,7 +240,7 @@ def test_rag_quality_judge_stops_repeating_calls_after_rate_limit():
             raise RateLimitError()
 
     judge = FakeJudge()
-    _, _, quality = _make_evaluators(judge, "groq/judge")
+    _, _, _, quality = _make_evaluators(judge, "groq/judge")
     input_value = {"question": "Question?", "context": "Evidence"}
     output = {"answer": "Answer"}
 
@@ -243,6 +250,21 @@ def test_rag_quality_judge_stops_repeating_calls_after_rate_limit():
     assert first.name == "judge_rate_limited"
     assert second.name == "judge_skipped_after_rate_limit"
     assert judge.calls == 1
+
+
+def test_answer_fragment_normalization_handles_markdown_unicode_and_spacing():
+    expected = "08:30–17:30"
+    answer = "**08:30 - 17:30**"
+    assert _normalize_answer_fragment(expected) in _normalize_answer_fragment(answer)
+
+
+def test_normalized_answer_evaluator_does_not_treat_synonyms_as_exact_match():
+    _, normalized, _, _ = _make_evaluators(None, "unused")
+    result = normalized(
+        output={"answer": "Nghỉ phép 12 ngày mỗi năm."},
+        expected_output={"answer_contains": "12 ngày/năm"},
+    )
+    assert result.value is False
 
 
 def test_rag_experiment_aggregates_metric_denominators():

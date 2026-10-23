@@ -137,11 +137,11 @@ flowchart LR
     REQ["POST /api/rag/ask"] --> ROOT["Request observation"]
     ROOT --> RET["Retrieval span"]
     RET --> CTX["Filtered context"]
-    CTX --> LLM["LCEL\nChatPromptTemplate | ChatModel | StrOutputParser"]
+    CTX --> LLM["LCEL\nChatPromptTemplate | ChatModel | PydanticOutputParser"]
     LLM --> RESP["Answer + retrieval sources"]
 ```
 
-`/api/rag/ask` dựng LCEL chain `ChatPromptTemplate | ChatModel | StrOutputParser`; đầu ra API vẫn là chuỗi answer, còn `sources` được tạo từ kết quả retrieval thay vì citation do LLM phát ra. Request observation bao ngoài retrieval span và callback được truyền vào chain. LangGraph chưa được dùng.
+`/api/rag/ask` dựng LCEL chain `ChatPromptTemplate | ChatModel | PydanticOutputParser`; parser kiểm tra đầu ra model theo `RagGeneratedAnswer` (`answer`, `abstain`). API giữ response schema ổn định với `answer` là chuỗi và `sources` do retrieval tạo, không lấy nguồn trích dẫn từ model. Request observation bao ngoài retrieval span và callback được truyền vào chain. LangGraph chưa được dùng.
 
 Chunking mặc định gộp các paragraph trong cùng section/page cho đến giới hạn kích thước. `paragraph_blocks` là biến thể đánh giá giữ riêng ranh giới block được trích xuất. So sánh trên golden set ngày 2026-10-23 không cho thấy lợi ích của biến thể này (Hit@3 0.974 so với 1.000); mặc định hiện tại không thay đổi. Xem kết quả trong `eval/chunking_comparison_2026-10-23.json`.
 
@@ -304,7 +304,7 @@ sequenceDiagram
 ## 7. Quyết định thiết kế quan trọng
 
 1. **Workflow hiện tại**
-   - RAG là luồng trực tiếp trong FastAPI; LCEL chain kết hợp `ChatPromptTemplate`, chat model và `StrOutputParser`.
+   - RAG là luồng trực tiếp trong FastAPI; LCEL chain kết hợp `ChatPromptTemplate`, chat model và Pydantic output parser.
    - NLQ model evaluation là script offline dùng seed DDL và read-only SQL.
    - LangGraph và NLQ API chưa được triển khai.
 
