@@ -59,6 +59,7 @@ async def _answer_rag(request: RagAskRequest) -> RagAskResponse:
                             "source": match["source"],
                             "chunk_index": match["chunk_index"],
                             "score": match["score"],
+                            "section": match.get("section"),
                         }
                         for match in matches
                     ],
@@ -92,6 +93,6 @@ async def _answer_rag(request: RagAskRequest) -> RagAskResponse:
         return RagAskResponse(answer=NO_ANSWER, sources=[])
     sources = list({(m["source"], m["chunk_index"]): RagSource(
         source=m["source"], chunk_index=m["chunk_index"], score=m["score"],
-        page_number=m.get("page_number")
+        page_number=m.get("page_number"), section=m.get("section")
     ) for m in matches}.values())
     return RagAskResponse(answer=answer or NO_ANSWER, sources=sources)

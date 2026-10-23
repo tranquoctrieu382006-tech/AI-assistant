@@ -2,6 +2,7 @@ import sys
 import types
 import httpx
 import pytest
+from contextlib import contextmanager
 from unittest.mock import patch
 
 from app.api import rag
@@ -14,9 +15,11 @@ class FakeModel:
     def __init__(self, content="Nhân viên được nghỉ 12 ngày."):
         self.content = content
         self.prompt = None
+        self.config = None
 
     async def ainvoke(self, prompt, config):
         self.prompt = prompt
+        self.config = config
         return types.SimpleNamespace(content=self.content)
 
 
@@ -155,3 +158,51 @@ async def test_rag_request_validation_uses_http_boundary():
         )
     assert short_question.status_code == 422
     assert invalid_top_k.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_rag_http_request_records_request_and_retrieval_spans():
+    observations = []
+    contexts = []
+    handler = object()
+    model = FakeModel()
+
+    @contextmanager
+    def observation(name, **kwargs):
+        observations.append(name)
+        yield object()
+
+    @contextmanager
+    def trace_context(**kwargs):
+        contexts.append(kwargs)
+        yield
+
+    matches = [{
+        "content": "Thời hạn đổi trả là bảy ngày.",
+        "source": "returns.md",
+        "chunk_index": 1,
+        "page_number": None,
+        "section": "Đổi trả",
+        "score": 0.9,
+    }]
+    with (patch.object(rag.vector_store, "similarity_search", return_value=matches),
+          patch.object(rag, "get_llm", return_value=model),
+          patch.object(rag, "get_langfuse_handler", return_value=handler),
+          patch.object(rag, "langfuse_observation", observation),
+          patch.object(rag, "langfuse_context", trace_context),
+          patch.object(rag, "update_langfuse_observation")):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/api/rag/ask",
+                json={"question": "Thời hạn đổi trả là bao lâu?", "session_id": "trace-test"},
+                headers={"X-API-Key": "test-api-key-with-more-than-32-characters"},
+            )
+
+    assert response.status_code == 200
+    assert response.json()["sources"][0]["section"] == "Đổi trả"
+    assert observations == ["rag-request", "rag-retrieval"]
+    assert contexts == [{"session_id": "trace-test", "tags": ["rag", "ai07"]}]
+    assert model.prompt is not None
+    assert "Đổi trả" in model.prompt[1].content
+    assert model.config["callbacks"] == [handler]

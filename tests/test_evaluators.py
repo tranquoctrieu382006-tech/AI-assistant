@@ -4,9 +4,11 @@ from decimal import Decimal
 from scripts.evaluate_nlq_golden import is_read_only_query, results_match
 from scripts.evaluate_rag_retrieval import source_matches
 from scripts.evaluate_nlq_model import (
+    _aggregate_nlq_run,
     _execution_results_match,
     _load_schema_ddl,
     _sql_features,
+    upload_langfuse_experiment,
 )
 from scripts.evaluate_rag_retrieval import _category_metrics, _retrieval_metrics
 from scripts.evaluate_rag_experiment import _aggregate_run, _make_evaluators
@@ -74,6 +76,88 @@ def test_model_evaluator_uses_seed_create_table_ddl():
     assert "INSERT INTO products" not in schema
 
 
+def test_rag_golden_set_new_cases_have_no_replacement_question_marks():
+    import json
+    from pathlib import Path
+
+    cases = json.loads(Path("data/rag_golden_set.json").read_text(encoding="utf-8"))
+    for case in cases:
+        for field in ("question", "answer_contains"):
+            value = case.get(field)
+            values = value if isinstance(value, list) else [value]
+            assert all(
+                not isinstance(item, str) or "?" not in item.rstrip("?")
+                for item in values
+            ), case["id"]
+
+
+def test_nlq_langfuse_aggregate_reports_accuracy_and_status_denominators():
+    results = [
+        SimpleNamespace(output={"status": "pass"}),
+        SimpleNamespace(output={"status": "fail"}),
+        SimpleNamespace(output={"status": "rejected"}),
+        SimpleNamespace(output={"status": "error"}),
+    ]
+
+    scores = {
+        score.name: score.value
+        for score in _aggregate_nlq_run(item_results=results)
+    }
+
+    assert scores == {
+        "execution_accuracy": 0.25,
+        "pass_cases": 1,
+        "fail_cases": 1,
+        "rejected_cases": 1,
+        "error_cases": 1,
+    }
+
+
+def test_nlq_langfuse_upload_replays_saved_results_without_model_calls(monkeypatch):
+    from unittest.mock import MagicMock, patch
+
+    result = {
+        "model_role": "local",
+        "cases": 1,
+        "results": [{
+            "id": "nlq-001",
+            "question": "Có bao nhiêu sản phẩm?",
+            "generated_sql": "SELECT COUNT(*) FROM products",
+            "status": "pass",
+            "expected": [{"count": 80}],
+            "actual": [{"count": 80}],
+        }],
+    }
+    item = SimpleNamespace(metadata={"case_id": "nlq-001"})
+    experiment = SimpleNamespace(
+        item_results=[item],
+        experiment_url="https://langfuse.test/experiment",
+        run_evaluations=[],
+    )
+    client = MagicMock()
+    client.run_experiment.return_value = experiment
+    monkeypatch.setattr("scripts.evaluate_nlq_model.is_langfuse_configured", lambda: True)
+    with (
+        patch("scripts.evaluate_nlq_model.init_tracing"),
+        patch("scripts.evaluate_nlq_model.get_client", return_value=client),
+        patch("scripts.evaluate_nlq_model._ensure_nlq_dataset", return_value=[item]),
+    ):
+        uploaded = upload_langfuse_experiment(result, "test-nlq-dataset")
+
+    call = client.run_experiment.call_args.kwargs
+    output = call["task"](item=item)
+    score = call["evaluators"][0](output=output)
+    aggregate = call["run_evaluators"][0](
+        item_results=[SimpleNamespace(output=output)]
+    )
+
+    assert uploaded["items"] == 1
+    assert output["generated_sql"] == "SELECT COUNT(*) FROM products"
+    assert score.value is True
+    assert {item.name: item.value for item in aggregate}["execution_accuracy"] == 1
+    client.flush.assert_called_once()
+
+
 def test_retrieval_metrics_require_all_expected_sources_for_multi_document_cases():
     record = {
         "category": "multi_document",
@@ -136,6 +220,31 @@ def test_rag_quality_evaluator_scores_faithfulness_and_relevance():
     assert scores[0].metadata == {"judge_model": "groq/judge"}
 
 
+def test_rag_quality_judge_stops_repeating_calls_after_rate_limit():
+    class RateLimitError(Exception):
+        status_code = 429
+
+    class FakeJudge:
+        def __init__(self):
+            self.calls = 0
+
+        def invoke(self, prompt):
+            self.calls += 1
+            raise RateLimitError()
+
+    judge = FakeJudge()
+    _, _, quality = _make_evaluators(judge, "groq/judge")
+    input_value = {"question": "Question?", "context": "Evidence"}
+    output = {"answer": "Answer"}
+
+    first = quality(input=input_value, output=output)
+    second = quality(input=input_value, output=output)
+
+    assert first.name == "judge_rate_limited"
+    assert second.name == "judge_skipped_after_rate_limit"
+    assert judge.calls == 1
+
+
 def test_rag_experiment_aggregates_metric_denominators():
     item_result = SimpleNamespace(
         item=SimpleNamespace(metadata={"category": "simple"}),
@@ -162,8 +271,16 @@ def test_langfuse_dataset_creation_is_idempotent_for_existing_items():
     from unittest.mock import MagicMock, patch
 
     case_id = "rag-001"
-    item_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"ai-assistant-rag-v1-{case_id}"))
-    existing_item = SimpleNamespace(id=item_id)
+    item_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"ai-assistant-rag-v3-{case_id}"))
+    existing_item = SimpleNamespace(
+        id=item_id,
+        input={"question": "question", "context": "frozen context"},
+        expected_output={"answer_contains": "answer"},
+        metadata={
+            "category": "simple",
+            "expected_sources": ["policy.md"],
+        },
+    )
     dataset = SimpleNamespace(items=[existing_item])
     client = MagicMock()
     client.get_dataset.return_value = dataset
@@ -184,6 +301,43 @@ def test_langfuse_dataset_creation_is_idempotent_for_existing_items():
     client.create_dataset_item.assert_not_called()
     search.assert_not_called()
     assert client.get_dataset.call_count == 2
+
+
+def test_langfuse_dataset_rejects_stale_existing_golden_item():
+    import uuid
+    from unittest.mock import MagicMock, patch
+
+    item_id = str(uuid.uuid5(
+        uuid.NAMESPACE_URL, "ai-assistant-rag-v3-rag-001"
+    ))
+    stale_item = SimpleNamespace(
+        id=item_id,
+        input={"question": "old question", "context": "old context"},
+        expected_output={"answer_contains": "old answer"},
+        metadata={"category": "simple", "expected_sources": ["policy.md"]},
+    )
+    client = MagicMock()
+    client.get_dataset.return_value = SimpleNamespace(items=[stale_item])
+
+    with patch("app.core.vector_store.similarity_search") as search:
+        try:
+            _ensure_dataset(
+                client,
+                "test-rag-dataset",
+                [{
+                    "id": "rag-001",
+                    "question": "corrected question",
+                    "answer_contains": "correct answer",
+                    "source": "policy.md",
+                }],
+            )
+        except RuntimeError as exc:
+            assert "new dataset version/name" in str(exc)
+        else:
+            raise AssertionError("Stale Langfuse item should be rejected")
+
+    search.assert_not_called()
+    client.create_dataset_item.assert_not_called()
 
 
 def test_rag_answer_smoke_evaluator_authenticates_to_protected_api(tmp_path, monkeypatch):

@@ -125,3 +125,25 @@ def test_similarity_search_registers_vector_once_after_extension_is_added():
 
     register.assert_called_once_with(connection)
     assert connection.execute.call_count == 4
+
+
+def test_similarity_search_returns_section_metadata():
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.side_effect = [
+        MagicMock(fetchone=MagicMock(return_value=("vector", "rag_chunks"))),
+        MagicMock(fetchall=MagicMock(return_value=[
+            ("policy text", "policy.md", 2, None, "Leave > Annual", 0.9)
+        ])),
+    ]
+    embeddings = MagicMock()
+    embeddings.embed_query.return_value = [0.1, 0.2]
+
+    with (patch.object(vector_store, "get_embeddings", return_value=embeddings),
+          patch.object(vector_store, "_connect", return_value=connection),
+          patch.object(vector_store, "register_vector"),
+          patch.object(vector_store, "Vector", side_effect=lambda value: value)):
+        results = vector_store.similarity_search("question")
+
+    assert results[0]["section"] == "Leave > Annual"
+    assert results[0]["score"] == 0.9

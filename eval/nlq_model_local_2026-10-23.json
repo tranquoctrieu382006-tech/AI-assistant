@@ -1,0 +1,2034 @@
+{
+  "model_role": "local",
+  "cases": 30,
+  "execution_correct": 16,
+  "execution_accuracy": 0.5333333333333333,
+  "executed_cases": 30,
+  "executed_accuracy": 0.5333333333333333,
+  "counts": {
+    "pass": 16,
+    "fail": 14,
+    "rejected": 0,
+    "error": 0
+  },
+  "model_evaluated": true,
+  "trace_uploaded": false,
+  "results": [
+    {
+      "id": "nlq-001",
+      "question": "Có bao nhiêu sản phẩm?",
+      "generated_sql": "SELECT COUNT(*) FROM products;",
+      "status": "pass",
+      "expected": [
+        {
+          "product_count": 80
+        }
+      ],
+      "actual": [
+        {
+          "count": 80
+        }
+      ]
+    },
+    {
+      "id": "nlq-002",
+      "question": "Có bao nhiêu khách hàng?",
+      "generated_sql": "SELECT\n  COUNT(*)\nFROM customers;",
+      "status": "pass",
+      "expected": [
+        {
+          "customer_count": 200
+        }
+      ],
+      "actual": [
+        {
+          "count": 200
+        }
+      ]
+    },
+    {
+      "id": "nlq-003",
+      "question": "Có bao nhiêu đơn hàng?",
+      "generated_sql": "SELECT\n  COUNT(order_id)\nFROM orders;",
+      "status": "pass",
+      "expected": [
+        {
+          "order_count": 300
+        }
+      ],
+      "actual": [
+        {
+          "count": 300
+        }
+      ]
+    },
+    {
+      "id": "nlq-004",
+      "question": "Có bao nhiêu kho hàng?",
+      "generated_sql": "SELECT COUNT(*) FROM warehouses;",
+      "status": "pass",
+      "expected": [
+        {
+          "warehouse_count": 3
+        }
+      ],
+      "actual": [
+        {
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": "nlq-005",
+      "question": "Có bao nhiêu sản phẩm đang kinh doanh?",
+      "generated_sql": "SELECT\n  COUNT(product_id)\nFROM products\nWHERE\n  active = TRUE;",
+      "status": "pass",
+      "expected": [
+        {
+          "active_product_count": 80
+        }
+      ],
+      "actual": [
+        {
+          "count": 80
+        }
+      ]
+    },
+    {
+      "id": "nlq-006",
+      "question": "Mỗi danh mục hiện có bao nhiêu sản phẩm?",
+      "generated_sql": "SELECT\n  c.name,\n  COUNT(p.product_id) AS product_count\nFROM categories AS c\nJOIN products AS p\n  ON c.category_id = p.category_id\nGROUP BY\n  c.name;",
+      "status": "pass",
+      "expected": [
+        {
+          "category": "Chăm sóc cá nhân",
+          "product_count": 10
+        },
+        {
+          "category": "Điện tử",
+          "product_count": 10
+        },
+        {
+          "category": "Đồ dùng du lịch",
+          "product_count": 10
+        },
+        {
+          "category": "Gia dụng",
+          "product_count": 10
+        },
+        {
+          "category": "Nhà bếp",
+          "product_count": 10
+        },
+        {
+          "category": "Phụ kiện",
+          "product_count": 10
+        },
+        {
+          "category": "Thể thao",
+          "product_count": 10
+        },
+        {
+          "category": "Văn phòng phẩm",
+          "product_count": 10
+        }
+      ],
+      "actual": [
+        {
+          "name": "Chăm sóc cá nhân",
+          "product_count": 10
+        },
+        {
+          "name": "Thể thao",
+          "product_count": 10
+        },
+        {
+          "name": "Gia dụng",
+          "product_count": 10
+        },
+        {
+          "name": "Văn phòng phẩm",
+          "product_count": 10
+        },
+        {
+          "name": "Điện tử",
+          "product_count": 10
+        },
+        {
+          "name": "Đồ dùng du lịch",
+          "product_count": 10
+        },
+        {
+          "name": "Phụ kiện",
+          "product_count": 10
+        },
+        {
+          "name": "Nhà bếp",
+          "product_count": 10
+        }
+      ]
+    },
+    {
+      "id": "nlq-007",
+      "question": "Có bao nhiêu khách hàng ở mỗi hạng thành viên?",
+      "generated_sql": "SELECT member_tier, COUNT(customer_id)\nFROM customers\nGROUP BY member_tier;",
+      "status": "pass",
+      "expected": [
+        {
+          "member_tier": "Bạc",
+          "customer_count": 50
+        },
+        {
+          "member_tier": "Đồng",
+          "customer_count": 50
+        },
+        {
+          "member_tier": "Kim cương",
+          "customer_count": 50
+        },
+        {
+          "member_tier": "Vàng",
+          "customer_count": 50
+        }
+      ],
+      "actual": [
+        {
+          "member_tier": "Đồng",
+          "count": 50
+        },
+        {
+          "member_tier": "Bạc",
+          "count": 50
+        },
+        {
+          "member_tier": "Kim cương",
+          "count": 50
+        },
+        {
+          "member_tier": "Vàng",
+          "count": 50
+        }
+      ]
+    },
+    {
+      "id": "nlq-008",
+      "question": "Số đơn hàng theo từng trạng thái là bao nhiêu?",
+      "generated_sql": "SELECT\n  status,\n  COUNT(order_id) AS order_count\nFROM orders\nGROUP BY\n  status;",
+      "status": "pass",
+      "expected": [
+        {
+          "status": "đã giao",
+          "order_count": 60
+        },
+        {
+          "status": "đã hủy",
+          "order_count": 60
+        },
+        {
+          "status": "đã xác nhận",
+          "order_count": 60
+        },
+        {
+          "status": "đang giao",
+          "order_count": 60
+        },
+        {
+          "status": "mới",
+          "order_count": 60
+        }
+      ],
+      "actual": [
+        {
+          "status": "mới",
+          "order_count": 60
+        },
+        {
+          "status": "đã xác nhận",
+          "order_count": 60
+        },
+        {
+          "status": "đã hủy",
+          "order_count": 60
+        },
+        {
+          "status": "đang giao",
+          "order_count": 60
+        },
+        {
+          "status": "đã giao",
+          "order_count": 60
+        }
+      ]
+    },
+    {
+      "id": "nlq-009",
+      "question": "Mỗi thành phố có bao nhiêu nhà cung cấp?",
+      "generated_sql": "SELECT\n  s.city,\n  COUNT(s.supplier_id)\nFROM suppliers AS s\nGROUP BY\n  s.city;",
+      "status": "pass",
+      "expected": [
+        {
+          "city": "Biên Hòa",
+          "supplier_count": 2
+        },
+        {
+          "city": "Cần Thơ",
+          "supplier_count": 2
+        },
+        {
+          "city": "Đà Nẵng",
+          "supplier_count": 2
+        },
+        {
+          "city": "Hà Nội",
+          "supplier_count": 1
+        },
+        {
+          "city": "Hải Phòng",
+          "supplier_count": 2
+        },
+        {
+          "city": "Huế",
+          "supplier_count": 2
+        },
+        {
+          "city": "Nha Trang",
+          "supplier_count": 2
+        },
+        {
+          "city": "TP Hồ Chí Minh",
+          "supplier_count": 2
+        }
+      ],
+      "actual": [
+        {
+          "city": "Hải Phòng",
+          "count": 2
+        },
+        {
+          "city": "Đà Nẵng",
+          "count": 2
+        },
+        {
+          "city": "TP Hồ Chí Minh",
+          "count": 2
+        },
+        {
+          "city": "Cần Thơ",
+          "count": 2
+        },
+        {
+          "city": "Huế",
+          "count": 2
+        },
+        {
+          "city": "Hà Nội",
+          "count": 1
+        },
+        {
+          "city": "Biên Hòa",
+          "count": 2
+        },
+        {
+          "city": "Nha Trang",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "nlq-010",
+      "question": "Tổng số lượng tồn kho hiện tại của từng kho là bao nhiêu?",
+      "generated_sql": "SELECT\n  wh.name AS warehouse_name,\n  SUM(i.on_hand) AS total_inventory\nFROM warehouses AS wh\nJOIN inventory AS i\n  ON wh.warehouse_id = i.warehouse_id\nGROUP BY\n  wh.name;",
+      "status": "pass",
+      "expected": [
+        {
+          "warehouse": "Kho Đà Nẵng",
+          "units_on_hand": 6079
+        },
+        {
+          "warehouse": "Kho Hà Nội",
+          "units_on_hand": 6897
+        },
+        {
+          "warehouse": "Kho TP Hồ Chí Minh",
+          "units_on_hand": 6973
+        }
+      ],
+      "actual": [
+        {
+          "warehouse_name": "Kho TP Hồ Chí Minh",
+          "total_inventory": 6973
+        },
+        {
+          "warehouse_name": "Kho Hà Nội",
+          "total_inventory": 6897
+        },
+        {
+          "warehouse_name": "Kho Đà Nẵng",
+          "total_inventory": 6079
+        }
+      ]
+    },
+    {
+      "id": "nlq-011",
+      "question": "Có bao nhiêu dòng tồn kho dưới 10 sản phẩm?",
+      "generated_sql": "SELECT\n  COUNT(*)\nFROM inventory\nWHERE\n  on_hand < 10;",
+      "status": "pass",
+      "expected": [
+        {
+          "low_stock_rows": 16
+        }
+      ],
+      "actual": [
+        {
+          "count": 16
+        }
+      ]
+    },
+    {
+      "id": "nlq-012",
+      "question": "Có bao nhiêu sản phẩm chưa có bản ghi tồn kho?",
+      "generated_sql": "SELECT\n  COUNT(p.product_id)\nFROM products AS p\nLEFT JOIN inventory AS i\n  ON p.product_id = i.product_id\nWHERE\n  i.product_id IS NULL;",
+      "status": "pass",
+      "expected": [
+        {
+          "products_without_inventory": 0
+        }
+      ],
+      "actual": [
+        {
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "nlq-013",
+      "question": "Giá bán trung bình theo danh mục sản phẩm là bao nhiêu?",
+      "generated_sql": "SELECT\n  c.name,\n  AVG(p.unit_price) AS average_price\nFROM categories AS c\nJOIN products AS p\n  ON c.category_id = p.category_id\nGROUP BY\n  c.name;",
+      "status": "fail",
+      "expected": [
+        {
+          "category": "Chăm sóc cá nhân",
+          "avg_price": 1232293.79
+        },
+        {
+          "category": "Điện tử",
+          "avg_price": 1705926.4
+        },
+        {
+          "category": "Đồ dùng du lịch",
+          "avg_price": 1830337.38
+        },
+        {
+          "category": "Gia dụng",
+          "avg_price": 1175508.59
+        },
+        {
+          "category": "Nhà bếp",
+          "avg_price": 989814.33
+        },
+        {
+          "category": "Phụ kiện",
+          "avg_price": 1366556.66
+        },
+        {
+          "category": "Thể thao",
+          "avg_price": 1541212.13
+        },
+        {
+          "category": "Văn phòng phẩm",
+          "avg_price": 1198507.43
+        }
+      ],
+      "actual": [
+        {
+          "name": "Chăm sóc cá nhân",
+          "average_price": "1232293.785000000000"
+        },
+        {
+          "name": "Thể thao",
+          "average_price": "1541212.133000000000"
+        },
+        {
+          "name": "Gia dụng",
+          "average_price": "1175508.585000000000"
+        },
+        {
+          "name": "Văn phòng phẩm",
+          "average_price": "1198507.432000000000"
+        },
+        {
+          "name": "Điện tử",
+          "average_price": "1705926.396000000000"
+        },
+        {
+          "name": "Đồ dùng du lịch",
+          "average_price": "1830337.380000000000"
+        },
+        {
+          "name": "Phụ kiện",
+          "average_price": "1366556.655000000000"
+        },
+        {
+          "name": "Nhà bếp",
+          "average_price": "989814.326000000000"
+        }
+      ]
+    },
+    {
+      "id": "nlq-014",
+      "question": "Doanh thu hàng hóa theo danh mục là bao nhiêu?",
+      "generated_sql": "SELECT\n  c.name,\n  SUM(oi.quantity * oi.unit_price) AS total_revenue\nFROM categories AS c\nJOIN products AS p\n  ON c.category_id = p.category_id\nJOIN order_items AS oi\n  ON p.product_id = oi.product_id\nGROUP BY\n  c.name\nORDER BY\n  total_revenue DESC;",
+      "status": "fail",
+      "expected": [
+        {
+          "category": "Chăm sóc cá nhân",
+          "revenue": 185668810.0
+        },
+        {
+          "category": "Điện tử",
+          "revenue": 197082052.0
+        },
+        {
+          "category": "Đồ dùng du lịch",
+          "revenue": 264155648.0
+        },
+        {
+          "category": "Gia dụng",
+          "revenue": 236277416.0
+        },
+        {
+          "category": "Nhà bếp",
+          "revenue": 220947347.0
+        },
+        {
+          "category": "Phụ kiện",
+          "revenue": 234848980.0
+        },
+        {
+          "category": "Thể thao",
+          "revenue": 195143471.0
+        },
+        {
+          "category": "Văn phòng phẩm",
+          "revenue": 186517536.0
+        }
+      ],
+      "actual": [
+        {
+          "name": "Đồ dùng du lịch",
+          "total_revenue": "264155648.00"
+        },
+        {
+          "name": "Gia dụng",
+          "total_revenue": "236277416.00"
+        },
+        {
+          "name": "Phụ kiện",
+          "total_revenue": "234848980.00"
+        },
+        {
+          "name": "Nhà bếp",
+          "total_revenue": "220947347.00"
+        },
+        {
+          "name": "Điện tử",
+          "total_revenue": "197082052.00"
+        },
+        {
+          "name": "Thể thao",
+          "total_revenue": "195143471.00"
+        },
+        {
+          "name": "Văn phòng phẩm",
+          "total_revenue": "186517536.00"
+        },
+        {
+          "name": "Chăm sóc cá nhân",
+          "total_revenue": "185668810.00"
+        }
+      ]
+    },
+    {
+      "id": "nlq-015",
+      "question": "Năm sản phẩm bán ra nhiều nhất theo số lượng là những sản phẩm nào?",
+      "generated_sql": "SELECT\n  p.name\nFROM products AS p\nJOIN order_items AS oi\n  ON p.product_id = oi.product_id\nGROUP BY\n  p.product_id\nORDER BY\n  SUM(oi.quantity) DESC\nLIMIT 1;",
+      "status": "fail",
+      "expected": [
+        {
+          "product_id": 34,
+          "units_sold": 54
+        },
+        {
+          "product_id": 76,
+          "units_sold": 48
+        },
+        {
+          "product_id": 26,
+          "units_sold": 47
+        },
+        {
+          "product_id": 31,
+          "units_sold": 46
+        },
+        {
+          "product_id": 24,
+          "units_sold": 43
+        }
+      ],
+      "actual": [
+        {
+          "name": "Chuột không dây mẫu 34"
+        }
+      ]
+    },
+    {
+      "id": "nlq-016",
+      "question": "Năm khách hàng có tổng giá trị hàng đã đặt cao nhất là ai (theo mã khách)?",
+      "generated_sql": "SELECT\n  c.customer_id\nFROM customers AS c\nJOIN orders AS o\n  ON c.customer_id = o.customer_id\nJOIN order_items AS oi\n  ON o.order_id = oi.order_id\nGROUP BY\n  c.customer_id\nORDER BY\n  SUM(oi.quantity * oi.unit_price) DESC\nLIMIT 1;",
+      "status": "fail",
+      "expected": [
+        {
+          "customer_id": 31,
+          "spend": 20749139.0
+        },
+        {
+          "customer_id": 97,
+          "spend": 20542274.0
+        },
+        {
+          "customer_id": 35,
+          "spend": 18087415.0
+        },
+        {
+          "customer_id": 16,
+          "spend": 17342762.0
+        },
+        {
+          "customer_id": 14,
+          "spend": 17322167.0
+        }
+      ],
+      "actual": [
+        {
+          "customer_id": 31
+        }
+      ]
+    },
+    {
+      "id": "nlq-017",
+      "question": "Số đơn theo tháng trong năm 2026 là bao nhiêu?",
+      "generated_sql": "SELECT\n  COUNT(order_id)\nFROM orders\nWHERE\n  EXTRACT(\n    YEAR\n    FROM order_date\n  ) = 2026;",
+      "status": "fail",
+      "expected": [
+        {
+          "month": "2026-01",
+          "order_count": 10
+        },
+        {
+          "month": "2026-02",
+          "order_count": 10
+        },
+        {
+          "month": "2026-03",
+          "order_count": 10
+        },
+        {
+          "month": "2026-04",
+          "order_count": 10
+        },
+        {
+          "month": "2026-05",
+          "order_count": 10
+        },
+        {
+          "month": "2026-06",
+          "order_count": 10
+        },
+        {
+          "month": "2026-07",
+          "order_count": 11
+        },
+        {
+          "month": "2026-08",
+          "order_count": 7
+        }
+      ],
+      "actual": [
+        {
+          "count": 78
+        }
+      ]
+    },
+    {
+      "id": "nlq-018",
+      "question": "Có bao nhiêu đơn ở mỗi trạng thái chưa giao thành công?",
+      "generated_sql": "SELECT\n  status,\n  COUNT(order_id)\nFROM orders\nWHERE\n  delivered_date IS NULL\nGROUP BY\n  status;",
+      "status": "pass",
+      "expected": [
+        {
+          "status": "đã hủy",
+          "order_count": 60
+        },
+        {
+          "status": "đã xác nhận",
+          "order_count": 60
+        },
+        {
+          "status": "đang giao",
+          "order_count": 60
+        },
+        {
+          "status": "mới",
+          "order_count": 60
+        }
+      ],
+      "actual": [
+        {
+          "status": "mới",
+          "count": 60
+        },
+        {
+          "status": "đã xác nhận",
+          "count": 60
+        },
+        {
+          "status": "đã hủy",
+          "count": 60
+        },
+        {
+          "status": "đang giao",
+          "count": 60
+        }
+      ]
+    },
+    {
+      "id": "nlq-019",
+      "question": "Số đơn đã giao thành công theo tháng trong quý IV/2025 là bao nhiêu?",
+      "generated_sql": "SELECT\n  COUNT(order_id)\nFROM orders\nWHERE\n  EXTRACT(\n    MONTH\n    FROM order_date\n  ) BETWEEN 10 AND 12\n  AND EXTRACT(\n    YEAR\n    FROM order_date\n  ) = 2025\n  AND status = 'đã giao'\n  AND delivered_date IS NOT NULL;",
+      "status": "fail",
+      "expected": [
+        {
+          "month": "2025-10",
+          "delivered_orders": 4
+        },
+        {
+          "month": "2025-11",
+          "delivered_orders": 2
+        },
+        {
+          "month": "2025-12",
+          "delivered_orders": 2
+        }
+      ],
+      "actual": [
+        {
+          "count": 8
+        }
+      ]
+    },
+    {
+      "id": "nlq-020",
+      "question": "Phí giao hàng trung bình theo trạng thái đơn là bao nhiêu?",
+      "generated_sql": "SELECT\n  status,\n  AVG(shipping_fee) AS average_shipping_fee\nFROM orders\nGROUP BY\n  status;",
+      "status": "pass",
+      "expected": [
+        {
+          "status": "đã giao",
+          "avg_shipping_fee": 0.0
+        },
+        {
+          "status": "đã hủy",
+          "avg_shipping_fee": 0.0
+        },
+        {
+          "status": "đã xác nhận",
+          "avg_shipping_fee": 0.0
+        },
+        {
+          "status": "đang giao",
+          "avg_shipping_fee": 0.0
+        },
+        {
+          "status": "mới",
+          "avg_shipping_fee": 0.0
+        }
+      ],
+      "actual": [
+        {
+          "status": "mới",
+          "average_shipping_fee": "0E-20"
+        },
+        {
+          "status": "đã xác nhận",
+          "average_shipping_fee": "0E-20"
+        },
+        {
+          "status": "đã hủy",
+          "average_shipping_fee": "0E-20"
+        },
+        {
+          "status": "đang giao",
+          "average_shipping_fee": "0E-20"
+        },
+        {
+          "status": "đã giao",
+          "average_shipping_fee": "0E-20"
+        }
+      ]
+    },
+    {
+      "id": "nlq-021",
+      "question": "Năm thành phố có nhiều khách hàng nhất là những thành phố nào?",
+      "generated_sql": "SELECT city, COUNT(customer_id) AS customer_count\nFROM customers\nGROUP BY city\nORDER BY customer_count DESC\nLIMIT 5;",
+      "status": "fail",
+      "expected": [
+        {
+          "city": "Biên Hòa",
+          "customer_count": 25
+        },
+        {
+          "city": "Cần Thơ",
+          "customer_count": 25
+        },
+        {
+          "city": "Đà Nẵng",
+          "customer_count": 25
+        },
+        {
+          "city": "Hà Nội",
+          "customer_count": 25
+        },
+        {
+          "city": "Hải Phòng",
+          "customer_count": 25
+        }
+      ],
+      "actual": [
+        {
+          "city": "Nha Trang",
+          "customer_count": 25
+        },
+        {
+          "city": "TP Hồ Chí Minh",
+          "customer_count": 25
+        },
+        {
+          "city": "Cần Thơ",
+          "customer_count": 25
+        },
+        {
+          "city": "Huế",
+          "customer_count": 25
+        },
+        {
+          "city": "Hải Phòng",
+          "customer_count": 25
+        }
+      ]
+    },
+    {
+      "id": "nlq-022",
+      "question": "Giá trị hàng trung bình của một đơn hàng là bao nhiêu?",
+      "generated_sql": "SELECT AVG(shipping_fee) AS average_order_value\nFROM orders;",
+      "status": "fail",
+      "expected": [
+        {
+          "avg_order_value": 5735470.87
+        }
+      ],
+      "actual": [
+        {
+          "average_order_value": "0E-20"
+        }
+      ]
+    },
+    {
+      "id": "nlq-023",
+      "question": "Có bao nhiêu đơn hàng gồm nhiều hơn một dòng sản phẩm?",
+      "generated_sql": "SELECT\n  COUNT(order_id)\nFROM order_items\nGROUP BY\n  order_id\nHAVING\n  COUNT(product_id) > 1;",
+      "status": "fail",
+      "expected": [
+        {
+          "multi_line_orders": 300
+        }
+      ],
+      "actual": [
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        },
+        {
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": "nlq-024",
+      "question": "Có bao nhiêu đơn chưa có ngày giao?",
+      "generated_sql": "SELECT COUNT(*)\nFROM orders\nWHERE delivered_date IS NULL;",
+      "status": "pass",
+      "expected": [
+        {
+          "undelivered_date_orders": 240
+        }
+      ],
+      "actual": [
+        {
+          "count": 240
+        }
+      ]
+    },
+    {
+      "id": "nlq-025",
+      "question": "Số lần biến động kho theo từng loại là bao nhiêu?",
+      "generated_sql": "SELECT\n  COUNT(movement_id) AS so_lan_bien_dong\nFROM stock_movements\nGROUP BY\n  movement_type;",
+      "status": "fail",
+      "expected": [
+        {
+          "movement_type": "điều chỉnh",
+          "movement_count": 200
+        },
+        {
+          "movement_type": "nhập",
+          "movement_count": 200
+        },
+        {
+          "movement_type": "xuất",
+          "movement_count": 200
+        }
+      ],
+      "actual": [
+        {
+          "so_lan_bien_dong": 200
+        },
+        {
+          "so_lan_bien_dong": 200
+        },
+        {
+          "so_lan_bien_dong": 200
+        }
+      ]
+    },
+    {
+      "id": "nlq-026",
+      "question": "Tổng số lượng biến động theo kho và loại biến động là bao nhiêu?",
+      "generated_sql": "SELECT\n  warehouse_id,\n  movement_type,\n  SUM(quantity) AS total_quantity\nFROM stock_movements\nGROUP BY\n  warehouse_id,\n  movement_type;",
+      "status": "fail",
+      "expected": [
+        {
+          "warehouse": "Kho Đà Nẵng",
+          "movement_type": "điều chỉnh",
+          "moved_units": 3066
+        },
+        {
+          "warehouse": "Kho Hà Nội",
+          "movement_type": "xuất",
+          "moved_units": 3188
+        },
+        {
+          "warehouse": "Kho TP Hồ Chí Minh",
+          "movement_type": "nhập",
+          "moved_units": 3194
+        }
+      ],
+      "actual": [
+        {
+          "warehouse_id": 3,
+          "movement_type": "nhập",
+          "total_quantity": 3194
+        },
+        {
+          "warehouse_id": 2,
+          "movement_type": "điều chỉnh",
+          "total_quantity": 3066
+        },
+        {
+          "warehouse_id": 1,
+          "movement_type": "xuất",
+          "total_quantity": 3188
+        }
+      ]
+    },
+    {
+      "id": "nlq-027",
+      "question": "Năm nhà cung cấp có nhiều sản phẩm nhất là những ai (theo mã)?",
+      "generated_sql": "SELECT\n  s.supplier_id\nFROM suppliers AS s\nJOIN products AS p\n  ON s.supplier_id = p.supplier_id\nGROUP BY\n  s.supplier_id\nORDER BY\n  COUNT(p.product_id) DESC\nLIMIT 1;",
+      "status": "fail",
+      "expected": [
+        {
+          "supplier_id": 1,
+          "product_count": 6
+        },
+        {
+          "supplier_id": 2,
+          "product_count": 6
+        },
+        {
+          "supplier_id": 3,
+          "product_count": 6
+        },
+        {
+          "supplier_id": 4,
+          "product_count": 6
+        },
+        {
+          "supplier_id": 5,
+          "product_count": 6
+        }
+      ],
+      "actual": [
+        {
+          "supplier_id": 4
+        }
+      ]
+    },
+    {
+      "id": "nlq-028",
+      "question": "Danh mục nào có doanh thu hàng hóa cao nhất?",
+      "generated_sql": "SELECT\n  c.name\nFROM categories AS c\nJOIN products AS p\n  ON c.category_id = p.category_id\nJOIN order_items AS oi\n  ON p.product_id = oi.product_id\nGROUP BY\n  c.name\nORDER BY\n  SUM(oi.quantity * oi.unit_price) DESC\nLIMIT 1;",
+      "status": "fail",
+      "expected": [
+        {
+          "category": "Đồ dùng du lịch",
+          "revenue": 264155648.0
+        }
+      ],
+      "actual": [
+        {
+          "name": "Đồ dùng du lịch"
+        }
+      ]
+    },
+    {
+      "id": "nlq-029",
+      "question": "Giá thấp nhất và cao nhất theo danh mục là bao nhiêu?",
+      "generated_sql": "SELECT\n  c.name AS category_name,\n  MIN(p.unit_price) AS min_price,\n  MAX(p.unit_price) AS max_price\nFROM categories AS c\nJOIN products AS p\n  ON c.category_id = p.category_id\nGROUP BY\n  c.name\nORDER BY\n  c.name;",
+      "status": "pass",
+      "expected": [
+        {
+          "category": "Chăm sóc cá nhân",
+          "min_price": 102956.88,
+          "max_price": 2715399.8
+        },
+        {
+          "category": "Điện tử",
+          "min_price": 445778.49,
+          "max_price": 3180970.76
+        },
+        {
+          "category": "Đồ dùng du lịch",
+          "min_price": 553149.94,
+          "max_price": 2963016.17
+        },
+        {
+          "category": "Gia dụng",
+          "min_price": 101616.69,
+          "max_price": 2157747.72
+        },
+        {
+          "category": "Nhà bếp",
+          "min_price": 94113.76,
+          "max_price": 2744090.34
+        },
+        {
+          "category": "Phụ kiện",
+          "min_price": 236126.68,
+          "max_price": 2755202.3
+        },
+        {
+          "category": "Thể thao",
+          "min_price": 128513.02,
+          "max_price": 2650545.18
+        },
+        {
+          "category": "Văn phòng phẩm",
+          "min_price": 100868.1,
+          "max_price": 2936696.79
+        }
+      ],
+      "actual": [
+        {
+          "category_name": "Chăm sóc cá nhân",
+          "min_price": "102956.88",
+          "max_price": "2715399.80"
+        },
+        {
+          "category_name": "Điện tử",
+          "min_price": "445778.49",
+          "max_price": "3180970.76"
+        },
+        {
+          "category_name": "Đồ dùng du lịch",
+          "min_price": "553149.94",
+          "max_price": "2963016.17"
+        },
+        {
+          "category_name": "Gia dụng",
+          "min_price": "101616.69",
+          "max_price": "2157747.72"
+        },
+        {
+          "category_name": "Nhà bếp",
+          "min_price": "94113.76",
+          "max_price": "2744090.34"
+        },
+        {
+          "category_name": "Phụ kiện",
+          "min_price": "236126.68",
+          "max_price": "2755202.30"
+        },
+        {
+          "category_name": "Thể thao",
+          "min_price": "128513.02",
+          "max_price": "2650545.18"
+        },
+        {
+          "category_name": "Văn phòng phẩm",
+          "min_price": "100868.10",
+          "max_price": "2936696.79"
+        }
+      ]
+    },
+    {
+      "id": "nlq-030",
+      "question": "Tổng doanh thu hàng hóa theo năm đặt hàng là bao nhiêu?",
+      "generated_sql": "SELECT\n  SUM(oi.quantity * oi.unit_price)\nFROM order_items AS oi\nJOIN orders AS o\n  ON oi.order_id = o.order_id\nWHERE\n  EXTRACT(\n    YEAR\n    FROM o.order_date\n  ) = EXTRACT(\n    YEAR\n    FROM CURRENT_DATE\n  );",
+      "status": "fail",
+      "expected": [
+        {
+          "year": 2025,
+          "revenue": 1281097291.0
+        },
+        {
+          "year": 2026,
+          "revenue": 439543969.0
+        }
+      ],
+      "actual": [
+        {
+          "sum": "439543969.00"
+        }
+      ]
+    }
+  ],
+  "langfuse": {
+    "dataset": "ai-assistant-nlq-golden-v1",
+    "items": 30,
+    "experiment_url": "https://cloud.langfuse.com/project/cmvj0s4r600axad0jz9ji8ki1/experiments/results?baseline=d4ef3f9b8e58150c",
+    "scores": [
+      {
+        "name": "execution_accuracy",
+        "value": 0.5333333333333333
+      },
+      {
+        "name": "pass_cases",
+        "value": 16
+      },
+      {
+        "name": "fail_cases",
+        "value": 14
+      },
+      {
+        "name": "rejected_cases",
+        "value": 0
+      },
+      {
+        "name": "error_cases",
+        "value": 0
+      }
+    ]
+  }
+}

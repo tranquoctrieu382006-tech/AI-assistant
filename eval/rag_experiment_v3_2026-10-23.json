@@ -1,0 +1,249 @@
+{
+  "dataset": "ai-assistant-rag-golden-v3",
+  "judge_role": "fast",
+  "judge_model": "groq/openai/gpt-oss-20b",
+  "cases": 47,
+  "results": [
+    {
+      "model_role": "local",
+      "model": "ollama/gemma3:12b",
+      "items": 47,
+      "experiment_url": "https://cloud.langfuse.com/project/cmvj0s4r600axad0jz9ji8ki1/experiments/results?baseline=37eb4cf19217b692",
+      "scores": [
+        {
+          "name": "multi_document_abstention_correct_mean",
+          "value": 1.0
+        },
+        {
+          "name": "multi_document_abstention_correct_count",
+          "value": 2
+        },
+        {
+          "name": "multi_document_answer_contains_mean",
+          "value": 1.0
+        },
+        {
+          "name": "multi_document_answer_contains_count",
+          "value": 2
+        },
+        {
+          "name": "multi_document_answer_relevancy_mean",
+          "value": 1.0
+        },
+        {
+          "name": "multi_document_answer_relevancy_count",
+          "value": 2
+        },
+        {
+          "name": "multi_document_faithfulness_mean",
+          "value": 1.0
+        },
+        {
+          "name": "multi_document_faithfulness_count",
+          "value": 2
+        },
+        {
+          "name": "out_of_scope_abstention_correct_mean",
+          "value": 1.0
+        },
+        {
+          "name": "out_of_scope_abstention_correct_count",
+          "value": 8
+        },
+        {
+          "name": "out_of_scope_answer_contains_mean",
+          "value": 1.0
+        },
+        {
+          "name": "out_of_scope_answer_contains_count",
+          "value": 8
+        },
+        {
+          "name": "paraphrase_abstention_correct_mean",
+          "value": 1.0
+        },
+        {
+          "name": "paraphrase_abstention_correct_count",
+          "value": 4
+        },
+        {
+          "name": "paraphrase_answer_contains_mean",
+          "value": 1.0
+        },
+        {
+          "name": "paraphrase_answer_contains_count",
+          "value": 4
+        },
+        {
+          "name": "paraphrase_answer_relevancy_mean",
+          "value": 0.975
+        },
+        {
+          "name": "paraphrase_answer_relevancy_count",
+          "value": 4
+        },
+        {
+          "name": "paraphrase_faithfulness_mean",
+          "value": 1.0
+        },
+        {
+          "name": "paraphrase_faithfulness_count",
+          "value": 4
+        },
+        {
+          "name": "simple_abstention_correct_mean",
+          "value": 0.9696969696969697
+        },
+        {
+          "name": "simple_abstention_correct_count",
+          "value": 33
+        },
+        {
+          "name": "simple_answer_contains_mean",
+          "value": 0.9090909090909091
+        },
+        {
+          "name": "simple_answer_contains_count",
+          "value": 33
+        },
+        {
+          "name": "simple_answer_relevancy_mean",
+          "value": 1.0
+        },
+        {
+          "name": "simple_answer_relevancy_count",
+          "value": 32
+        },
+        {
+          "name": "simple_faithfulness_mean",
+          "value": 1.0
+        },
+        {
+          "name": "simple_faithfulness_count",
+          "value": 32
+        },
+        {
+          "name": "multi_document_latency_ms_mean",
+          "value": 12888.784200000373
+        },
+        {
+          "name": "out_of_scope_latency_ms_mean",
+          "value": 7416.614633333666
+        },
+        {
+          "name": "paraphrase_latency_ms_mean",
+          "value": 8632.74792500033
+        },
+        {
+          "name": "simple_latency_ms_mean",
+          "value": 7721.553684374953
+        }
+      ]
+    },
+    {
+      "model_role": "strong",
+      "model": "groq/openai/gpt-oss-120b",
+      "items": 47,
+      "experiment_url": "https://cloud.langfuse.com/project/cmvj0s4r600axad0jz9ji8ki1/experiments/results?baseline=cb9132e5ab224119",
+      "scores": [
+        {
+          "name": "multi_document_abstention_correct_mean",
+          "value": 1.0
+        },
+        {
+          "name": "multi_document_abstention_correct_count",
+          "value": 2
+        },
+        {
+          "name": "multi_document_answer_contains_mean",
+          "value": 0.0
+        },
+        {
+          "name": "multi_document_answer_contains_count",
+          "value": 2
+        },
+        {
+          "name": "out_of_scope_abstention_correct_mean",
+          "value": 1.0
+        },
+        {
+          "name": "out_of_scope_abstention_correct_count",
+          "value": 8
+        },
+        {
+          "name": "out_of_scope_answer_contains_mean",
+          "value": 1.0
+        },
+        {
+          "name": "out_of_scope_answer_contains_count",
+          "value": 8
+        },
+        {
+          "name": "paraphrase_abstention_correct_mean",
+          "value": 1.0
+        },
+        {
+          "name": "paraphrase_abstention_correct_count",
+          "value": 4
+        },
+        {
+          "name": "paraphrase_answer_contains_mean",
+          "value": 0.25
+        },
+        {
+          "name": "paraphrase_answer_contains_count",
+          "value": 4
+        },
+        {
+          "name": "simple_abstention_correct_mean",
+          "value": 0.9696969696969697
+        },
+        {
+          "name": "simple_abstention_correct_count",
+          "value": 33
+        },
+        {
+          "name": "simple_answer_contains_mean",
+          "value": 0.3333333333333333
+        },
+        {
+          "name": "simple_answer_contains_count",
+          "value": 33
+        },
+        {
+          "name": "simple_answer_relevancy_mean",
+          "value": 1.0
+        },
+        {
+          "name": "simple_answer_relevancy_count",
+          "value": 1
+        },
+        {
+          "name": "simple_faithfulness_mean",
+          "value": 1.0
+        },
+        {
+          "name": "simple_faithfulness_count",
+          "value": 1
+        },
+        {
+          "name": "multi_document_latency_ms_mean",
+          "value": 1436.8953000002875
+        },
+        {
+          "name": "out_of_scope_latency_ms_mean",
+          "value": 807.74863333257
+        },
+        {
+          "name": "paraphrase_latency_ms_mean",
+          "value": 5399.029574999986
+        },
+        {
+          "name": "simple_latency_ms_mean",
+          "value": 8360.721478124902
+        }
+      ]
+    }
+  ],
+  "note": "Faithfulness and answer relevancy use one unblinded LLM judge. Scores are comparative development evidence, not human-validated quality."
+}

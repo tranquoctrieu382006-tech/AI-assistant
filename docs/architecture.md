@@ -1,51 +1,44 @@
 # Kiến trúc hệ thống Mini AI Assistant
 
 > **Phiên bản**: 0.1.0
-> **Cập nhật**: 2026-10-22
+> **Cập nhật**: 2026-10-23
 > **Tác giả**: Trần Quốc Triệu – Intern AI, IOC
 
 ## 1. Tổng quan
 
-Mini AI Assistant là hệ thống trợ lý AI nội bộ tích hợp hai chức năng chính:
+Mini AI Assistant hiện có API hỏi đáp RAG và các script đánh giá NLQ:
 
-- **RAG (Retrieval-Augmented Generation)**: Tìm kiếm và trả lời câu hỏi từ tài liệu nội bộ tiếng Việt (PDF/DOCX/MD).
+- **RAG (Retrieval-Augmented Generation)**: Tìm kiếm và trả lời câu hỏi từ tài liệu nội bộ tiếng Việt (PDF/DOCX/MD/TXT).
 - **NLQ (Natural Language Query)**: Chuyển câu hỏi tự nhiên thành truy vấn SQL trên cơ sở dữ liệu PostgreSQL.
 
-Hệ thống được xây dựng trên FastAPI + LangChain + LangGraph, hỗ trợ đa mô hình (local & cloud), và tích hợp Langfuse để theo dõi chất lượng.
+API được xây dựng trên FastAPI + LangChain, hỗ trợ đa mô hình (local & cloud), và tích hợp Langfuse tracing tùy cấu hình. NLQ hiện là evaluator offline; chưa có endpoint NLQ trong API. LangGraph chưa được dùng trong luồng runtime hiện tại.
 
 ## 2. Sơ đồ kiến trúc tổng thể
 
 ```mermaid
 flowchart TB
     subgraph Client["Client Layer"]
-        UI["Streamlit UI / REST Client"]
+        UI["REST Client"]
     end
 
     subgraph API["FastAPI Backend"]
-        GW["API Gateway\n/api/rag/ask\n/api/nlq/ask\n/api/health"]
+        GW["API Gateway\n/api/rag/ask\n/api/health"]
         MW["Middleware\nCORS · Auth · Logging"]
     end
 
-    subgraph Orchestration["LangGraph Orchestration"]
-        RT["Intent Router\n(fast model)"]
-        RAG["RAG Subgraph"]
-        NLQ["NLQ Subgraph"]
-    end
-
     subgraph RAG_Pipeline["RAG Pipeline"]
-        RL["Document Loader\nDocling / LangChain"]
-        SP["Text Splitter\nRecursiveCharacter"]
+        RL["Document Loader\npython-docx / pypdf / text"]
+        SP["Section-aware chunking\n900 chars / 150 overlap"]
         EM["Embedding\nbge-m3"]
         VS["Vector Store\nPGVector"]
-        RET["Retriever\nMMR / Similarity"]
-        SYN["Synthesizer\n(strong model)"]
+        RET["Retriever\ncosine similarity"]
+        SYN["LLM ainvoke\n(local by default)"]
     end
 
     subgraph NLQ_Pipeline["NLQ Pipeline"]
-        SC["Schema Loader\nData Dictionary"]
-        SG["SQL Generator\n(strong model)"]
+        SC["Schema Loader\nseed DDL"]
+        SG["SQL Generator\nevaluation script"]
         EX["SQL Executor\nPostgreSQL"]
-        FMT["Answer Formatter\n(fast model)"]
     end
 
     subgraph LLM_Layer["Multi-Model LLM Layer"]
@@ -66,26 +59,18 @@ flowchart TB
     end
 
     UI --> GW
-    GW --> MW --> RT
-
-    RT -->|"intent=rag"| RAG
-    RT -->|"intent=nlq"| NLQ
-
-    RAG --> RET --> SYN
+    GW --> MW --> RET --> SYN
     RL --> SP --> EM --> VS
-
-    NLQ --> SC --> SG --> EX --> FMT
+    VS --> RET
+    SC --> SG --> EX
 
     SYN --> LM
     SG --> LM
-    FMT --> LM
-    RT --> LM
 
     LM --> OL
     LM --> OA
     LM --> GG
 
-    RET --> PGV
     VS --> PGV
     EX --> PG
     RL --> DOCS
@@ -95,7 +80,6 @@ flowchart TB
 
     style Client fill:#e3f2fd,stroke:#1565c0
     style API fill:#fff3e0,stroke:#ef6c00
-    style Orchestration fill:#f3e5f5,stroke:#7b1fa2
     style RAG_Pipeline fill:#e8f5e9,stroke:#2e7d32
     style NLQ_Pipeline fill:#fce4ec,stroke:#c62828
     style LLM_Layer fill:#fff8e1,stroke:#f9a825
@@ -111,9 +95,8 @@ flowchart TB
 |----------|--------|:----------:|
 | `GET /api/health` | Readiness check (Ollama, Langfuse) | ✅ |
 | `GET /api/health/live` | Liveness probe | ✅ |
-| `GET /api/health/verify-model` | Kiểm tra model (debug only) | ✅ |
-| `POST /api/rag/ask` | Hỏi đáp từ tài liệu | 🔜 Tuần 2 |
-| `POST /api/nlq/ask` | Hỏi đáp từ database | 🔜 Tuần 2 |
+| `GET /api/health/verify-model` | Kiểm tra model (debug only, cần API key) | ✅ |
+| `POST /api/rag/ask` | Hỏi đáp từ tài liệu | ✅ |
 
 **Lifespan**: Khởi tạo tracing → kiểm tra Ollama async → flush traces khi shutdown.
 
@@ -147,64 +130,47 @@ Các endpoint RAG và kiểm tra model yêu cầu `X-API-Key`; `/api/health` và
 | `fast` | Router, rewrite, format | `openai/gpt-4o-mini` | Phản hồi nhanh, chi phí thấp |
 | `strong` | SQL phức tạp, synthesize | `openai/gpt-4o` | Chất lượng cao nhất |
 
-### 3.3 LangGraph Orchestration (Tuần 2)
+### 3.3 Request flow and tracing
 
 ```mermaid
-stateDiagram-v2
-    [*] --> Router
-    Router --> RAG: intent = rag
-    Router --> NLQ: intent = nlq
-    Router --> Clarify: intent = unclear
-
-    RAG --> Rewrite: query cần cải thiện
-    Rewrite --> RAG
-    RAG --> Synthesize
-    Synthesize --> [*]
-
-    NLQ --> GenerateSQL
-    GenerateSQL --> ValidateSQL
-    ValidateSQL --> ExecuteSQL: SQL hợp lệ
-    ValidateSQL --> GenerateSQL: SQL lỗi (retry)
-    ExecuteSQL --> FormatAnswer
-    FormatAnswer --> [*]
-
-    Clarify --> [*]
+flowchart LR
+    REQ["POST /api/rag/ask"] --> ROOT["Request observation"]
+    ROOT --> RET["Retrieval span"]
+    RET --> CTX["Filtered context"]
+    CTX --> LLM["Chat model ainvoke"]
+    LLM --> RESP["Answer + retrieval sources"]
 ```
 
-**Nguyên tắc gắn tracing vào LangGraph**:
-- Handler gắn ở cấp `graph.invoke(..., config={"callbacks": [handler]})`, không gắn từng LLM
-- Mỗi request tạo handler riêng (tránh lẫn session khi concurrent)
-- Đặt tên node và tag theo role (`router`, `sql_gen`, `synthesize`)
-
-Trong API RAG hiện tại, mỗi request tạo trace gốc; `rag-retrieval` là span riêng ghi lại câu hỏi, context/nguồn đã truy xuất và điểm liên quan, còn callback LLM ghi nhận generation. Nội dung tracing chỉ gửi lên Langfuse nếu được cấu hình.
+`/api/rag/ask` gọi `ainvoke` trực tiếp, không dựng LCEL chain hoặc LangGraph. Request observation bao ngoài retrieval span; LangChain callback được truyền vào lần gọi model. `sources` trong response được tạo từ kết quả retrieval, không phải citation do LLM phát ra. Test HTTP boundary kiểm tra wiring này; nó không khẳng định Cloud đã nhận trace thật.
 
 ### 3.4 RAG Pipeline
 
 ```mermaid
 flowchart LR
-    A["Tài liệu\n(PDF/DOCX/MD)"] --> B["Document Loader\n(Docling/LangChain)"]
-    B --> C["Text Splitter\nchunk_size=1000\noverlap=200"]
+    A["Tài liệu\n(PDF/DOCX/MD/TXT)"] --> B["python-docx / pypdf / text"]
+    B --> C["Chunker\n900 chars / 150 overlap"]
     C --> D["Embedding\nbge-m3"]
     D --> E["PGVector\nPostgreSQL"]
-    E --> F["Retriever\nMMR k=5"]
+    E --> F["Retriever\ncosine similarity k=5"]
     F --> G["Prompt + Context"]
-    G --> H["LLM\n(strong model)"]
-    H --> I["Câu trả lời\n+ nguồn trích dẫn"]
+    G --> H["LLM\n(configured RAG model; local by default)"]
+    H --> I["Câu trả lời\n+ nguồn từ retrieval"]
 ```
 
-### 3.5 NLQ Pipeline
+Markdown headings and DOCX Heading styles are stored as section metadata; PDF chunks retain page numbers. Other formats or PDF headings are not inferred. Re-run document ingestion after deployment to apply the section-column migration and rebuild chunks.
+
+### 3.5 NLQ model evaluator (offline)
 
 ```mermaid
 flowchart LR
-    A["Câu hỏi\ntiếng Việt"] --> B["Schema Context\nData Dictionary"]
-    B --> C["SQL Generator\n(strong model)"]
-    C --> D["SQL Validator\nsyntax + safety"]
+    A["Câu hỏi golden\n(tiếng Việt)"] --> B["Schema Context\nseed DDL"]
+    B --> C["SQL Generator\n(configured model)"]
+    C --> D["SQLGlot + read-only guard"]
     D --> E["PostgreSQL\nExecutor"]
-    E --> F["Result Formatter\n(fast model)"]
-    F --> G["Câu trả lời\n+ SQL đã chạy"]
+    E --> F["Compare with expected rows"]
 ```
 
-**An toàn SQL**: Chỉ cho phép SELECT, cấm DROP/DELETE/UPDATE/INSERT. Giới hạn LIMIT mặc định.
+This is an offline evaluation script, not an API pipeline. It accepts one SELECT/WITH statement, executes it in a read-only transaction with a timeout, and compares rows with the golden set. There is no NLQ endpoint or answer formatter in the current app.
 
 ### 3.6 Langfuse Observability (`app/core/tracing.py`)
 
@@ -214,7 +180,7 @@ flowchart LR
     CTX --> HANDLER["CallbackHandler\n(per-request)"]
     HANDLER --> TRACE["Trace\nLangfuse Cloud"]
     TRACE --> DASH["Dashboard\nLatency · Token · Cost"]
-    TRACE --> EVAL["Evaluation\nRagas · Custom"]
+    TRACE --> EVAL["Evaluation\nCustom Langfuse evaluators"]
 
     SHUT["App Shutdown"] --> FLUSH["flush_langfuse()"]
     FLUSH --> TRACE
@@ -265,7 +231,7 @@ erDiagram
 | Layer | Công nghệ | Phiên bản |
 |-------|-----------|-----------|
 | Backend | FastAPI + Uvicorn | 0.115+ |
-| Orchestration | LangChain + LangGraph | 0.3+ |
+| Orchestration | Direct FastAPI flow + LangChain model calls | Current |
 | LLM Local | Ollama (gemma3:12b) | latest |
 | LLM Cloud | OpenAI API, Google GenAI | gpt-4o, gemini-2.0-flash |
 | Embedding | bge-m3 (BAAI) | – |
@@ -310,55 +276,33 @@ ai-assistant/
 └── README.md
 ```
 
-## 6. Luồng xử lý request (dự kiến)
+## 6. Luồng xử lý hiện tại
 
 ```mermaid
 sequenceDiagram
     actor User
     participant API as FastAPI
-    participant LG as LangGraph
-    participant Router as Intent Router
-    participant RAG as RAG Chain
-    participant NLQ as NLQ Chain
-    participant LLM as LLM (get_llm)
-    participant DB as PostgreSQL
+    participant RET as PGVector retrieval
+    participant LLM as Chat model (ainvoke)
     participant LF as Langfuse
 
-    User->>API: POST /api/rag/ask hoặc /api/nlq/ask
-    API->>LF: langfuse_context(session_id, user_id)
-    API->>LG: graph.invoke(query, config={callbacks})
-
-    LG->>Router: classify intent
-    Router->>LLM: get_llm("fast")
-
-    alt RAG
-        LG->>RAG: retrieve + synthesize
-        RAG->>DB: PGVector similarity search
-        DB-->>RAG: relevant chunks
-        RAG->>LLM: get_llm("strong") + context
-        LLM-->>RAG: answer
-    else NLQ
-        LG->>NLQ: generate SQL + execute
-        NLQ->>LLM: get_llm("strong") + schema
-        LLM-->>NLQ: SQL query
-        NLQ->>DB: execute SELECT
-        DB-->>NLQ: result rows
-        NLQ->>LLM: get_llm("fast") + format
-        LLM-->>NLQ: formatted answer
-    end
-
-    LG-->>API: response
-    API->>LF: flush traces (at shutdown)
+    User->>API: POST /api/rag/ask
+    API->>LF: request observation + session context
+    API->>RET: similarity_search(question, top_k)
+    RET-->>API: chunks, scores, source metadata
+    API->>LF: retrieval span (when configured)
+    API->>LLM: ainvoke(prompt, callbacks)
+    LLM-->>API: answer text
+    API->>API: attach sources from retrieved chunks
     API-->>User: JSON response
 ```
 
 ## 7. Quyết định thiết kế quan trọng
 
-1. **Tại sao LangGraph thay vì chain đơn giản?**
-   - Cần router giữa RAG và NLQ
-   - NLQ cần retry loop khi SQL lỗi
-   - RAG có thể cần rewrite query
-   - Dễ mở rộng thêm tác vụ mới
+1. **Workflow hiện tại**
+   - RAG là luồng trực tiếp trong FastAPI; `ainvoke` nhận prompt/context và Langfuse callback.
+   - NLQ model evaluation là script offline dùng seed DDL và read-only SQL.
+   - LangGraph/LCEL orchestration và NLQ API chưa được triển khai.
 
 2. **Tại sao multi-model?**
    - Local model cho dữ liệu nhạy cảm và offline
@@ -368,7 +312,7 @@ sequenceDiagram
 3. **Tại sao Langfuse thay vì LangSmith?**
    - Hỗ trợ self-host (tương lai)
    - Tích hợp tốt với LangChain qua CallbackHandler
-   - Dashboard đánh giá chất lượng (Ragas integration)
+   - Dashboard trace; evaluator hiện tại là custom LLM-as-a-judge, không phải Ragas.
 
 4. **Tại sao PostgreSQL + pgvector?**
    - Một database cho cả business data (NLQ) và vector store (RAG)

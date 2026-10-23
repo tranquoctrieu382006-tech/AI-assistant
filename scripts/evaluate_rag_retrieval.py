@@ -78,6 +78,7 @@ def evaluate(k: int = 5) -> dict:
     cases = json.loads(Path("data/rag_golden_set.json").read_text(encoding="utf-8"))
     records = []
     abstentions = []
+    failure_examples = []
     abstention_correct = 0
     for case in cases:
         results = similarity_search(case["question"], k=max(k, 5))
@@ -94,6 +95,23 @@ def evaluate(k: int = 5) -> dict:
                 "ranks": [rank for rank in ranks if rank is not None],
                 "results": results,
             })
+            if not all(ranks):
+                found = [
+                    {
+                        "source": item["source"],
+                        "rank": index,
+                        "score": item["score"],
+                    }
+                    for index, item in enumerate(results[:k], 1)
+                ]
+                failure_examples.append({
+                    "id": case["id"],
+                    "category": case.get("category", "simple"),
+                    "question": case["question"],
+                    "expected_sources": expected_sources,
+                    "expected_source_ranks": ranks,
+                    "retrieved_top_sources": found,
+                })
             print(f"{case['id']}: {'HIT' if all(ranks) else 'MISS'} "
                   f"ranks={ranks} top={results[0]['source'] if results else '-'}")
         else:
@@ -103,6 +121,22 @@ def evaluate(k: int = 5) -> dict:
                 "category": case.get("category", "out_of_scope"),
                 "correct": abstained,
             })
+            if not abstained:
+                failure_examples.append({
+                    "id": case["id"],
+                    "category": case.get("category", "out_of_scope"),
+                    "question": case["question"],
+                    "expected_sources": [],
+                    "expected_abstention": True,
+                    "retrieved_top_sources": [
+                        {
+                            "source": item["source"],
+                            "rank": index,
+                            "score": item["score"],
+                        }
+                        for index, item in enumerate(results[:k], 1)
+                    ],
+                })
             print(f"{case['id']}: {'ABSTAIN PASS' if abstained else 'ABSTAIN FAIL'} "
                   f"top_score={results[0]['score'] if results else '-'}")
 
@@ -117,6 +151,7 @@ def evaluate(k: int = 5) -> dict:
         "mrr": answerable["mrr"],
         f"expected_source_coverage@{k}": answerable[f"expected_source_coverage@{k}"],
         "by_category": categories,
+        "failure_examples": failure_examples,
         "abstention_cases": total_abstentions,
         "abstention_accuracy": abstention_correct / total_abstentions if total_abstentions else None,
         "abstention_note": "Small sample; report count and do not treat the rate as a stable quality estimate.",

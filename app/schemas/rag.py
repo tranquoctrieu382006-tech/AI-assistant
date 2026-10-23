@@ -12,6 +12,7 @@ class RagSource(BaseModel):
     chunk_index: int
     score: float
     page_number: int | None = None
+    section: str | None = None
 
 
 class RagAskResponse(BaseModel):

@@ -4,8 +4,8 @@ Mini AI Assistant – Hỏi đáp tài liệu (RAG) & truy vấn dữ liệu b�
 
 ## Tech Stack
 
-- **Python 3.11+**, **FastAPI**, **LangChain + LangGraph**
-- **Langfuse** (tracing, prompt management, eval)
+- **Python 3.11+**, **FastAPI**, **LangChain** (RAG API; NLQ is an offline evaluator)
+- **Langfuse** (optional tracing and RAG model experiments)
 - **PostgreSQL + pgvector** (vector store)
 - **Ollama** (local LLM)
 
@@ -139,7 +139,7 @@ ollama pull bge-m3
 python -m scripts.ingest_documents
 ```
 
-Pipeline đọc MD/TXT/DOCX/PDF, chia chunk rồi ghi embedding vào bảng `rag_chunks` (tự tạo nếu chưa có). `RAG_MIN_RELEVANCE_SCORE` cấu hình ngưỡng để API từ chối câu hỏi không có đoạn liên quan đủ mạnh. Hỏi tài liệu qua:
+Pipeline đọc MD/TXT/DOCX/PDF, chia chunk rồi ghi embedding vào bảng `rag_chunks` (tự tạo nếu chưa có). Chunk giữ metadata nguồn, mục heading (Markdown/DOCX) và trang PDF. Sau khi cập nhật phiên bản có metadata mục, cần chạy lại ingestion để migrate schema và tái lập chỉ mục. `RAG_MIN_RELEVANCE_SCORE` cấu hình ngưỡng để API từ chối câu hỏi không có đoạn liên quan đủ mạnh. Hỏi tài liệu qua:
 
 ```bash
 curl -X POST http://localhost:8000/api/rag/ask \
@@ -148,9 +148,9 @@ curl -X POST http://localhost:8000/api/rag/ask \
   -d '{"question":"Nhân viên được nghỉ phép năm bao nhiêu ngày?","top_k":5}'
 ```
 
-Phản hồi gồm `answer` và danh sách `sources` có đường dẫn, đoạn, điểm và số trang (với PDF). API lọc từng chunk dưới ngưỡng và trả `sources: []` khi từ chối trả lời. Chạy `python -m scripts.evaluate_rag_retrieval` để đo Hit@1/3/5, MRR và độ bao phủ nguồn yêu cầu theo nhóm câu; multi-document chỉ được tính hit khi tìm thấy đủ tất cả nguồn. `python -m scripts.evaluate_rag_answers` kiểm tra chuỗi đáp án trên API đang chạy, gồm từng mảnh đáp án với câu tổng hợp. Đây là bộ đo phát triển trên corpus nhỏ, không phải đánh giá held-out. NLQ golden script chỉ xác nhận SQL tham chiếu khớp dữ liệu seed, không đo khả năng sinh SQL của mô hình.
+Phản hồi gồm `answer` và danh sách `sources` có đường dẫn, mục, đoạn, điểm và số trang (với PDF). API lọc từng chunk dưới ngưỡng và trả `sources: []` khi từ chối trả lời. Chạy `python -m scripts.evaluate_rag_retrieval` để đo Hit@1/3/5, MRR và độ bao phủ nguồn yêu cầu theo nhóm câu; multi-document chỉ được tính hit khi tìm thấy đủ tất cả nguồn. `python -m scripts.evaluate_rag_answers` kiểm tra chuỗi đáp án trên API đang chạy, gồm từng mảnh đáp án với câu tổng hợp. Đây là bộ đo phát triển trên corpus nhỏ, không phải đánh giá held-out. NLQ golden script chỉ xác nhận SQL tham chiếu khớp dữ liệu seed, không đo khả năng sinh SQL của mô hình.
 
-Chạy `python -m scripts.evaluate_nlq_golden` để kiểm tra SQL tham chiếu với seed; chạy `python -m scripts.evaluate_nlq_model --model-role local` để chấm SQL do model sinh bằng kết quả thực thi read-only. Lệnh sau gọi model cho từng câu trong bộ golden.
+Chạy `python -m scripts.evaluate_nlq_golden` để kiểm tra SQL tham chiếu với seed; chạy `python -m scripts.evaluate_nlq_model --model-role local --output eval/nlq_model_local_2026-10-23.json` để chấm SQL do model sinh bằng kết quả thực thi read-only. Lệnh này gọi model cho từng câu trong bộ golden và lưu kết quả cục bộ. Sau khi đã duyệt phạm vi chia sẻ, có thể tạo Langfuse Dataset/Experiment từ kết quả đã lưu (không gọi model lại) bằng `python -m scripts.evaluate_nlq_model --upload-results eval/nlq_model_local_2026-10-23.json --langfuse --output eval/nlq_model_local_2026-10-23.json`; nếu không có `--langfuse`, dữ liệu không được gửi lên Cloud.
 
 `python -m scripts.evaluate_rag_experiment --roles local strong --judge-role fast` so sánh câu trả lời local Gemma với model strong đã cấu hình, chấm answer substring, faithfulness và answer relevancy, rồi tạo Dataset/Experiment và bổ sung các item còn thiếu trên Langfuse. Lệnh này gửi câu hỏi, context được truy xuất, đáp án mong đợi và câu trả lời model tới nhà cung cấp model judge/candidate và Langfuse Cloud; chỉ chạy khi đã phê duyệt phạm vi chia sẻ dữ liệu. Bộ dữ liệu demo hiện là dữ liệu tổng hợp.
 

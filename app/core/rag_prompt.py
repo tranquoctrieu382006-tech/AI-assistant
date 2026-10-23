@@ -7,6 +7,7 @@ NO_ANSWER = "Tài liệu hiện có không chứa đủ thông tin để trả l
 def format_context(matches: list[dict]) -> str:
     return "\n\n".join(
         f"[Nguồn: {match['source']}"
+        + (f" | mục {match['section']}" if match.get("section") else "")
         + (f" | trang {match['page_number']}" if match.get("page_number") else "")
         + f" | đoạn {match['chunk_index']}]\n{match['content']}"
         for match in matches

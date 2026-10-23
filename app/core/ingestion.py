@@ -5,13 +5,27 @@ import re
 from app.core.config import settings
 
 _HEADING = re.compile(r"^#{1,6}\s+.+")
+_MARKDOWN_HEADING = re.compile(r"^(#{1,6})\s+(.+)$")
 
 
-def load_document_pages(path: Path) -> list[tuple[int | None, str]]:
-    """Return ordered document blocks, with one-based PDF page metadata."""
+def load_document_blocks(path: Path) -> list[tuple[int | None, str | None, str]]:
+    """Return ordered text blocks with PDF page and structural section metadata."""
     suffix = path.suffix.lower()
     if suffix in {".md", ".txt"}:
-        return [(None, path.read_text(encoding="utf-8-sig"))]
+        blocks = []
+        sections: list[tuple[int, str]] = []
+        for line in path.read_text(encoding="utf-8-sig").splitlines():
+            text = line.strip()
+            if not text:
+                continue
+            heading = _MARKDOWN_HEADING.match(text)
+            if heading:
+                level = len(heading.group(1))
+                sections = [item for item in sections if item[0] < level]
+                sections.append((level, heading.group(2).strip()))
+            section = " > ".join(title for _, title in sections) or None
+            blocks.append((None, section, text))
+        return blocks
     if suffix == ".docx":
         from docx import Document as DocxDocument
         from docx.table import Table
@@ -19,11 +33,20 @@ def load_document_pages(path: Path) -> list[tuple[int | None, str]]:
 
         document = DocxDocument(path)
         blocks = []
+        sections: list[tuple[int, str]] = []
         for child in document.element.body.iterchildren():
             if child.tag.endswith("}p"):
-                text = Paragraph(child, document).text.strip()
+                paragraph = Paragraph(child, document)
+                text = paragraph.text.strip()
                 if text:
-                    blocks.append((None, text))
+                    style_name = getattr(paragraph.style, "name", "") or ""
+                    heading = re.match(r"Heading\s+(\d+)$", style_name, re.IGNORECASE)
+                    if heading:
+                        level = int(heading.group(1))
+                        sections = [item for item in sections if item[0] < level]
+                        sections.append((level, text))
+                    section = " > ".join(title for _, title in sections) or None
+                    blocks.append((None, section, text))
             elif child.tag.endswith("}tbl"):
                 table = Table(child, document)
                 for row in table.rows:
@@ -36,17 +59,25 @@ def load_document_pages(path: Path) -> list[tuple[int | None, str]]:
                             cells.append(value)
                         seen.add(identity)
                     if cells:
-                        blocks.append((None, " | ".join(cells)))
+                        section = " > ".join(title for _, title in sections) or None
+                        blocks.append((None, section, " | ".join(cells)))
         return blocks
     if suffix == ".pdf":
         from pypdf import PdfReader
-        return [(number, page.extract_text() or "")
+        return [(number, None, page.extract_text() or "")
                 for number, page in enumerate(PdfReader(str(path)).pages, 1)]
     return []
 
 
+def load_document_pages(path: Path) -> list[tuple[int | None, str]]:
+    """Compatibility helper returning ordered text and one-based PDF page metadata."""
+    return [(page_number, text) for page_number, _, text in load_document_blocks(path)]
+
+
 def load_text(path: Path) -> str:
     """Compatibility helper returning all extracted text in reading order."""
+    if path.suffix.lower() in {".md", ".txt"}:
+        return path.read_text(encoding="utf-8-sig")
     return "\n".join(text for _, text in load_document_pages(path))
 
 
@@ -124,6 +155,29 @@ def chunk_text(text: str, size: int | None = None, overlap: int | None = None) -
     return chunks
 
 
+def chunk_document_blocks(
+    blocks: list[tuple[int | None, str | None, str]],
+) -> list[dict]:
+    """Chunk adjacent text within the same section/page and retain its metadata."""
+    runs: list[tuple[int | None, str | None, str]] = []
+    for page_number, section, text in blocks:
+        if not text.strip():
+            continue
+        if runs and runs[-1][:2] == (page_number, section):
+            page, current_section, current_text = runs[-1]
+            runs[-1] = (page, current_section, f"{current_text}\n{text.strip()}")
+        else:
+            runs.append((page_number, section, text.strip()))
+
+    chunks = []
+    for page_number, section, text in runs:
+        chunks.extend(
+            {"content": content, "section": section, "page_number": page_number}
+            for content in chunk_text(text)
+        )
+    return chunks
+
+
 def ingest_directory(directory: str | Path | None = None) -> dict:
     from app.core.vector_store import replace_corpus_chunks
     root = Path(directory or settings.rag_document_dir)
@@ -137,11 +191,7 @@ def ingest_directory(directory: str | Path | None = None) -> dict:
     sources = [path.relative_to(root).as_posix() for path in files]
     for path in files:
         source = path.relative_to(root).as_posix()
-        index = 0
-        for page_number, text in load_document_pages(path):
-            for chunk in chunk_text(text):
-                records.append({"content": chunk, "source": source,
-                                "chunk_index": index, "page_number": page_number})
-                index += 1
+        for index, chunk in enumerate(chunk_document_blocks(load_document_blocks(path))):
+            records.append({"source": source, "chunk_index": index, **chunk})
     stored = replace_corpus_chunks(records, sources)
     return {"files": len(files), "chunks": stored, "directory": str(root)}

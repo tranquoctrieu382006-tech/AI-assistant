@@ -37,8 +37,8 @@ class Settings(BaseSettings):
     rag_chunk_size: int = 900
     rag_chunk_overlap: int = 150
     rag_top_k: int = 5
-    # Initial v1 cutoff separates the current golden-set negative (0.438) from
-    # its weakest positive (0.623); retune when the evaluation set grows.
+    # Development cutoff; the corrected golden set still has three negative
+    # false positives. Do not treat it as a validated production threshold.
     rag_min_relevance_score: float = 0.5
     rag_embedding_batch_size: int = Field(default=64, ge=1)
     llm_timeout_seconds: float = Field(default=120.0, gt=0)

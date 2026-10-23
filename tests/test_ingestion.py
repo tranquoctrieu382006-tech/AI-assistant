@@ -2,7 +2,7 @@ from pathlib import Path
 import sys
 import types
 
-from app.core.ingestion import chunk_text, load_text
+from app.core.ingestion import chunk_document_blocks, chunk_text, load_text
 
 
 def test_chunk_text_respects_boundaries_and_overlap():
@@ -37,6 +37,13 @@ def test_load_text_strips_utf8_bom(tmp_path: Path):
     assert load_text(source) == "Nội dung"
 
 
+def test_load_text_preserves_markdown_whitespace(tmp_path: Path):
+    source = tmp_path / "whitespace.md"
+    source.write_text("# Heading\n\nParagraph\n", encoding="utf-8")
+
+    assert load_text(source) == "# Heading\n\nParagraph\n"
+
+
 def test_docx_preserves_paragraph_table_order_and_deduplicates_merged_cells(tmp_path: Path):
     from docx import Document
 
@@ -65,8 +72,45 @@ def test_pdf_loader_keeps_one_based_page_metadata(monkeypatch, tmp_path: Path):
     fake_pypdf = types.ModuleType("pypdf")
     fake_pypdf.PdfReader = Reader
     monkeypatch.setitem(sys.modules, "pypdf", fake_pypdf)
-    from app.core.ingestion import load_document_pages
+    from app.core.ingestion import load_document_blocks, load_document_pages
     assert load_document_pages(tmp_path / "sample.pdf") == [(1, "first page"), (2, "second page")]
+    assert load_document_blocks(tmp_path / "sample.pdf") == [
+        (1, None, "first page"), (2, None, "second page")
+    ]
+
+
+def test_markdown_sections_are_kept_on_chunks(tmp_path: Path):
+    from app.core.ingestion import load_document_blocks
+
+    source = tmp_path / "policy.md"
+    source.write_text(
+        "# Policy\nIntroduction\n## Leave\nAnnual leave details\n## Other\nOther details",
+        encoding="utf-8",
+    )
+
+    chunks = chunk_document_blocks(load_document_blocks(source))
+
+    assert [chunk["section"] for chunk in chunks] == [
+        "Policy", "Policy > Leave", "Policy > Other",
+    ]
+    assert "## Leave" in chunks[1]["content"]
+
+
+def test_docx_heading_styles_are_kept_on_chunks(tmp_path: Path):
+    from docx import Document
+
+    from app.core.ingestion import chunk_document_blocks, load_document_blocks
+    source = tmp_path / "sections.docx"
+    document = Document()
+    document.add_heading("Policies", level=1)
+    document.add_heading("Leave", level=2)
+    document.add_paragraph("Annual leave details")
+    document.save(source)
+
+    chunks = chunk_document_blocks(load_document_blocks(source))
+
+    assert chunks[-1]["section"] == "Policies > Leave"
+    assert "Annual leave details" in chunks[-1]["content"]
 
 
 def test_ingest_directory_sends_current_relative_source_set(tmp_path: Path, monkeypatch):
@@ -92,3 +136,4 @@ def test_ingest_directory_sends_current_relative_source_set(tmp_path: Path, monk
     assert result["files"] == 2
     assert captured["sources"] == ["nested/guide.txt", "policy.md"]
     assert {item["source"] for item in captured["chunks"]} == set(captured["sources"])
+    assert all("section" in item for item in captured["chunks"])

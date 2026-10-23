@@ -76,10 +76,12 @@ def ensure_vector_schema() -> None:
             source TEXT NOT NULL,
             chunk_index INTEGER NOT NULL,
             page_number INTEGER,
+            section TEXT,
             embedding VECTOR(1024) NOT NULL,
             UNIQUE (source, chunk_index)
         )""")
         conn.execute("ALTER TABLE rag_chunks ADD COLUMN IF NOT EXISTS page_number INTEGER")
+        conn.execute("ALTER TABLE rag_chunks ADD COLUMN IF NOT EXISTS section TEXT")
         conn.execute("CREATE INDEX IF NOT EXISTS rag_chunks_embedding_idx ON rag_chunks USING hnsw (embedding vector_cosine_ops)")
 
 
@@ -103,9 +105,10 @@ def replace_corpus_chunks(chunks: list[dict], sources: list[str]) -> int:
                 cursor.execute("DELETE FROM rag_chunks")
             if chunks:
                 cursor.executemany(
-                    """INSERT INTO rag_chunks(content, source, chunk_index, page_number, embedding)
-                       VALUES (%s, %s, %s, %s, %s)""",
-                    [(item["content"], item["source"], item["chunk_index"], item.get("page_number"), Vector(vector))
+                    """INSERT INTO rag_chunks(content, source, chunk_index, page_number, section, embedding)
+                       VALUES (%s, %s, %s, %s, %s, %s)""",
+                    [(item["content"], item["source"], item["chunk_index"], item.get("page_number"),
+                      item.get("section"), Vector(vector))
                      for item, vector in zip(chunks, embeddings)],
                 )
     return len(chunks)
@@ -125,9 +128,10 @@ def similarity_search(query: str, k: int | None = None) -> list[dict]:
         # installed pgvector. Register it once after confirming readiness.
         _register_vector_if_needed(conn)
         rows = conn.execute(
-            """SELECT content, source, chunk_index, page_number, 1 - (embedding <=> %s) AS score
+            """SELECT content, source, chunk_index, page_number, section,
+                      1 - (embedding <=> %s) AS score
                FROM rag_chunks ORDER BY embedding <=> %s LIMIT %s""",
             (Vector(vector), Vector(vector), k or settings.rag_top_k),
         ).fetchall()
     return [{"content": r[0], "source": r[1], "chunk_index": r[2],
-             "page_number": r[3], "score": float(r[4])} for r in rows]
+             "page_number": r[3], "section": r[4], "score": float(r[5])} for r in rows]

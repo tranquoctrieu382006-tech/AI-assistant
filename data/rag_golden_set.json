@@ -247,38 +247,38 @@
   {
     "id": "rag-036",
     "category": "paraphrase",
-    "question": "T?i mu?n xin ngh? ph?p th??ng l? th? ph?i g?i y?u c?u tr??c ?t nh?t m?y ng?y?",
-    "answer_contains": "2 ng?y l?m vi?c",
+    "question": "Tôi muốn xin nghỉ phép thường lệ thì phải gửi yêu cầu trước ít nhất mấy ngày?",
+    "answer_contains": "2 ngày làm việc",
     "source": "01_quy_che_lam_viec.md"
   },
   {
     "id": "rag-037",
     "category": "paraphrase",
-    "question": "M?t ng?y l?m vi?c b?t ??u v? k?t th?c l?c n?o, kho?ng ngh? gi?a ng?y l? m?y gi??",
-    "answer_contains": "08:30?17:30",
+    "question": "Một ngày làm việc bắt đầu và kết thúc lúc nào, khoảng nghỉ giữa ngày là mấy giờ?",
+    "answer_contains": ["08:30–17:30", "12:00–13:00"],
     "source": "01_quy_che_lam_viec.md"
   },
   {
     "id": "rag-038",
     "category": "paraphrase",
-    "question": "N?u giao h?ng kh?ng th?nh c?ng th? b?n v?n chuy?n g?i l?i cho kh?ch nhi?u nh?t m?y l??t?",
-    "answer_contains": "t?i ?a 2 l?n",
+    "question": "Nếu giao hàng không thành công thì bên vận chuyển gọi lại cho khách nhiều nhất mấy lượt?",
+    "answer_contains": "tối đa 2 lần",
     "source": "06_chinh_sach_van_chuyen.pdf"
   },
   {
     "id": "rag-039",
     "category": "paraphrase",
-    "question": "??n mua t? m?c gi? tr? n?o s? ???c mi?n ph? ship?",
-    "answer_contains": "1.000.000 ??ng tr??c gi?m gi?",
+    "question": "Đơn mua từ mức giá trị nào sẽ được miễn phí giao hàng?",
+    "answer_contains": "1.000.000 đồng trước giảm giá",
     "source": "06_chinh_sach_van_chuyen.pdf"
   },
   {
     "id": "rag-040",
     "category": "multi_document",
-    "question": "Nh?n vi?n c?n g?i ??n xin ngh? ph?p tr??c bao l?u, v? khi ph?t hi?n s? c? d? li?u ph?i b?o trong h?n n?o?",
+    "question": "Nhân viên cần gửi đơn xin nghỉ phép trước bao lâu, và khi phát hiện sự cố dữ liệu phải báo trong hạn nào?",
     "answer_contains": [
-      "2 ng?y l?m vi?c",
-      "4 gi? k? t? khi ph?t hi?n"
+      "2 ngày làm việc",
+      "4 giờ kể từ khi phát hiện"
     ],
     "source": "01_quy_che_lam_viec.md",
     "expected_sources": [
@@ -289,10 +289,10 @@
   {
     "id": "rag-041",
     "category": "multi_document",
-    "question": "Kh?ch c? th? y?u c?u ??i tr? trong bao l?u sau khi nh?n h?ng, v? ??n t? gi? tr? n?o ???c mi?n ph? giao?",
+    "question": "Khách có thể yêu cầu đổi trả trong bao lâu sau khi nhận hàng, và đơn từ giá trị nào được miễn phí giao?",
     "answer_contains": [
-      "7 ng?y l?ch",
-      "1.000.000 ??ng tr??c gi?m gi?"
+      "7 ngày lịch",
+      "1.000.000 đồng trước giảm giá"
     ],
     "source": "04_chinh_sach_doi_tra.docx",
     "expected_sources": [
@@ -303,43 +303,43 @@
   {
     "id": "rag-042",
     "category": "out_of_scope",
-    "question": "Nh?n vi?n ???c ngh? thai s?n bao nhi?u ng?y theo ch?nh s?ch c?ng ty?",
-    "answer_contains": "kh?ng ch?a ?? th?ng tin",
+    "question": "Nhân viên được nghỉ thai sản bao nhiêu ngày theo chính sách công ty?",
+    "answer_contains": "không chứa đủ thông tin",
     "source": null
   },
   {
     "id": "rag-043",
     "category": "out_of_scope",
-    "question": "S? ?i?n tho?i t?ng ??i ch?m s?c kh?ch h?ng l? bao nhi?u?",
-    "answer_contains": "kh?ng ch?a ?? th?ng tin",
+    "question": "Số điện thoại tổng đài chăm sóc khách hàng là bao nhiêu?",
+    "answer_contains": "không chứa đủ thông tin",
     "source": null
   },
   {
     "id": "rag-044",
     "category": "out_of_scope",
-    "question": "M?c l??ng c? b?n h?ng th?ng c?a nh?n vi?n kinh doanh l? bao nhi?u?",
-    "answer_contains": "kh?ng ch?a ?? th?ng tin",
+    "question": "Mức lương cơ bản hàng tháng của nhân viên kinh doanh là bao nhiêu?",
+    "answer_contains": "không chứa đủ thông tin",
     "source": null
   },
   {
     "id": "rag-045",
     "category": "out_of_scope",
-    "question": "Doanh thu c?ng ty trong th?ng 9 n?m 2026 l? bao nhi?u?",
-    "answer_contains": "kh?ng ch?a ?? th?ng tin",
+    "question": "Doanh thu công ty trong tháng 9 năm 2026 là bao nhiêu?",
+    "answer_contains": "không chứa đủ thông tin",
     "source": null
   },
   {
     "id": "rag-046",
     "category": "out_of_scope",
-    "question": "C?ng ty c? bao nhi?u nh?n vi?n ?ang l?m vi?c t?i chi nh?nh ?? N?ng?",
-    "answer_contains": "kh?ng ch?a ?? th?ng tin",
+    "question": "Công ty có bao nhiêu nhân viên đang làm việc tại chi nhánh Đà Nẵng?",
+    "answer_contains": "không chứa đủ thông tin",
     "source": null
   },
   {
     "id": "rag-047",
     "category": "out_of_scope",
-    "question": "M? s? b?o hi?m x? h?i c?a nh?n vi?n Nguy?n V?n An l? g??",
-    "answer_contains": "kh?ng ch?a ?? th?ng tin",
+    "question": "Mã số bảo hiểm xã hội của nhân viên Nguyễn Văn An là gì?",
+    "answer_contains": "không chứa đủ thông tin",
     "source": null
   }
 ]
