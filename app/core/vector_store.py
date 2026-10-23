@@ -18,13 +18,19 @@ class VectorStoreNotReady(RuntimeError):
     """Raised when pgvector or the ingestion table has not been initialized."""
 
 
+def _register_vector_if_needed(conn) -> None:
+    if getattr(conn, "_vector_adapter_registered", False) is not True:
+        register_vector(conn)
+        conn._vector_adapter_registered = True
+
+
 def _configure_connection(conn) -> None:
     # `register_vector` queries PostgreSQL's vector type. It must be skipped
     # until ingestion has installed the extension in this database.
     try:
         has_vector_type = conn.execute("SELECT to_regtype('vector')").fetchone()[0]
         if has_vector_type:
-            register_vector(conn)
+            _register_vector_if_needed(conn)
         conn.commit()
     except Exception:
         conn.rollback()
@@ -63,7 +69,7 @@ def ensure_vector_schema() -> None:
     # DDL is performed during ingestion, not for every question.
     with psycopg.connect(settings.database_url) as conn:
         conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
-        register_vector(conn)
+        _register_vector_if_needed(conn)
         conn.execute("""CREATE TABLE IF NOT EXISTS rag_chunks (
             id BIGSERIAL PRIMARY KEY,
             content TEXT NOT NULL,
@@ -86,6 +92,8 @@ def replace_corpus_chunks(chunks: list[dict], sources: list[str]) -> int:
         embeddings.extend(get_embeddings().embed_documents(
             [item["content"] for item in chunks[start:start + batch_size]]))
     with _connect() as conn:
+        if chunks:
+            _register_vector_if_needed(conn)
         with conn.cursor() as cursor:
             if sources:
                 # This table represents the single corpus configured by RAG_DOCUMENT_DIR.
@@ -114,8 +122,8 @@ def similarity_search(query: str, k: int | None = None) -> list[dict]:
                 "RAG vector store is not initialized; install pgvector and run `python -m scripts.ingest_documents`."
             )
         # The pool may have opened this connection before another process
-        # installed pgvector. Register its adapter after confirming readiness.
-        register_vector(conn)
+        # installed pgvector. Register it once after confirming readiness.
+        _register_vector_if_needed(conn)
         rows = conn.execute(
             """SELECT content, source, chunk_index, page_number, 1 - (embedding <=> %s) AS score
                FROM rag_chunks ORDER BY embedding <=> %s LIMIT %s""",

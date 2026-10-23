@@ -15,6 +15,54 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
+@contextmanager
+def langfuse_observation(
+    name: str,
+    *,
+    as_type: str = "span",
+    input: Any | None = None,
+):
+    """Create a Langfuse observation when configured without blocking local use."""
+    if not is_langfuse_configured():
+        yield None
+        return
+    try:
+        import langfuse
+        observation = langfuse.get_client().start_as_current_observation(
+            as_type=as_type,
+            name=name,
+            input=input,
+        )
+        span = observation.__enter__()
+    except Exception as exc:
+        logger.warning("Không thể khởi tạo Langfuse observation '%s': %s", name, exc)
+        yield None
+        return
+
+    try:
+        yield span
+    except BaseException as exc:
+        try:
+            observation.__exit__(type(exc), exc, exc.__traceback__)
+        except Exception as tracing_error:
+            logger.warning("Không thể kết thúc Langfuse observation '%s': %s", name, tracing_error)
+        raise
+    else:
+        try:
+            observation.__exit__(None, None, None)
+        except Exception as exc:
+            logger.warning("Không thể kết thúc Langfuse observation '%s': %s", name, exc)
+
+
+def update_langfuse_observation(observation, **kwargs) -> None:
+    if observation is None:
+        return
+    try:
+        observation.update(**kwargs)
+    except Exception as exc:
+        logger.warning("Không thể cập nhật Langfuse observation: %s", exc)
+
+
 def init_tracing():
     """
     Khởi tạo các biến môi trường và cấu hình tracing.

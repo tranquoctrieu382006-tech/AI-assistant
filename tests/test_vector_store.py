@@ -17,11 +17,13 @@ def test_replace_corpus_removes_stale_sources_and_replaces_current_sources():
     with (patch.object(vector_store, "ensure_vector_schema"),
           patch.object(vector_store, "get_embeddings", return_value=embeddings),
           patch.object(vector_store, "_connect", return_value=connection),
-          patch.object(vector_store, "register_vector"),
+          patch.object(vector_store, "register_vector") as register,
           patch.object(vector_store, "Vector", side_effect=lambda value: value)):
         stored = vector_store.replace_corpus_chunks(chunks, ["policy.md"])
 
     assert stored == 1
+    register.assert_called_once_with(connection)
+    assert connection._vector_adapter_registered is True
     assert cursor.execute.call_args_list[0].args[0] == "DELETE FROM rag_chunks WHERE source <> ALL(%s)"
     assert cursor.execute.call_args_list[0].args[1] == (["policy.md"],)
     assert cursor.execute.call_args_list[1].args[0] == "DELETE FROM rag_chunks WHERE source = ANY(%s)"
@@ -56,6 +58,7 @@ def test_embeddings_are_requested_in_configured_batches(monkeypatch):
     with (patch.object(vector_store, "ensure_vector_schema"),
           patch.object(vector_store, "get_embeddings", return_value=embeddings),
           patch.object(vector_store, "_connect", return_value=connection),
+          patch.object(vector_store, "register_vector"),
           patch.object(vector_store, "Vector", side_effect=lambda value: value)):
         assert vector_store.replace_corpus_chunks(chunks, ["a.md"]) == 2
     assert embeddings.embed_documents.call_count == 2
@@ -97,13 +100,16 @@ def test_pool_connection_registers_vector_when_extension_exists():
     with patch.object(vector_store, "register_vector") as register:
         vector_store._configure_connection(connection)
     register.assert_called_once_with(connection)
+    assert connection._vector_adapter_registered is True
     connection.commit.assert_called_once()
 
 
-def test_similarity_search_registers_vector_after_extension_is_added():
+def test_similarity_search_registers_vector_once_after_extension_is_added():
     connection = MagicMock()
     connection.__enter__.return_value = connection
     connection.execute.side_effect = [
+        MagicMock(fetchone=MagicMock(return_value=("vector", "rag_chunks"))),
+        MagicMock(fetchall=MagicMock(return_value=[])),
         MagicMock(fetchone=MagicMock(return_value=("vector", "rag_chunks"))),
         MagicMock(fetchall=MagicMock(return_value=[])),
     ]
@@ -115,6 +121,7 @@ def test_similarity_search_registers_vector_after_extension_is_added():
           patch.object(vector_store, "register_vector") as register,
           patch.object(vector_store, "Vector", side_effect=lambda value: value)):
         assert vector_store.similarity_search("question") == []
+        assert vector_store.similarity_search("second question") == []
 
     register.assert_called_once_with(connection)
-    assert connection.execute.call_count == 2
+    assert connection.execute.call_count == 4

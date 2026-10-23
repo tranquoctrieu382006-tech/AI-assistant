@@ -146,9 +146,12 @@ def test_rag_reports_generation_failure_separately():
 async def test_rag_request_validation_uses_http_boundary():
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        short_question = await client.post("/api/rag/ask", json={"question": "x"})
+        headers = {"X-API-Key": "test-api-key-with-more-than-32-characters"}
+        short_question = await client.post(
+            "/api/rag/ask", json={"question": "x"}, headers=headers
+        )
         invalid_top_k = await client.post(
-            "/api/rag/ask", json={"question": "Câu hỏi hợp lệ?", "top_k": 21}
+            "/api/rag/ask", json={"question": "Câu hỏi hợp lệ?", "top_k": 21}, headers=headers
         )
     assert short_question.status_code == 422
     assert invalid_top_k.status_code == 422

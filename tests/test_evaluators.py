@@ -9,6 +9,11 @@ from scripts.evaluate_nlq_model import (
     _sql_features,
 )
 from scripts.evaluate_rag_retrieval import _category_metrics, _retrieval_metrics
+from scripts.evaluate_rag_experiment import _aggregate_run, _make_evaluators
+from scripts.evaluate_rag_experiment import _ensure_dataset
+from scripts.evaluate_rag_answers import evaluate as evaluate_rag_answers
+from langfuse import Evaluation
+from types import SimpleNamespace
 
 
 def test_nlq_accepts_select_and_with_queries_in_read_only_transaction():
@@ -44,22 +49,22 @@ def test_model_sql_comparison_preserves_order_for_order_by_queries():
 
 
 def test_sql_features_ignore_semicolons_in_literals_and_comments():
-    count, trailing, ordered = _sql_features(
+    count, ordered = _sql_features(
         "SELECT 'value; still literal' AS note /* ; */ ORDER BY note; -- trailing comment"
     )
     assert count == 1
-    assert not trailing
     assert ordered
 
 
 def test_sql_features_handle_escaped_and_dollar_quoted_literals():
-    assert _sql_features(r"SELECT E'escaped \'; value'") == (0, False, False)
-    assert _sql_features("SELECT $body$semi;colon$body$") == (0, False, False)
+    assert _sql_features(r"SELECT E'escaped \'; value'") == (1, False)
+    assert _sql_features("SELECT $body$semi;colon$body$") == (1, False)
 
 
 def test_sql_features_detect_multiple_statements_but_ignore_nested_order_by():
-    assert _sql_features("SELECT (SELECT 1 ORDER BY 1)") == (0, False, False)
-    assert _sql_features("SELECT 1; SELECT 2")[:2] == (1, True)
+    assert _sql_features("SELECT (SELECT 1 ORDER BY 1)") == (1, False)
+    assert _sql_features("SELECT 1; SELECT 2")[0] == 2
+    assert _sql_features("WITH rows AS (SELECT 2) SELECT * FROM rows ORDER BY 1") == (1, True)
 
 
 def test_model_evaluator_uses_seed_create_table_ddl():
@@ -100,3 +105,110 @@ def test_category_metrics_include_out_of_scope_abstention_counts():
     assert metrics["out_of_scope"]["answerable_cases"] == 0
     assert metrics["out_of_scope"]["abstention_cases"] == 2
     assert metrics["out_of_scope"]["abstention_accuracy"] == 0.5
+
+
+def test_rag_quality_evaluator_scores_faithfulness_and_relevance():
+    class FakeJudge:
+        def invoke(self, prompt):
+            assert "CONTEXT" in prompt
+            return SimpleNamespace(content=(
+                '{"faithfulness":{"score":0.9,"reason":"Supported"},'
+                '"answer_relevancy":{"score":0.8,"reason":"Direct"}}'
+            ))
+
+    answer_contains, abstention, quality = _make_evaluators(FakeJudge(), "groq/judge")
+    input_value = {
+        "question": "Bao lâu?",
+        "context": "Thời hạn là bảy ngày.",
+    }
+    expected = {"answer_contains": "bảy ngày"}
+    output = {"answer": "Khách có bảy ngày.", "latency_ms": 25.0}
+    assert answer_contains(output=output, expected_output=expected).value is True
+    assert abstention(
+        input=input_value, output=output, expected_output=expected,
+        metadata={"expected_sources": ["returns.pdf"]},
+    ).value is True
+    scores = quality(input=input_value, output=output)
+    assert [(score.name, score.value) for score in scores] == [
+        ("faithfulness", 0.9),
+        ("answer_relevancy", 0.8),
+    ]
+    assert scores[0].metadata == {"judge_model": "groq/judge"}
+
+
+def test_rag_experiment_aggregates_metric_denominators():
+    item_result = SimpleNamespace(
+        item=SimpleNamespace(metadata={"category": "simple"}),
+        output={"latency_ms": 25.0},
+        evaluations=[
+            Evaluation(name="faithfulness", value=0.8, data_type="NUMERIC"),
+            Evaluation(name="answer_contains", value=True, data_type="BOOLEAN"),
+        ],
+    )
+
+    scores = {
+        score.name: score.value
+        for score in _aggregate_run(item_results=[item_result])
+    }
+
+    assert scores["simple_faithfulness_mean"] == 0.8
+    assert scores["simple_faithfulness_count"] == 1
+    assert scores["simple_answer_contains_count"] == 1
+    assert scores["simple_latency_ms_mean"] == 25.0
+
+
+def test_langfuse_dataset_creation_is_idempotent_for_existing_items():
+    import uuid
+    from unittest.mock import MagicMock, patch
+
+    case_id = "rag-001"
+    item_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"ai-assistant-rag-v1-{case_id}"))
+    existing_item = SimpleNamespace(id=item_id)
+    dataset = SimpleNamespace(items=[existing_item])
+    client = MagicMock()
+    client.get_dataset.return_value = dataset
+
+    with patch("app.core.vector_store.similarity_search") as search:
+        items = _ensure_dataset(
+            client,
+            "test-rag-dataset",
+            [{
+                "id": case_id,
+                "question": "question",
+                "answer_contains": "answer",
+                "source": "policy.md",
+            }],
+        )
+
+    assert items == [existing_item]
+    client.create_dataset_item.assert_not_called()
+    search.assert_not_called()
+    assert client.get_dataset.call_count == 2
+
+
+def test_rag_answer_smoke_evaluator_authenticates_to_protected_api(tmp_path, monkeypatch):
+    from unittest.mock import MagicMock, patch
+    import json
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "rag_golden_set.json").write_text(
+        json.dumps([{
+            "id": "case-1",
+            "category": "simple",
+            "question": "Question?",
+            "answer_contains": "answer",
+        }]),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("scripts.evaluate_rag_answers.settings.app_api_key", "x" * 40)
+    response = MagicMock()
+    response.json.return_value = {"answer": "Expected answer"}
+    client = MagicMock()
+    client.__enter__.return_value = client
+    client.post.return_value = response
+    with patch("scripts.evaluate_rag_answers.httpx.Client", return_value=client):
+        result = evaluate_rag_answers("http://example.test")
+
+    assert result["answer_contains_passed"] == 1
+    assert client.post.call_args.kwargs["headers"] == {"X-API-Key": "x" * 40}

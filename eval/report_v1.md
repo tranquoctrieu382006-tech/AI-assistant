@@ -43,20 +43,32 @@ Failure analysis: all four paraphrase questions missed their expected source in 
 ## Answer quality and tracing
 
 - One local RAG smoke answer correctly stated the seven-calendar-day return window and returned sources.
-- Faithfulness and answer relevancy have **not** been scored. The original 35-case `answer_contains` check is a substring smoke metric, not a semantic judge; the expanded set must be run separately.
-- No two-model RAG comparison or Langfuse Dataset/Experiment was run. No Langfuse trace was sent in this verification pass. The previously authorized one-trace smoke test only demonstrates an earlier delivery path.
-- Retrieval has not yet been recorded as its own Langfuse observation; the current callback traces LLM execution.
+- The full 47-case AI08 comparison is recorded below. `answer_contains` remains a strict substring check, not a semantic correctness metric.
+- RAG requests now have a request span with a child retrieval span; retrieved context, sources and scores are included when Langfuse is configured.
 
 ## Tests and limitations
 
-- Current suite: **62 passed in 3.81s**, captured with `.venv\Scripts\python.exe -m pytest -q`. There are 57 test functions plus five parameterized cases; the pytest run output is authoritative. `pytest -q` is the reproducible command.
-- Python compile check passed. Live ingestion and retrieval were run locally; full 47-question answer evaluation was not run.
+- Current suite: **72 passed in 4.67s**, captured with `.venv\Scripts\python.exe -m pytest -q`. `pytest -q` is the reproducible command.
+- Python compile check passed. Live ingestion, retrieval, and the full 47-item model comparison were run.
 - The benchmark script now warm-ups each model and reports median latency over three measured samples. Cost remains comparable only for the two Groq models with configured rates; other models report no cost estimate.
-- API authentication and rate limiting are not implemented. The demo binds to loopback by default and must not be exposed externally without those controls.
+- API key authentication and a 60-requests/minute per-IP in-process limit are now implemented. Multi-worker deployments still need a shared limiter or proxy-level enforcement.
 
-## Next work
+## AI08 follow-up
 
-1. Add faithfulness and answer-relevancy judge scores, with judge/model and prompt recorded.
-2. Run a same-question, same-corpus comparison for two approved models; review cloud cost and data-sharing before selecting a hosted model.
-3. Create Langfuse Dataset/Experiment only after data-sharing scope and Cloud write access are confirmed.
-4. Re-evaluate on a held-out question set before claiming quality improvements.
+The Langfuse Dataset `ai-assistant-rag-golden-v1` and both experiments contain 47 items. Both candidates used the same retrieved contexts and RAG prompt; the `fast` role (`groq/openai/gpt-oss-20b`) judged faithfulness and answer relevancy. The candidate roles were `local` (`ollama/gemma3:12b`) and `strong` (`groq/openai/gpt-oss-120b`).
+
+| Category | Local answer_contains | Strong answer_contains | Local abstention correct | Strong abstention correct | Local faithfulness / relevancy | Strong faithfulness / relevancy |
+|---|---:|---:|---:|---:|---:|---:|
+| Simple | 0.909 | 0.364 | 0.970 | 0.970 | 1.000 / 1.000 | 1.000 / 1.000 |
+| Paraphrase | 0.000 | 0.000 | 0.000 | 0.000 | Not scored | Not scored |
+| Multi-document | 0.000 | 0.000 | 0.500 | 1.000 | 1.000 / 0.800 | 0.975 / 0.950 |
+| Out of scope | 0.250 | 0.250 | 1.000 | 1.000 | Not scored | Not scored |
+
+Mean generation latency was 8.06s local / 0.97s strong for simple cases and 9.83s / 1.55s for multi-document cases. Substring scores can undercount correct paraphrased answers; the zero paraphrase and multi-document scores also align with retrieval misses described above. Abstention and exact-answer checks are separate signals.
+
+**Rate-limit caveat:** Groq returned HTTP 429 during two judge evaluations. The experiment completed all 47 candidate items for each model, but that run's aggregate output does not expose the number of successful judge evaluations per category. Treat the reported judge means as provisional/possibly partial, not full-denominator quality estimates. The evaluator now configures up to five provider retries and emits evaluated-case counts alongside means; this change is covered by tests but has not yet been verified with another full Cloud run. The same judge was used for both candidates, but it was unblinded and has not been validated against human ratings.
+
+- Local experiment: https://cloud.langfuse.com/project/cmvj0s4r600axad0jz9ji8ki1/experiments/results?baseline=054d3c7108e3b020
+- Strong experiment: https://cloud.langfuse.com/project/cmvj0s4r600axad0jz9ji8ki1/experiments/results?baseline=3689dd9781ee1a9e
+
+These results use the synthetic development set and do not establish held-out quality or justify a production-model choice. Follow-up: rerun after rate limits reset or are raised, confirm judge counts cover all eligible cases, and validate a held-out sample with human review.

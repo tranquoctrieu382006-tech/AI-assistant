@@ -117,6 +117,8 @@ flowchart TB
 
 **Lifespan**: Khởi tạo tracing → kiểm tra Ollama async → flush traces khi shutdown.
 
+Các endpoint RAG và kiểm tra model yêu cầu `X-API-Key`; `/api/health` và `/api/health/live` công khai. API được giới hạn mặc định 60 request/phút theo IP bằng bộ đếm trong tiến trình. Cấu hình nhiều worker/reverse proxy cần giới hạn ở proxy hoặc shared store.
+
 ### 3.2 Multi-Model LLM (`app/core/llm.py`)
 
 ```
@@ -173,6 +175,8 @@ stateDiagram-v2
 - Handler gắn ở cấp `graph.invoke(..., config={"callbacks": [handler]})`, không gắn từng LLM
 - Mỗi request tạo handler riêng (tránh lẫn session khi concurrent)
 - Đặt tên node và tag theo role (`router`, `sql_gen`, `synthesize`)
+
+Trong API RAG hiện tại, mỗi request tạo trace gốc; `rag-retrieval` là span riêng ghi lại câu hỏi, context/nguồn đã truy xuất và điểm liên quan, còn callback LLM ghi nhận generation. Nội dung tracing chỉ gửi lên Langfuse nếu được cấu hình.
 
 ### 3.4 RAG Pipeline
 

@@ -9,10 +9,16 @@ from app.main import app
 from app.api.health import _database_readiness
 
 
-async def request(method: str, path: str) -> httpx.Response:
-    transport = httpx.ASGITransport(app=app)
+async def request(
+    method: str,
+    path: str,
+    *,
+    headers: dict[str, str] | None = None,
+    client: tuple[str, int] = ("127.0.0.1", 12345),
+) -> httpx.Response:
+    transport = httpx.ASGITransport(app=app, client=client)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        return await client.request(method, path)
+        return await client.request(method, path, headers=headers)
 
 
 def test_database_readiness_checks_pgvector(monkeypatch):
@@ -84,12 +90,18 @@ async def test_health_does_not_require_ollama_for_cloud_rag(mock_connect, mock_o
 @pytest.mark.asyncio
 async def test_verify_model_forbidden_in_production(monkeypatch):
     monkeypatch.setattr(settings, "debug", False)
-    response = await request("GET", "/api/health/verify-model?role=local")
+    response = await request(
+        "GET", "/api/health/verify-model?role=local",
+        headers={"X-API-Key": settings.app_api_key},
+    )
     assert response.status_code == 403
 
 
 @pytest.mark.asyncio
 async def test_verify_model_rejects_unregistered_model_even_in_debug(monkeypatch):
     monkeypatch.setattr(settings, "debug", True)
-    response = await request("GET", "/api/health/verify-model?role=openai%2Fgpt-secret")
+    response = await request(
+        "GET", "/api/health/verify-model?role=openai%2Fgpt-secret",
+        headers={"X-API-Key": settings.app_api_key},
+    )
     assert response.status_code == 422

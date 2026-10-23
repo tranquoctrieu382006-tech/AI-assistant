@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.llm import MODEL_REGISTRY, check_ollama_status_async
 from app.core.tracing import init_tracing, flush_langfuse
 from app.core.vector_store import close_pool
+from app.core.security import RateLimitMiddleware
 
 logging.basicConfig(
     level=logging.INFO,
@@ -62,6 +63,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+app.add_middleware(RateLimitMiddleware)
 
 # Routers
 app.include_router(health.router, prefix="/api", tags=["Health"])

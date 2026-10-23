@@ -4,14 +4,22 @@ from pathlib import Path
 
 import httpx
 
+from app.core.config import settings
+
 
 def evaluate(base_url: str = "http://127.0.0.1:8000") -> dict:
+    if len(settings.app_api_key) < 32:
+        raise RuntimeError("Set APP_API_KEY in .env before evaluating the protected RAG API.")
     cases = json.loads(Path("data/rag_golden_set.json").read_text(encoding="utf-8"))
     passed = 0
     category_results: dict[str, dict[str, int]] = {}
     with httpx.Client(timeout=180) as client:
         for case in cases:
-            response = client.post(f"{base_url}/api/rag/ask", json={"question": case["question"]})
+            response = client.post(
+                f"{base_url}/api/rag/ask",
+                json={"question": case["question"]},
+                headers={"X-API-Key": settings.app_api_key},
+            )
             response.raise_for_status()
             answer = response.json()["answer"].casefold()
             expected = case["answer_contains"]

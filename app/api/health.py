@@ -3,7 +3,7 @@ Health check API router.
 Hỗ trợ cả liveness và readiness probe, không chặn event loop.
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Security
 from starlette.concurrency import run_in_threadpool
 
 from app.schemas.health import HealthResponse
@@ -14,6 +14,7 @@ from app.core.llm import (
     verify_model,
 )
 from app.core.tracing import is_langfuse_configured
+from app.core.security import require_api_key
 import psycopg
 
 router = APIRouter()
@@ -65,7 +66,11 @@ async def health_check() -> HealthResponse:
     )
 
 
-@router.get("/health/verify-model", summary="Kiểm tra trực tiếp một model (chỉ bật ở debug/dev)")
+@router.get(
+    "/health/verify-model",
+    summary="Kiểm tra trực tiếp một model (chỉ bật ở debug/dev)",
+    dependencies=[Security(require_api_key)],
+)
 async def verify_model_endpoint(
     role: str = Query(default="local", description="Role cần test (strong, fast, local)"),
 ):

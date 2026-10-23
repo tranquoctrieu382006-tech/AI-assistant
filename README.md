@@ -20,6 +20,8 @@ pip install -r requirements.lock
 # 2. Cấu hình
 cp .env.example .env
 # Sửa .env: điền API key, chọn model
+# Tạo API key: python -c "import secrets; print(secrets.token_urlsafe(32))"
+# Điền kết quả vào APP_API_KEY trong .env (không chia sẻ/commit khóa này)
 # Thay YOUR_USER và YOUR_PASSWORD trong DATABASE_URL bằng thông tin PostgreSQL cục bộ.
 # File .env đã được Git bỏ qua; không commit thông tin đăng nhập thật.
 
@@ -71,6 +73,8 @@ ai-assistant/
 │   │   ├── config.py        # Pydantic Settings
 │   │   ├── llm.py           # Lớp cấu hình LLM đa mô hình
 │   │   ├── ingestion.py     # Đọc và chia chunk tài liệu
+│   │   ├── rag_prompt.py    # Prompt dùng chung cho API và evaluation
+│   │   ├── security.py     # API key và rate limiting
 │   │   ├── tracing.py       # Langfuse integration
 │   │   └── vector_store.py  # PostgreSQL/pgvector
 │   └── schemas/
@@ -92,6 +96,7 @@ ai-assistant/
 │   ├── ingest_documents.py
 │   ├── evaluate_rag_retrieval.py
 │   ├── evaluate_rag_answers.py
+│   ├── evaluate_rag_experiment.py
 │   ├── evaluate_nlq_golden.py
 │   └── evaluate_nlq_model.py
 ├── tests/
@@ -100,6 +105,7 @@ ai-assistant/
 │   ├── test_ingestion.py
 │   ├── test_llm.py
 │   ├── test_rag.py
+│   ├── test_security.py
 │   ├── test_vector_store.py
 │   └── test_tracing.py
 ├── .env.example
@@ -137,6 +143,7 @@ Pipeline đọc MD/TXT/DOCX/PDF, chia chunk rồi ghi embedding vào bảng `rag
 
 ```bash
 curl -X POST http://localhost:8000/api/rag/ask \
+  -H "X-API-Key: <APP_API_KEY>" \
   -H "Content-Type: application/json" \
   -d '{"question":"Nhân viên được nghỉ phép năm bao nhiêu ngày?","top_k":5}'
 ```
@@ -145,9 +152,11 @@ Phản hồi gồm `answer` và danh sách `sources` có đường dẫn, đoạ
 
 Chạy `python -m scripts.evaluate_nlq_golden` để kiểm tra SQL tham chiếu với seed; chạy `python -m scripts.evaluate_nlq_model --model-role local` để chấm SQL do model sinh bằng kết quả thực thi read-only. Lệnh sau gọi model cho từng câu trong bộ golden.
 
+`python -m scripts.evaluate_rag_experiment --roles local strong --judge-role fast` so sánh câu trả lời local Gemma với model strong đã cấu hình, chấm answer substring, faithfulness và answer relevancy, rồi tạo Dataset/Experiment và bổ sung các item còn thiếu trên Langfuse. Lệnh này gửi câu hỏi, context được truy xuất, đáp án mong đợi và câu trả lời model tới nhà cung cấp model judge/candidate và Langfuse Cloud; chỉ chạy khi đã phê duyệt phạm vi chia sẻ dữ liệu. Bộ dữ liệu demo hiện là dữ liệu tổng hợp.
+
 `requirements.lock` khóa phiên bản runtime và dev đã resolve cho nhiều nền tảng. Khi thay dependencies, cập nhật bằng `uv pip compile requirements-dev.txt --output-file requirements.lock --universal`, review diff rồi cài lại từ lock.
 
-API demo không có xác thực hay giới hạn tần suất. Mặc định chỉ bind vào `127.0.0.1`; trước khi mở ra mạng hoặc dùng thật, cần bổ sung xác thực và rate limiting.
+API `/api/rag/*` và endpoint debug `/api/health/verify-model` yêu cầu header `X-API-Key`; đặt `APP_API_KEY` thành chuỗi bí mật ngẫu nhiên tối thiểu 32 ký tự. Khi chưa cấu hình key, các endpoint được bảo vệ trả HTTP 503 thay vì mở công khai. `/api/health` và `/api/health/live` vẫn công khai để health checks. Các endpoint API được giới hạn mặc định 60 request/phút theo IP; bộ đếm nằm trong tiến trình, nên nếu chạy nhiều worker hoặc sau reverse proxy thì cần giới hạn ở proxy/chia sẻ store. Middleware không tin `X-Forwarded-For`, tránh giả mạo IP; cấu hình proxy tin cậy riêng nếu cần.
 
 ## Benchmark mô hình
 

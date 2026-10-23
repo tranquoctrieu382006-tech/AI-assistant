@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     # ── Server Host & Port ──────────────────────────────────────
     app_host: str = "127.0.0.1"
     app_port: int = 8000
+    app_api_key: str = ""
+    api_rate_limit_per_minute: int = Field(default=60, ge=1)
 
     model_config = SettingsConfigDict(
         env_file=".env",
