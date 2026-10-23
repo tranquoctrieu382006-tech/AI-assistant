@@ -91,7 +91,7 @@ def run_benchmark():
 
     langfuse_active = is_langfuse_configured()
     if langfuse_active:
-        print(f"✅ Langfuse tracing: ĐÃ KÍCH HOẠT (Host: {settings.langfuse_base_url or settings.langfuse_host})")
+        print(f"✅ Langfuse tracing: ĐÃ KÍCH HOẠT (Host: {settings.langfuse_host})")
     else:
         print("⚠️ Langfuse tracing: CHƯA CÓ KEY (Chạy benchmark cục bộ, không gửi trace)")
 
@@ -113,8 +113,6 @@ def run_benchmark():
     results: list[dict[str, Any]] = []
     unavailable_roles: set[str] = set()
     session_id = f"benchmark-session-{int(time.time())}"
-    user_id = "intern_tran_quoc_trieu"
-
     handler = get_langfuse_handler()
 
     for prompt_item in BENCHMARK_PROMPTS:
@@ -153,7 +151,6 @@ def run_benchmark():
                 start_time = time.time()
                 with langfuse_context(
                     session_id=session_id,
-                    user_id=user_id,
                     tags=tags,
                     metadata=metadata,
                 ):

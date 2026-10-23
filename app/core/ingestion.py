@@ -55,14 +55,15 @@ def chunk_text(text: str, size: int | None = None, overlap: int | None = None) -
 
 
 def ingest_directory(directory: str | Path | None = None) -> dict:
-    from app.core.vector_store import upsert_chunks
+    from app.core.vector_store import replace_corpus_chunks
     root = Path(directory or settings.rag_document_dir)
     files = sorted(p for p in root.rglob("*") if p.suffix.lower() in {".md", ".txt", ".docx", ".pdf"})
     records: list[dict] = []
+    sources = [path.relative_to(root).as_posix() for path in files]
     for path in files:
         content = load_text(path)
         for index, chunk in enumerate(chunk_text(content)):
             records.append({"content": chunk, "source": path.relative_to(root).as_posix(), "chunk_index": index})
-    stored = upsert_chunks(records)
+    stored = replace_corpus_chunks(records, sources)
     return {"files": len(files), "chunks": stored, "directory": str(root)}
 

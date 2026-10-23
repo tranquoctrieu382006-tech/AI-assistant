@@ -1,8 +1,15 @@
 """Report retrieval Hit@k and MRR against data/rag_golden_set.json."""
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from app.core.config import settings
+
+
+def source_matches(actual: str, expected: str) -> bool:
+    """Compare corpus-relative source paths, not potentially ambiguous basenames."""
+    actual_path = PurePosixPath(actual.replace("\\", "/"))
+    expected_path = PurePosixPath(expected.replace("\\", "/"))
+    return actual_path == expected_path
 
 
 def evaluate(k: int = 5) -> dict:
@@ -13,7 +20,7 @@ def evaluate(k: int = 5) -> dict:
         results = similarity_search(case["question"], k=k)
         expected = case["source"]
         rank = next((i for i, item in enumerate(results, 1)
-                     if expected and Path(item["source"]).name == expected), None)
+                     if expected and source_matches(item["source"], expected)), None)
         if expected is None:
             rank = 1 if not results or results[0]["score"] < settings.rag_min_relevance_score else None
         hit = rank is not None

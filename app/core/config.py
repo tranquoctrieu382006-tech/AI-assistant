@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     # Require an explicit local DATABASE_URL instead of silently guessing credentials.
     database_url: str = ""
     rag_document_dir: str = "data/demo_sales_warehouse"
+    # RAG defaults to a local model; cloud use must be an explicit choice.
+    rag_model: str = "local"
     rag_chunk_size: int = 900
     rag_chunk_overlap: int = 150
     rag_top_k: int = 5

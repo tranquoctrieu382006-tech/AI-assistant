@@ -39,9 +39,12 @@ Sửa biến trong `.env`, **không cần sửa code**:
 | Mặc định | `DEFAULT_MODEL` | `openai/gpt-4o-mini` |
 | Mạnh (SQL phức tạp, tổng hợp) | `STRONG_MODEL` | `openai/gpt-4o` |
 | Nhanh/rẻ (router, viết lại câu hỏi) | `FAST_MODEL` | `openai/gpt-4o-mini` |
-| Local (không gửi dữ liệu ra ngoài) | `LOCAL_MODEL` | `ollama/gemma3:12b` |
+| Local inference | `LOCAL_MODEL` | `ollama/gemma3:12b` |
+| Mô hình trả lời RAG | `RAG_MODEL` | `local` |
 
 Groq có thể dùng với `GROQ_API_KEY` trong `.env`, ví dụ `groq/openai/gpt-oss-120b` và `groq/openai/gpt-oss-20b`. Gemini vẫn được hỗ trợ bằng `GOOGLE_API_KEY` và model có tiền tố `google_genai/`.
+
+RAG dùng role local theo mặc định (`RAG_MODEL=local`); có thể đổi sang role hoặc tên model khác trong `.env`. Local inference không gửi prompt tới nhà cung cấp model cloud. Tuy nhiên, nếu Langfuse Cloud được cấu hình, callback tracing có thể gửi câu hỏi, ngữ cảnh được truy xuất và câu trả lời lên Langfuse; không bật tracing cloud nếu dữ liệu phải ở hoàn toàn trên máy.
 
 ## Tại sao chọn `init_chat_model` thay vì LiteLLM?
 
@@ -62,15 +65,32 @@ ai-assistant/
 ├── app/
 │   ├── main.py              # FastAPI app
 │   ├── api/
-│   │   └── health.py        # GET /api/health
+│   │   ├── health.py        # Health endpoints
+│   │   └── rag.py           # POST /api/rag/ask
 │   ├── core/
 │   │   ├── config.py        # Pydantic Settings
 │   │   ├── llm.py           # Lớp cấu hình LLM đa mô hình
-│   │   └── tracing.py       # Langfuse integration
+│   │   ├── ingestion.py     # Đọc và chia chunk tài liệu
+│   │   ├── tracing.py       # Langfuse integration
+│   │   └── vector_store.py  # PostgreSQL/pgvector
 │   └── schemas/
-│       └── health.py        # Response models
+│       ├── health.py        # Health response
+│       └── rag.py           # RAG request/response
+├── data/
+│   ├── demo_sales_warehouse/ # Tài liệu và SQL seed mẫu
+│   ├── rag_golden_set.json
+│   └── nlq_golden_set.json
 ├── scripts/
-│   └── compare_models.py    # So sánh 3 mô hình
+│   ├── compare_models.py
+│   ├── ingest_documents.py
+│   ├── evaluate_rag_retrieval.py
+│   └── evaluate_nlq_golden.py
+├── tests/
+│   ├── test_health.py
+│   ├── test_ingestion.py
+│   ├── test_llm.py
+│   ├── test_rag.py
+│   └── test_tracing.py
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
@@ -104,7 +124,7 @@ Pipeline đọc MD/TXT/DOCX/PDF, chia chunk rồi ghi embedding vào bảng `rag
 
 ```bash
 curl -X POST http://localhost:8000/api/rag/ask \
-  -H "Content-Type: application/json" \\
+  -H "Content-Type: application/json" \
   -d '{"question":"Nhân viên được nghỉ phép năm bao nhiêu ngày?","top_k":5}'
 ```
 

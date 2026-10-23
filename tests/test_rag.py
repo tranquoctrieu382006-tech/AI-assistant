@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from app.api import rag
 from app.schemas.rag import RagAskRequest
+from fastapi import HTTPException
 
 
 class FakeModel:
@@ -60,3 +61,35 @@ def test_rag_returns_answer_and_retrieved_source():
     assert response.answer == "Nhân viên được nghỉ 12 ngày."
     assert response.sources[0].source == "policy.md"
     assert response.sources[0].score == 0.8
+
+
+def test_rag_reports_retrieval_failure_without_leaking_exception_details():
+    fake_store = types.ModuleType("app.core.vector_store")
+    fake_store.similarity_search = lambda question, k: (_ for _ in ()).throw(ConnectionError("private detail"))
+    with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
+          patch.object(rag, "run_in_threadpool", inline_threadpool)):
+        try:
+            run_inline(rag.ask_rag(RagAskRequest(question="Chính sách nghỉ phép?")))
+        except HTTPException as exc:
+            assert exc.status_code == 503
+            assert exc.detail == "RAG retrieval unavailable"
+        else:
+            raise AssertionError("Expected retrieval failure")
+
+
+def test_rag_reports_generation_failure_separately():
+    fake_store = types.ModuleType("app.core.vector_store")
+    fake_store.similarity_search = lambda question, k: [{
+        "content": "12 ngày nghỉ phép mỗi năm", "source": "policy.md", "chunk_index": 0, "score": 0.8
+    }]
+    with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
+          patch.object(rag, "run_in_threadpool", inline_threadpool),
+          patch.object(rag, "get_llm", side_effect=RuntimeError("private provider detail")),
+          patch.object(rag, "get_langfuse_handler", return_value=None)):
+        try:
+            run_inline(rag.ask_rag(RagAskRequest(question="Chính sách nghỉ phép?")))
+        except HTTPException as exc:
+            assert exc.status_code == 502
+            assert exc.detail == "RAG answer generation failed"
+        else:
+            raise AssertionError("Expected generation failure")

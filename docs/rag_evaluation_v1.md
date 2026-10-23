@@ -21,4 +21,4 @@ Run `python -m scripts.evaluate_rag_retrieval` after PostgreSQL/pgvector has bee
 - At the 0.5 cutoff, all five RAG cases pass: Hit@5 = 1.0 and MRR = 1.0. The negative case is counted as a hit when the API abstains below the configured cutoff.
 - All four NLQ reference queries match their expected values (accuracy = 1.0).
 - A local `POST /api/rag/ask` smoke test returned an answer and sources for an in-scope question. A separate local API request returned the expected no-answer response with no sources for the out-of-scope case.
-- Langfuse reports configured keys and successfully creates a LangChain callback handler locally. Live delivery remains unverified: automatic review blocked a test that would export the RAG question, retrieved context, and generated answer to Langfuse Cloud. Local handler creation does not prove remote delivery.
+- On 2026-10-23, after explicit user authorization, one live RAG smoke trace was flushed to Langfuse Cloud successfully. This confirms one delivery path, not sustained delivery reliability or a privacy-safe configuration; traces may include the question, retrieved context, and generated answer.
