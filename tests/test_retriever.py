@@ -1,5 +1,6 @@
 """Unit tests for the unified retrieval abstraction."""
 import pytest
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import MagicMock, patch
 from langchain_core.documents import Document
 
@@ -117,7 +118,7 @@ def test_hybrid_gate_can_keep_bm25_candidate_when_vector_top_k_is_empty(monkeypa
 
 def test_bm25_cache_refreshes_when_database_corpus_revision_changes():
     clear_bm25_cache()
-    revisions = iter([(2, 10), (3, 13)])
+    revisions = iter([(2, 10), (3, 13), (4, 16), (4, 16)])
     chunks = [
         {"content": "first indexed chunk", "source": "a.md", "chunk_index": 0},
         {"content": "second indexed chunk", "source": "a.md", "chunk_index": 1},
@@ -154,6 +155,37 @@ def test_bm25_cache_refreshes_when_database_corpus_revision_changes():
     assert second.k == 4
     assert created[0].k == 20
     assert get_chunks.call_count == 2
+    clear_bm25_cache()
+
+
+def test_concurrent_first_bm25_requests_build_index_once():
+    clear_bm25_cache()
+    created = []
+
+    class FakeBM25Instance:
+        def __init__(self, docs, k):
+            self.docs, self.k = docs, k
+
+    class FakeBM25:
+        @classmethod
+        def from_documents(cls, docs, k, preprocess_func):
+            instance = FakeBM25Instance(docs, k)
+            created.append(instance)
+            return instance
+
+    fake_module = __import__("types").SimpleNamespace(BM25Retriever=FakeBM25)
+    chunks = [{"content": "one", "source": "a.md", "chunk_index": 0}]
+    with (
+        patch("app.core.vector_store.get_corpus_revision", return_value=(1, 1)),
+        patch("app.core.vector_store.get_all_chunks", return_value=chunks) as get_chunks,
+        patch.dict("sys.modules", {"langchain_community.retrievers": fake_module}),
+    ):
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            retrievers = list(executor.map(lambda _: get_bm25_retriever(k=5), range(8)))
+
+    assert len(created) == 1
+    assert get_chunks.call_count == 1
+    assert len({id(retriever) for retriever in retrievers}) == 8
     clear_bm25_cache()
 
 

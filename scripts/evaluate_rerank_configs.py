@@ -28,7 +28,9 @@ def evaluate_config(
     k: int,
     use_reranker: bool = False,
     reranker_top_n: int = 5,
+    reranker_pool_size: int | None = None,
 ) -> dict:
+    effective_pool_size = max(k, reranker_pool_size or k) if use_reranker else k
     cases = json.loads(Path("data/rag_golden_set.json").read_text(encoding="utf-8"))
     answerable_records = []
     abstention_records = []
@@ -46,6 +48,7 @@ def evaluate_config(
             mode=mode,
             use_reranker=use_reranker,
             reranker_top_n=reranker_top_n,
+            reranker_pool_size=effective_pool_size,
         )
         t_elapsed = time.perf_counter() - t0
         latencies.append(t_elapsed)
@@ -115,6 +118,7 @@ def evaluate_config(
         "name": name,
         "mode": mode,
         "k_candidates": k,
+        "reranker_pool_size": effective_pool_size,
         "use_reranker": use_reranker,
         "top_n": reranker_top_n if use_reranker else k,
         "avg_latency_ms": (sum(latencies) / len(latencies)) * 1000,
@@ -139,11 +143,19 @@ def main():
         {"name": "H5", "mode": "hybrid", "k": 5, "use_reranker": False, "reranker_top_n": 5},
         {"name": "R10", "mode": "vector", "k": 10, "use_reranker": True, "reranker_top_n": 5},
         {"name": "HR10", "mode": "hybrid", "k": 10, "use_reranker": True, "reranker_top_n": 5},
+        {
+            "name": "P-current",
+            "mode": settings.search_mode,
+            "k": settings.rag_top_k,
+            "use_reranker": settings.use_reranker,
+            "reranker_top_n": settings.rag_top_k,
+            "reranker_pool_size": max(settings.rag_top_k, 20),
+        },
     ]
 
     results = []
     for cfg in configs:
-        print(f"Running config {cfg['name']} (mode={cfg['mode']}, k={cfg['k']}, rerank={cfg['use_reranker']})...")
+        print(f"Running config {cfg['name']} (mode={cfg['mode']}, k={cfg['k']}, pool={cfg.get('reranker_pool_size', cfg['k'])}, rerank={cfg['use_reranker']})...")
         res = evaluate_config(**cfg)
         results.append(res)
         print(f"  Hit@1={res['hit@1']:.4f}, Hit@3={res['hit@3']:.4f}, MRR={res['mrr']:.4f}, Latency={res['avg_latency_ms']:.1f}ms")
@@ -157,6 +169,7 @@ def main():
         "",
         "> **Dataset:** `data/rag_golden_set.json` (65 cases)",
         "> **Model Reranker:** `BAAI/bge-reranker-v2-m3`",
+        f"> **P-current:** mode={settings.search_mode}, top_k={settings.rag_top_k}, candidate pool={max(settings.rag_top_k, 20) if settings.use_reranker else settings.rag_top_k}, reranker={settings.use_reranker}, top_n={settings.rag_top_k if settings.use_reranker else 'n/a'}",
         "",
         "| Cấu hình | Retrieval | k lấy | Rerank | Top n | Hit@1 | Hit@3 | Hit@5 | MRR | FP (in-missing) | FP (out-far) | FN (ans) | Độ trễ TB |",
         "|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|",

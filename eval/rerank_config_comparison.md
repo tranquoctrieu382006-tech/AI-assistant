@@ -26,3 +26,5 @@
 ### Quyết định
 
 Theo tiêu chí đã đặt trước (Hit@1 và MRR không giảm so với V5), **H5, R10 và HR10 đều không đạt**. Giữ V5 làm baseline tạm thời; không khuyến nghị bật hybrid/reranker dựa trên bộ số liệu này. Đây là phép đo một lượt trên development set, không có warm-up hoặc lặp nhiều lần. Hơn nữa, các số liệu được tạo bởi phiên bản hybrid trước khi sửa cosine gate theo từng chunk; cần chạy lại trước khi so sánh cấu hình của code hiện tại.
+
+**Phạm vi lịch sử:** R10/HR10 lấy 10 ứng viên, không trùng cấu hình production hiện tại. Khi bật reranker, API dùng `top_k=5`, candidate pool 20 và lấy top 5 sau rerank (mặc định hiện tại `USE_RERANKER=false`). Script `scripts/evaluate_rerank_configs.py` hiện có cấu hình `P-current` để đo đúng cấu hình được bật trong `.env`. Bảng này giữ nguyên làm lịch sử; chưa có số liệu mới cho `P-current` cho tới khi chạy evaluator với vector DB sẵn sàng.

@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     rag_exclude_files: list[str] = ["README.md", "data_dictionary.md", "nguon_dataset.md"]
     # RAG defaults to a local model; cloud use must be an explicit choice.
     rag_model: str = "local"
+    # Rewriting receives recent conversation text; keep local unless cloud use is configured explicitly.
+    question_rewriter_model: str = "local"
     search_mode: Literal["vector", "hybrid"] = "vector"
     use_reranker: bool = False
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
@@ -48,7 +50,7 @@ class Settings(BaseSettings):
     # false positives. Do not treat it as a validated production threshold.
     rag_min_relevance_score: float = 0.5
     rag_embedding_batch_size: int = Field(default=64, ge=1)
-    llm_timeout_seconds: float = Field(default=120.0, gt=0)
+    llm_timeout_seconds: float = Field(default=300.0, gt=0)
 
     # ── API Keys ────────────────────────────────────────────────
     openai_api_key: str = ""

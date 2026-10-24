@@ -40,7 +40,8 @@ Sửa biến trong `.env`, **không cần sửa code**:
 |---|---|---|
 | Mặc định | `DEFAULT_MODEL` | `openai/gpt-4o-mini` |
 | Mạnh (SQL phức tạp, tổng hợp) | `STRONG_MODEL` | `openai/gpt-4o` |
-| Nhanh/rẻ (router, viết lại câu hỏi) | `FAST_MODEL` | `openai/gpt-4o-mini` |
+| Nhanh/rẻ (router) | `FAST_MODEL` | `openai/gpt-4o-mini` |
+| Viết lại câu hỏi hội thoại | `QUESTION_REWRITER_MODEL` | `local` (có thể chọn `fast`) |
 | Local inference | `LOCAL_MODEL` | `ollama/gemma3:12b` |
 | Mô hình trả lời RAG | `RAG_MODEL` | `local` |
 | Số chiều embedding | `EMBEDDING_DIMENSIONS` | `1024` (đổi chiều cần tạo lại bảng và nạp lại corpus) |
@@ -54,6 +55,11 @@ Sửa biến trong `.env`, **không cần sửa code**:
 Groq có thể dùng với `GROQ_API_KEY` trong `.env`, ví dụ `groq/openai/gpt-oss-120b` và `groq/openai/gpt-oss-20b`. Gemini vẫn được hỗ trợ bằng `GOOGLE_API_KEY` và model có tiền tố `google_genai/`.
 
 RAG dùng role local theo mặc định (`RAG_MODEL=local`); có thể đổi sang role hoặc tên model khác trong `.env`. Local inference không gửi prompt tới nhà cung cấp model cloud. Tuy nhiên, nếu Langfuse Cloud được cấu hình, callback tracing có thể gửi câu hỏi, ngữ cảnh được truy xuất và câu trả lời lên Langfuse; không bật tracing cloud nếu dữ liệu phải ở hoàn toàn trên máy.
+
+Question rewriter cũng mặc định dùng local vì nhận lịch sử hội thoại. Chỉ đặt
+`QUESTION_REWRITER_MODEL=fast` khi chấp nhận gửi lịch sử đó tới nhà cung cấp
+cloud. LLM timeout mặc định là 300 giây để chứa các lượt local chậm; đặt
+`LLM_TIMEOUT_SECONDS` rõ ràng nếu deployment cần giới hạn độ trễ thấp hơn.
 
 ## Tại sao chọn `init_chat_model` thay vì LiteLLM?
 

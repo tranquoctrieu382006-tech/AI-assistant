@@ -97,6 +97,20 @@ async def test_rewrite_calls_llm_when_history_present():
 
 
 @pytest.mark.asyncio
+async def test_rewriter_uses_its_explicit_model_setting(monkeypatch):
+    history = [
+        {"role": "user", "content": "Câu hỏi trước?"},
+        {"role": "assistant", "content": "Câu trả lời."},
+    ]
+    mock_chain = AsyncMock()
+    mock_chain.ainvoke.return_value = "Câu hỏi độc lập?"
+    monkeypatch.setattr("app.core.question_rewriter.settings.question_rewriter_model", "fast")
+    with patch("app.core.question_rewriter.build_rewriter_chain", return_value=mock_chain) as build:
+        await rewrite_question_if_needed("Còn ý này?", history)
+    build.assert_called_once_with("fast")
+
+
+@pytest.mark.asyncio
 async def test_rewrite_skips_long_self_contained_question_even_with_history():
     history = [
         {"role": "user", "content": "Question one"},

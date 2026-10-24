@@ -27,7 +27,7 @@ Quy tắc bắt buộc:
 """
 
 
-def build_rewriter_chain(model_role: str = "local"):
+def build_rewriter_chain(model_role: str | None = None):
     prompt = ChatPromptTemplate.from_messages([
         ("system", REWRITE_SYSTEM_PROMPT),
         ("human", "LỊCH SỬ HỘI THOẠI:\n{history}\n\nCÂU HỎI MỚI: {question}\n\nCÂU HỎI ĐỘC LẬP:"),
@@ -63,7 +63,7 @@ async def rewrite_question_if_needed(
     history_text = "\n".join(history_lines)
 
     try:
-        role = model_role or settings.rag_model
+        role = model_role or settings.question_rewriter_model
         chain = build_rewriter_chain(role)
         from app.core.tracing import get_langfuse_handler, langfuse_context
 

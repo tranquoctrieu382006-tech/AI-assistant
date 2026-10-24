@@ -162,6 +162,62 @@ def test_rag_rejects_invalid_structured_generation():
                 raise AssertionError("Expected invalid structured output to fail")
 
 
+@pytest.mark.asyncio
+async def test_stream_disconnect_persists_partial_turn_for_followup():
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+
+    session_store = rag.session_store
+    session_store.clear_all_sessions()
+
+    class FakeStreamChain:
+        async def astream(self, *args, **kwargs):
+            yield SimpleNamespace(content="Partial answer")
+
+    class FakePrompt:
+        def __or__(self, llm):
+            return FakeStreamChain()
+
+    async def inline_threadpool(function, *args):
+        return function(*args)
+
+    async def no_rewrite(question, history):
+        return question
+
+    @contextmanager
+    def no_trace(*args, **kwargs):
+        yield
+
+    request = RagAskRequest(question="Question?", session_id="disconnected-stream")
+    with (
+        patch.object(rag, "rewrite_question_if_needed", no_rewrite),
+        patch.object(rag, "run_in_threadpool", inline_threadpool),
+        patch.object(rag, "retrieve_and_gate", return_value=([{
+            "content": "Evidence", "source": "policy.md", "chunk_index": 0,
+            "score": 0.8, "section": None, "page_number": None,
+        }], False)),
+        patch.object(rag, "build_rag_text_prompt", return_value=FakePrompt()),
+        patch.object(rag, "get_rag_llm", return_value=object()),
+        patch.object(rag, "get_langfuse_handler", return_value=None),
+        patch.object(rag, "langfuse_observation", no_trace),
+        patch.object(rag, "update_langfuse_observation"),
+        patch.object(rag, "langfuse_context", no_trace),
+    ):
+        response = await rag.ask_rag_stream(request)
+        stream = response.body_iterator
+        first_event = await anext(stream)
+        assert '"type": "sources"' in first_event
+        try:
+            await stream.athrow(asyncio.CancelledError())
+        except asyncio.CancelledError:
+            pass
+
+    history = session_store.get_history("disconnected-stream")
+    assert history[-2]["content"] == "Question?"
+    assert history[-1]["content"] == "Partial answer"
+    session_store.clear_all_sessions()
+
+
 def test_rag_reports_retrieval_failure_without_leaking_exception_details():
     fake_store = types.ModuleType("app.core.vector_store")
     fake_store.similarity_search = lambda question, k: (_ for _ in ()).throw(ConnectionError("private detail"))

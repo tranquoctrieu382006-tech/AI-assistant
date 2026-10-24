@@ -1,10 +1,38 @@
 """Evaluate live RAG API answers against lightweight golden answer strings."""
 import json
 from pathlib import Path
+import random
+import time
 
 import httpx
 
 from app.core.config import settings
+
+
+def _post_with_rate_limit_retry(
+    client: httpx.Client,
+    url: str,
+    *,
+    json_body: dict,
+    headers: dict[str, str],
+    max_retries: int = 5,
+    sleep=time.sleep,
+) -> httpx.Response:
+    """Retry transient 429/5xx responses, honoring Retry-After when provided."""
+    for attempt in range(max_retries + 1):
+        response = client.post(url, json=json_body, headers=headers)
+        if response.status_code not in {429, 500, 502, 503, 504}:
+            response.raise_for_status()
+            return response
+        if attempt == max_retries:
+            response.raise_for_status()
+        retry_after = response.headers.get("Retry-After")
+        try:
+            delay = max(0.0, float(retry_after)) if retry_after else min(30.0, 2**attempt)
+        except ValueError:
+            delay = min(30.0, 2**attempt)
+        sleep(delay + random.uniform(0, min(0.25, delay * 0.1)))
+    raise RuntimeError("unreachable")
 
 
 def evaluate(base_url: str = "http://127.0.0.1:8000") -> dict:
@@ -14,13 +42,17 @@ def evaluate(base_url: str = "http://127.0.0.1:8000") -> dict:
     passed = 0
     category_results: dict[str, dict[str, int]] = {}
     with httpx.Client(timeout=180) as client:
-        for case in cases:
-            response = client.post(
+        for index, case in enumerate(cases):
+            # Stay below the app's default 60 requests/minute limit. Backoff
+            # still handles shared-IP traffic and external provider throttling.
+            if index:
+                time.sleep(1.05)
+            response = _post_with_rate_limit_retry(
+                client,
                 f"{base_url}/api/rag/ask",
-                json={"question": case["question"]},
+                json_body={"question": case["question"]},
                 headers={"X-API-Key": settings.app_api_key},
             )
-            response.raise_for_status()
             answer = response.json()["answer"].casefold()
             expected = case["answer_contains"]
             expected_parts = expected if isinstance(expected, list) else [expected]
@@ -40,7 +72,8 @@ def evaluate(base_url: str = "http://127.0.0.1:8000") -> dict:
                 }
                 for category, counts in sorted(category_results.items())
             },
-            "metric_note": "Substring smoke check only; not a semantic quality score."}
+            "metric_note": "Substring smoke check only; not a semantic quality score.",
+            "rate_limit_note": "Requests paced at 1.05 seconds with bounded retry for 429/5xx."}
 
 
 if __name__ == "__main__":

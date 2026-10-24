@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import logging
 import re
+import threading
 import unicodedata
 from collections import defaultdict
 
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 _BM25_INSTANCE = None
 _BM25_REVISION: tuple[int, int] | None = None
+_BM25_LOCK = threading.RLock()
 _RRF_CONSTANT = 60
 _RRF_WEIGHTS = (0.5, 0.5)  # BM25, vector
 
@@ -31,31 +33,35 @@ def get_bm25_retriever(k: int = 5):
     global _BM25_INSTANCE, _BM25_REVISION
     revision = vector_store.get_corpus_revision()
     if _BM25_INSTANCE is None or _BM25_REVISION != revision:
-        from langchain_community.retrievers import BM25Retriever
+        with _BM25_LOCK:
+            # The cache may have been populated/reindexed while this caller waited.
+            revision = vector_store.get_corpus_revision()
+            if _BM25_INSTANCE is None or _BM25_REVISION != revision:
+                from langchain_community.retrievers import BM25Retriever
 
-        chunks = vector_store.get_all_chunks()
-        docs = [
-            Document(
-                page_content=chunk["content"],
-                metadata={
-                    "source": chunk["source"],
-                    "chunk_index": chunk["chunk_index"],
-                    "page_number": chunk.get("page_number"),
-                    "section": chunk.get("section"),
-                },
-            )
-            for chunk in chunks
-        ]
-        if not docs:
-            _BM25_INSTANCE = None
-            _BM25_REVISION = revision
-            raise vector_store.VectorStoreNotReady("RAG vector store contains no indexed chunks.")
-        _BM25_INSTANCE = BM25Retriever.from_documents(
-            docs,
-            k=max(k, 20),
-            preprocess_func=_bm25_tokens,
-        )
-        _BM25_REVISION = revision
+                chunks = vector_store.get_all_chunks()
+                docs = [
+                    Document(
+                        page_content=chunk["content"],
+                        metadata={
+                            "source": chunk["source"],
+                            "chunk_index": chunk["chunk_index"],
+                            "page_number": chunk.get("page_number"),
+                            "section": chunk.get("section"),
+                        },
+                    )
+                    for chunk in chunks
+                ]
+                if not docs:
+                    _BM25_INSTANCE = None
+                    _BM25_REVISION = revision
+                    raise vector_store.VectorStoreNotReady("RAG vector store contains no indexed chunks.")
+                _BM25_INSTANCE = BM25Retriever.from_documents(
+                    docs,
+                    k=max(k, 20),
+                    preprocess_func=_bm25_tokens,
+                )
+                _BM25_REVISION = revision
     # The cached model shares its immutable token index; request-specific k is
     # applied to a shallow copy so concurrent calls cannot overwrite each other.
     per_call = copy.copy(_BM25_INSTANCE)
@@ -66,8 +72,9 @@ def get_bm25_retriever(k: int = 5):
 def clear_bm25_cache() -> None:
     """Clear cached BM25 state, for tests and explicit in-process reindexing."""
     global _BM25_INSTANCE, _BM25_REVISION
-    _BM25_INSTANCE = None
-    _BM25_REVISION = None
+    with _BM25_LOCK:
+        _BM25_INSTANCE = None
+        _BM25_REVISION = None
 
 
 def _hybrid_fusion(bm25_docs: list[Document], vector_matches: list[dict], top_k: int) -> list[Document]:

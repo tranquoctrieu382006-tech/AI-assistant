@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 
@@ -137,6 +138,12 @@ async def ask_rag_stream(request: RagAskRequest):
             logger.exception("Error during answer streaming")
             yield f"data: {json.dumps({'type': 'error', 'detail': 'Answer generation failed'}, ensure_ascii=False)}\n\n"
             return
+        except asyncio.CancelledError:
+            # Preserve already generated context if the client drops the stream.
+            # The next follow-up can then still resolve references to this turn.
+            partial_answer = "".join(full_answer).strip() or NO_ANSWER
+            session_store.add_turn(request.session_id, request.question, partial_answer)
+            raise
 
         complete_answer = "".join(full_answer).strip() or NO_ANSWER
         if not sources_sent:
