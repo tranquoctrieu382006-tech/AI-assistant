@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CASES_PATH = ROOT / "data/rag_golden_set.json"
 OUTPUT_PATH = ROOT / "eval/dev_abstention_prompt_experiment_m1.json"
 FOLLOWUP_OUTPUT_PATH = ROOT / "eval/dev_abstention_prompt_missing_followup_m1.json"
+ANSWERABLE_FOLLOWUP_OUTPUT_PATH = ROOT / "eval/dev_abstention_prompt_answerable_followup_m1.json"
 CANDIDATE_RULE = (
     "Trước khi trả lời, hãy kiểm tra riêng từng thông tin mà câu hỏi yêu cầu. "
     "Chỉ trả lời nếu CONTEXT nêu rõ và hỗ trợ tất cả các thông tin thiết yếu đó. "
@@ -178,9 +179,12 @@ if __name__ == "__main__":
                         help="Use the predefined stratified development sample (24 cases).")
     parser.add_argument("--missing-followup", action="store_true",
                         help="Run in_scope_missing cases not present in the first sample.")
+    parser.add_argument("--answerable-followup", action="store_true",
+                        help="Run answerable cases not present in the first sample.")
     args = parser.parse_args()
-    if args.sample and args.missing_followup:
-        parser.error("--sample and --missing-followup cannot be combined")
+    selected_modes = sum((args.sample, args.missing_followup, args.answerable_followup))
+    if selected_modes > 1:
+        parser.error("Choose only one of --sample, --missing-followup, or --answerable-followup")
     if args.missing_followup:
         prior = json.loads(OUTPUT_PATH.read_text(encoding="utf-8"))
         previously_run = {record["id"] for record in prior["records"]}
@@ -190,6 +194,16 @@ if __name__ == "__main__":
             if case.get("category") == "in_scope_missing" and case["id"] not in previously_run
         }
         run(case_ids=missing_ids, output_path=FOLLOWUP_OUTPUT_PATH)
+        raise SystemExit(0)
+    if args.answerable_followup:
+        prior = json.loads(OUTPUT_PATH.read_text(encoding="utf-8"))
+        previously_run = {record["id"] for record in prior["records"]}
+        all_cases = json.loads(CASES_PATH.read_text(encoding="utf-8"))
+        answerable_ids = {
+            case["id"] for case in all_cases
+            if case.get("evidence") and case["id"] not in previously_run
+        }
+        run(case_ids=answerable_ids, output_path=ANSWERABLE_FOLLOWUP_OUTPUT_PATH)
         raise SystemExit(0)
     run(sample_counts=(
         {"in_scope_missing": 8, "simple": 8, "paraphrase": 4,

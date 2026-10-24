@@ -44,3 +44,8 @@ Next: expand the development sample for `in_scope_missing` and manually review
 all disagreement cases, then freeze exactly one candidate prompt and evaluator
 before any new held-out run. If M2 findings are used to guide further changes,
 M2 is no longer independent and a fresh held-out set is required.
+
+**Update:** the remaining 11 `in_scope_missing` and 27 answerable development
+cases were subsequently evaluated. See
+`eval/dev_abstention_prompt_followup_m1.md` for the complete-group summary; it
+supersedes the sample-only interpretation above.

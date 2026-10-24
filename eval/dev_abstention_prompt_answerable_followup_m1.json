@@ -1,0 +1,743 @@
+{
+  "dataset": "development M1 only",
+  "case_count": 27,
+  "full_development_case_count": 65,
+  "sample_counts": null,
+  "sample_seed": null,
+  "model": "ollama/gemma3:12b",
+  "retrieval": {
+    "top_k": 5,
+    "cutoff": 0.5,
+    "embedding_model": "bge-m3"
+  },
+  "candidate_rule": "Trước khi trả lời, hãy kiểm tra riêng từng thông tin mà câu hỏi yêu cầu. Chỉ trả lời nếu CONTEXT nêu rõ và hỗ trợ tất cả các thông tin thiết yếu đó. Nếu thiếu một con số, mốc thời gian, đối tượng, điều kiện hoặc bước thực hiện được hỏi, hãy từ chối; không suy ra từ thông tin cùng chủ đề.",
+  "summary": {
+    "baseline": {
+      "abstention_correct": 26,
+      "answerable_false_abstentions": 1,
+      "answerable_expected_fragment_match": 24,
+      "answerable_cases": 27,
+      "in_scope_missing_false_answers": 0,
+      "in_scope_missing_cases": 0,
+      "generation_errors": 0
+    },
+    "candidate": {
+      "abstention_correct": 26,
+      "answerable_false_abstentions": 1,
+      "answerable_expected_fragment_match": 24,
+      "answerable_cases": 27,
+      "in_scope_missing_false_answers": 0,
+      "in_scope_missing_cases": 0,
+      "generation_errors": 0
+    }
+  },
+  "paired_case_changes": {
+    "candidate_fixes_missing_false_answers": 0,
+    "candidate_adds_answerable_false_abstentions": 0
+  },
+  "interpretation_limit": "Development-only prompt experiment, exploratory; one candidate, synthetic corpus, expected-fragment matching is not semantic answer evaluation. No production config changed.",
+  "records": [
+    {
+      "id": "rag-001",
+      "category": "simple",
+      "question": "Nhân viên làm việc vào khung giờ nào?",
+      "answerable": true,
+      "top_score": 0.630174090610946,
+      "context_chunk_count": 2,
+      "variants": {
+        "baseline": {
+          "answer": "Nhân viên làm việc từ thứ Hai đến thứ Sáu, 08:30–17:30, nghỉ trưa 12:00–13:00.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 32131.4,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Nhân viên làm việc từ thứ Hai đến thứ Sáu, 08:30–17:30, nghỉ trưa 12:00–13:00.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 11973.3,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-002",
+      "category": "simple",
+      "question": "Nhân viên cần gửi đề nghị nghỉ phép trước bao lâu?",
+      "answerable": true,
+      "top_score": 0.696530616697044,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Trước ít nhất 2 ngày làm việc, trừ trường hợp khẩn cấp.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 11624.3,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Nghỉ phép năm 12 ngày/năm sau khi hoàn tất thử việc; gửi đề nghị trước ít nhất 2 ngày làm việc, trừ trường hợp khẩn cấp.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 13407.5,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-003",
+      "category": "simple",
+      "question": "Quy trình nhập kho cần đối chiếu chứng từ nào?",
+      "answerable": true,
+      "top_score": 0.6457290264530958,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Đối chiếu đơn mua/phiếu điều chuyển.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 7873.9,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Quy trình nhập kho cần đối chiếu đơn mua/phiếu điều chuyển.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 8003.9,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-006",
+      "category": "simple",
+      "question": "Nhân viên được nghỉ phép năm bao nhiêu ngày sau thử việc?",
+      "answerable": true,
+      "top_score": 0.6995664834976395,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Nghỉ phép năm 12 ngày/năm sau khi hoàn tất thử việc.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 13092.5,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Nghỉ phép năm 12 ngày/năm sau khi hoàn tất thử việc.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 11113.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-009",
+      "category": "simple",
+      "question": "Có được tải danh sách khách hàng về thiết bị cá nhân không?",
+      "answerable": true,
+      "top_score": 0.6269922630186784,
+      "context_chunk_count": 4,
+      "variants": {
+        "baseline": {
+          "answer": "Không tải danh sách khách hàng về thiết bị cá nhân.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 6535.7,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Không tải danh sách khách hàng về thiết bị cá nhân.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 6611.6,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-010",
+      "category": "simple",
+      "question": "Sự cố dữ liệu phải được báo trong thời hạn nào?",
+      "answerable": true,
+      "top_score": 0.6462480673198585,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Trong 4 giờ kể từ khi phát hiện.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 7372.5,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Trong 4 giờ kể từ khi phát hiện.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 7056.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-011",
+      "category": "simple",
+      "question": "Lương được thanh toán vào ngày nào?",
+      "answerable": true,
+      "top_score": 0.6875607837190816,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Lương được thanh toán ngày 05 của tháng kế tiếp.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 7570.6,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Lương được thanh toán ngày 05 của tháng kế tiếp.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 11964.1,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-012",
+      "category": "simple",
+      "question": "Mức lưu trú tối đa trong công tác phí nội địa là bao nhiêu?",
+      "answerable": true,
+      "top_score": 0.6435510516167099,
+      "context_chunk_count": 2,
+      "variants": {
+        "baseline": {
+          "answer": "500.000 đồng/ngày",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 7032.8,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Mức lưu trú tối đa trong công tác phí nội địa là 500.000 đồng/ngày.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 9028.8,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-013",
+      "category": "simple",
+      "question": "Mức ăn uống tối đa trong công tác phí nội địa là bao nhiêu?",
+      "answerable": true,
+      "top_score": 0.6492490930778948,
+      "context_chunk_count": 2,
+      "variants": {
+        "baseline": {
+          "answer": "200.000 đồng/ngày.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 5975.8,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Mức ăn uống tối đa trong công tác phí nội địa là 200.000 đồng/ngày.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 8247.4,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-014",
+      "category": "simple",
+      "question": "Cần đề nghị tạm ứng công tác phí trước chuyến đi bao lâu?",
+      "answerable": true,
+      "top_score": 0.6978936139536406,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Đề nghị tạm ứng trước chuyến đi 3 ngày.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 7371.1,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Đề nghị tạm ứng trước chuyến đi 3 ngày.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 7766.1,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-015",
+      "category": "simple",
+      "question": "Sau chuyến công tác, hạn quyết toán là bao lâu?",
+      "answerable": true,
+      "top_score": 0.6707594983412697,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "5 ngày làm việc sau chuyến đi.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 10116.3,
+          "abstention_correct": true,
+          "answer_contains_normalized": false
+        },
+        "candidate": {
+          "answer": "5 ngày làm việc sau chuyến đi.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 7467.9,
+          "abstention_correct": true,
+          "answer_contains_normalized": false
+        }
+      }
+    },
+    {
+      "id": "rag-016",
+      "category": "simple",
+      "question": "Hàng lỗi do nhà sản xuất được tiếp nhận trong bao lâu?",
+      "answerable": true,
+      "top_score": 0.6912952845517233,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Hàng lỗi do nhà sản xuất được tiếp nhận trong 30 ngày.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 10061.2,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Hàng lỗi do nhà sản xuất được tiếp nhận trong 30 ngày.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 9836.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-017",
+      "category": "simple",
+      "question": "Thời gian chẩn đoán bảo hành tối đa là bao lâu?",
+      "answerable": true,
+      "top_score": 0.7128172050689239,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Thời gian chẩn đoán tối đa 3 ngày làm việc.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 8381.1,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Thời gian chẩn đoán tối đa 3 ngày làm việc.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 9307.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-018",
+      "category": "simple",
+      "question": "Thời gian sửa chữa bảo hành dự kiến tối đa là bao lâu?",
+      "answerable": true,
+      "top_score": 0.7220365123228907,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Thời gian sửa dự kiến tối đa 15 ngày làm việc, được thông báo nếu cần linh kiện.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 14488.8,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Thời gian sửa dự kiến tối đa 15 ngày làm việc, được thông báo nếu cần linh kiện.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 10425.4,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-020",
+      "category": "simple",
+      "question": "Đơn hàng từ giá trị nào được miễn phí giao hàng?",
+      "answerable": true,
+      "top_score": 0.6317875071078926,
+      "context_chunk_count": 4,
+      "variants": {
+        "baseline": {
+          "answer": "Miễn phí với đơn từ 1.000.000 đồng trước giảm giá.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 8851.8,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Đơn từ 1.000.000 đồng trước giảm giá được miễn phí giao hàng.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 9189.5,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-021",
+      "category": "simple",
+      "question": "Thời gian giao nội thành dự kiến là bao lâu?",
+      "answerable": true,
+      "top_score": 0.628420121356255,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Đơn nội thành dự kiến 1–2 ngày làm việc.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 9189.3,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Đơn nội thành dự kiến 1–2 ngày làm việc.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 7355.3,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-023",
+      "category": "simple",
+      "question": "Hạng Kim cương được giảm bao nhiêu phần trăm?",
+      "answerable": true,
+      "top_score": 0.683154266068653,
+      "context_chunk_count": 1,
+      "variants": {
+        "baseline": {
+          "answer": "Hạng Kim cương giảm 8% trên giá sản phẩm đủ điều kiện.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 6609.2,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Hạng Kim cương giảm 8% trên giá sản phẩm đủ điều kiện.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 6015.6,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-025",
+      "category": "simple",
+      "question": "Một đơn hàng có thể áp dụng bao nhiêu mã khuyến mãi?",
+      "answerable": true,
+      "top_score": 0.5930168011835899,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Mỗi đơn chỉ áp dụng một mã khuyến mãi.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 7081.5,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Mỗi đơn chỉ áp dụng một mã khuyến mãi.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 7543.4,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-026",
+      "category": "simple",
+      "question": "Ai duyệt phiếu nhập kho và thời hạn duyệt là khi nào?",
+      "answerable": true,
+      "top_score": 0.703974526390918,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Quản lý kho duyệt phiếu trong ngày.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 5952.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": false
+        },
+        "candidate": {
+          "answer": "Quản lý kho duyệt phiếu trong ngày.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 6071.2,
+          "abstention_correct": true,
+          "answer_contains_normalized": false
+        }
+      }
+    },
+    {
+      "id": "rag-027",
+      "category": "simple",
+      "question": "Hàng lỗi khi nhập kho được xử lý thế nào với tồn có thể bán?",
+      "answerable": true,
+      "top_score": 0.6081498084023784,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Hàng lỗi được đưa vào khu cách ly, không cộng vào tồn có thể bán.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 8009.7,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Hàng lỗi được đưa vào khu cách ly, không cộng vào tồn có thể bán.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 9439.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-028",
+      "category": "simple",
+      "question": "Kho nên dùng nguyên tắc nào cho hàng có hạn dùng?",
+      "answerable": true,
+      "top_score": 0.6573965549469741,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Áp dụng nguyên tắc FEFO cho hàng có hạn dùng.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 6575.5,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Áp dụng nguyên tắc FEFO cho hàng có hạn dùng.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 6627.1,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-029",
+      "category": "simple",
+      "question": "Kiểm kê luân phiên được thực hiện với tần suất nào?",
+      "answerable": true,
+      "top_score": 0.4790348125079803,
+      "context_chunk_count": 0,
+      "variants": {
+        "baseline": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "no_context",
+          "latency_ms": 0.2,
+          "abstention_correct": false,
+          "answer_contains_normalized": null
+        },
+        "candidate": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "no_context",
+          "latency_ms": 0.0,
+          "abstention_correct": false,
+          "answer_contains_normalized": null
+        }
+      }
+    },
+    {
+      "id": "rag-030",
+      "category": "simple",
+      "question": "Kiểm kê toàn bộ phải thực hiện tối thiểu bao lâu một lần?",
+      "answerable": true,
+      "top_score": 0.545697672793393,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Kiểm kê toàn bộ tối thiểu mỗi năm.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 7799.2,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Kiểm kê toàn bộ tối thiểu mỗi năm.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 8010.2,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-032",
+      "category": "simple",
+      "question": "Khiếu nại cần được phản hồi lần đầu trong bao lâu?",
+      "answerable": true,
+      "top_score": 0.6283747638388865,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Trong 1 ngày làm việc.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 7090.2,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Trong 1 ngày làm việc.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 7942.9,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-033",
+      "category": "simple",
+      "question": "Khách tra cứu đơn hàng bằng thông tin nào?",
+      "answerable": true,
+      "top_score": 0.659413714339026,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Dùng mã đơn hoặc số điện thoại đã xác minh.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 8043.1,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Dùng mã đơn hoặc số điện thoại đã xác minh.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 7965.8,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-034",
+      "category": "simple",
+      "question": "Sau khi duyệt, tiền hoàn được xử lý trong bao lâu?",
+      "answerable": true,
+      "top_score": 0.6697754466267162,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "5–7 ngày làm việc sau khi duyệt.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 7771.8,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "5–7 ngày làm việc sau khi duyệt.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 10263.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    },
+    {
+      "id": "rag-049",
+      "category": "simple",
+      "question": "Khách tra cứu đơn hàng bằng thông tin nào?",
+      "answerable": true,
+      "top_score": 0.659413714339026,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Dùng mã đơn hoặc số điện thoại đã xác minh.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 7443.6,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        },
+        "candidate": {
+          "answer": "Dùng mã đơn hoặc số điện thoại đã xác minh.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 10025.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": true
+        }
+      }
+    }
+  ]
+}
