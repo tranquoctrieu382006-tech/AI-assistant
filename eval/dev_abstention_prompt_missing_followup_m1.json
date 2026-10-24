@@ -1,0 +1,327 @@
+{
+  "dataset": "development M1 only",
+  "case_count": 11,
+  "full_development_case_count": 65,
+  "sample_counts": null,
+  "sample_seed": null,
+  "model": "ollama/gemma3:12b",
+  "retrieval": {
+    "top_k": 5,
+    "cutoff": 0.5,
+    "embedding_model": "bge-m3"
+  },
+  "candidate_rule": "Trước khi trả lời, hãy kiểm tra riêng từng thông tin mà câu hỏi yêu cầu. Chỉ trả lời nếu CONTEXT nêu rõ và hỗ trợ tất cả các thông tin thiết yếu đó. Nếu thiếu một con số, mốc thời gian, đối tượng, điều kiện hoặc bước thực hiện được hỏi, hãy từ chối; không suy ra từ thông tin cùng chủ đề.",
+  "summary": {
+    "baseline": {
+      "abstention_correct": 10,
+      "answerable_false_abstentions": 0,
+      "answerable_expected_fragment_match": 0,
+      "answerable_cases": 0,
+      "in_scope_missing_false_answers": 1,
+      "in_scope_missing_cases": 11,
+      "generation_errors": 0
+    },
+    "candidate": {
+      "abstention_correct": 10,
+      "answerable_false_abstentions": 0,
+      "answerable_expected_fragment_match": 0,
+      "answerable_cases": 0,
+      "in_scope_missing_false_answers": 1,
+      "in_scope_missing_cases": 11,
+      "generation_errors": 0
+    }
+  },
+  "paired_case_changes": {
+    "candidate_fixes_missing_false_answers": 0,
+    "candidate_adds_answerable_false_abstentions": 0
+  },
+  "interpretation_limit": "Development-only prompt experiment, exploratory; one candidate, synthetic corpus, expected-fragment matching is not semantic answer evaluation. No production config changed.",
+  "records": [
+    {
+      "id": "rag-005",
+      "category": "in_scope_missing",
+      "question": "Công ty có văn phòng tại Đà Nẵng không?",
+      "answerable": false,
+      "top_score": 0.44637808099975285,
+      "context_chunk_count": 0,
+      "variants": {
+        "baseline": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "no_context",
+          "latency_ms": 0.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        },
+        "candidate": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "no_context",
+          "latency_ms": 0.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        }
+      }
+    },
+    {
+      "id": "rag-035",
+      "category": "in_scope_missing",
+      "question": "Khách có văn phòng nào ở Đà Nẵng?",
+      "answerable": false,
+      "top_score": 0.40523643275180055,
+      "context_chunk_count": 0,
+      "variants": {
+        "baseline": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "no_context",
+          "latency_ms": 0.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        },
+        "candidate": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "no_context",
+          "latency_ms": 0.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        }
+      }
+    },
+    {
+      "id": "rag-043",
+      "category": "in_scope_missing",
+      "question": "Số điện thoại tổng đài chăm sóc khách hàng là bao nhiêu?",
+      "answerable": false,
+      "top_score": 0.5558043718338644,
+      "context_chunk_count": 4,
+      "variants": {
+        "baseline": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "ok",
+          "latency_ms": 35490.7,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        },
+        "candidate": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "ok",
+          "latency_ms": 7928.6,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        }
+      }
+    },
+    {
+      "id": "rag-045",
+      "category": "in_scope_missing",
+      "question": "Doanh thu công ty trong tháng 9 năm 2026 là bao nhiêu?",
+      "answerable": false,
+      "top_score": 0.36181111162106216,
+      "context_chunk_count": 0,
+      "variants": {
+        "baseline": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "no_context",
+          "latency_ms": 0.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        },
+        "candidate": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "no_context",
+          "latency_ms": 0.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        }
+      }
+    },
+    {
+      "id": "rag-046",
+      "category": "in_scope_missing",
+      "question": "Công ty có bao nhiêu nhân viên đang làm việc tại chi nhánh Đà Nẵng?",
+      "answerable": false,
+      "top_score": 0.42229037550573056,
+      "context_chunk_count": 0,
+      "variants": {
+        "baseline": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "no_context",
+          "latency_ms": 0.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        },
+        "candidate": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "no_context",
+          "latency_ms": 0.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        }
+      }
+    },
+    {
+      "id": "rag-050",
+      "category": "in_scope_missing",
+      "question": "Chính sách có quy định nhân viên làm việc từ xa tối đa bao nhiêu ngày mỗi tuần không?",
+      "answerable": false,
+      "top_score": 0.5797230195338773,
+      "context_chunk_count": 2,
+      "variants": {
+        "baseline": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "ok",
+          "latency_ms": 10413.5,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        },
+        "candidate": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "ok",
+          "latency_ms": 7508.4,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        }
+      }
+    },
+    {
+      "id": "rag-051",
+      "category": "in_scope_missing",
+      "question": "Nhân viên thử việc được hưởng bao nhiêu phần trăm lương chính thức?",
+      "answerable": false,
+      "top_score": 0.5738675775532049,
+      "context_chunk_count": 3,
+      "variants": {
+        "baseline": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "ok",
+          "latency_ms": 8407.4,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        },
+        "candidate": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "ok",
+          "latency_ms": 7320.4,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        }
+      }
+    },
+    {
+      "id": "rag-052",
+      "category": "in_scope_missing",
+      "question": "Mức phụ cấp ăn trưa hàng tháng của nhân viên là bao nhiêu?",
+      "answerable": false,
+      "top_score": 0.594525849492925,
+      "context_chunk_count": 2,
+      "variants": {
+        "baseline": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "ok",
+          "latency_ms": 7373.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        },
+        "candidate": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "ok",
+          "latency_ms": 7188.9,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        }
+      }
+    },
+    {
+      "id": "rag-053",
+      "category": "in_scope_missing",
+      "question": "Khách có thể thanh toán đơn hàng bằng ví điện tử nào?",
+      "answerable": false,
+      "top_score": 0.5243144122294554,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "ok",
+          "latency_ms": 8991.4,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        },
+        "candidate": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "ok",
+          "latency_ms": 9189.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        }
+      }
+    },
+    {
+      "id": "rag-058",
+      "category": "in_scope_missing",
+      "question": "Nhân viên được nghỉ phép khi con ốm tối đa bao nhiêu ngày?",
+      "answerable": false,
+      "top_score": 0.5728199649775589,
+      "context_chunk_count": 1,
+      "variants": {
+        "baseline": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "ok",
+          "latency_ms": 9350.5,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        },
+        "candidate": {
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "abstain": true,
+          "status": "ok",
+          "latency_ms": 6184.0,
+          "abstention_correct": true,
+          "answer_contains_normalized": null
+        }
+      }
+    },
+    {
+      "id": "rag-060",
+      "category": "in_scope_missing",
+      "question": "Khách hàng thân thiết được cộng điểm vào thời điểm nào sau khi thanh toán?",
+      "answerable": false,
+      "top_score": 0.5564928246788007,
+      "context_chunk_count": 5,
+      "variants": {
+        "baseline": {
+          "answer": "Điểm thưởng quy đổi theo chương trình tại thời điểm giao dịch.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 7510.6,
+          "abstention_correct": false,
+          "answer_contains_normalized": null
+        },
+        "candidate": {
+          "answer": "Điểm thưởng quy đổi theo chương trình tại thời điểm giao dịch.",
+          "abstain": false,
+          "status": "ok",
+          "latency_ms": 8674.9,
+          "abstention_correct": false,
+          "answer_contains_normalized": null
+        }
+      }
+    }
+  ]
+}

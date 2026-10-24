@@ -17,6 +17,7 @@ from app.schemas.rag import RagGeneratedAnswer
 ROOT = Path(__file__).resolve().parents[1]
 CASES_PATH = ROOT / "data/rag_golden_set.json"
 OUTPUT_PATH = ROOT / "eval/dev_abstention_prompt_experiment_m1.json"
+FOLLOWUP_OUTPUT_PATH = ROOT / "eval/dev_abstention_prompt_missing_followup_m1.json"
 CANDIDATE_RULE = (
     "Trước khi trả lời, hãy kiểm tra riêng từng thông tin mà câu hỏi yêu cầu. "
     "Chỉ trả lời nếu CONTEXT nêu rõ và hỗ trợ tất cả các thông tin thiết yếu đó. "
@@ -50,11 +51,15 @@ def select_cases(cases: list[dict], counts: dict[str, int], seed: int) -> list[d
     return [case for case in cases if case["id"] in selected_ids]
 
 
-def run(*, sample_counts: dict[str, int] | None = None, seed: int = 20261023) -> dict:
+def run(*, sample_counts: dict[str, int] | None = None, seed: int = 20261023,
+        case_ids: set[str] | None = None, output_path: Path = OUTPUT_PATH) -> dict:
     from app.core.vector_store import close_pool, similarity_search
 
     full_cases = json.loads(CASES_PATH.read_text(encoding="utf-8"))
-    cases = select_cases(full_cases, sample_counts, seed) if sample_counts else full_cases
+    if case_ids is not None:
+        cases = [case for case in full_cases if case["id"] in case_ids]
+    else:
+        cases = select_cases(full_cases, sample_counts, seed) if sample_counts else full_cases
     llm = get_llm(settings.rag_model, temperature=0)
     baseline_chain = build_rag_chain(llm)
     candidate_chain = make_candidate_chain(llm)
@@ -160,8 +165,8 @@ def run(*, sample_counts: dict[str, int] | None = None, seed: int = 20261023) ->
         ),
         "records": records,
     }
-    OUTPUT_PATH.write_text(json.dumps(output, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"output": str(OUTPUT_PATH), "summary": summary,
+    output_path.write_text(json.dumps(output, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps({"output": str(output_path), "summary": summary,
                       "paired_case_changes": output["paired_case_changes"]},
                      ensure_ascii=False, indent=2))
     return output
@@ -171,7 +176,21 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sample", action="store_true",
                         help="Use the predefined stratified development sample (24 cases).")
+    parser.add_argument("--missing-followup", action="store_true",
+                        help="Run in_scope_missing cases not present in the first sample.")
     args = parser.parse_args()
+    if args.sample and args.missing_followup:
+        parser.error("--sample and --missing-followup cannot be combined")
+    if args.missing_followup:
+        prior = json.loads(OUTPUT_PATH.read_text(encoding="utf-8"))
+        previously_run = {record["id"] for record in prior["records"]}
+        all_cases = json.loads(CASES_PATH.read_text(encoding="utf-8"))
+        missing_ids = {
+            case["id"] for case in all_cases
+            if case.get("category") == "in_scope_missing" and case["id"] not in previously_run
+        }
+        run(case_ids=missing_ids, output_path=FOLLOWUP_OUTPUT_PATH)
+        raise SystemExit(0)
     run(sample_counts=(
         {"in_scope_missing": 8, "simple": 8, "paraphrase": 4,
          "multi_document": 2, "out_of_scope_far": 2}
