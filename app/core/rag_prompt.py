@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from langchain_classic.output_parsers import OutputFixingParser
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 
 from app.schemas.rag import RagGeneratedAnswer
@@ -11,6 +11,28 @@ from app.schemas.rag import RagGeneratedAnswer
 logger = logging.getLogger(__name__)
 
 NO_ANSWER = "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này."
+_FORMAT_REPAIR_PROMPT = PromptTemplate.from_template(
+    """Chỉ sửa định dạng đầu ra để đáp ứng schema, không trả lời lại câu hỏi.
+
+Quy tắc an toàn:
+- Chỉ dùng thông tin đã có trong Completion; không dùng kiến thức ngoài, không thêm,
+  suy diễn, đổi số liệu, tên riêng hoặc chính sách.
+- Nếu Completion có câu trả lời rõ, giữ nguyên nội dung câu trả lời và chỉ chuyển
+  sang schema được yêu cầu.
+- Nếu không thể giữ nguyên một câu trả lời từ Completion mà vẫn đáp ứng schema,
+  dùng answer chính xác `{no_answer}` và abstain=true.
+
+Schema instructions:
+{instructions}
+
+Completion cần sửa:
+{completion}
+
+Lỗi parser:
+{error}
+
+Chỉ xuất cấu trúc theo schema. Không thêm nội dung khác."""
+)
 
 
 def format_context(matches: list[dict]) -> str:
@@ -129,9 +151,11 @@ def build_rag_chain(
     )
     # Repair malformed output using the parser's error and format instructions;
     # do not regenerate the same prompt unchanged at the same temperature.
+    repair_llm = llm.with_config(tags=["rag-output-format-repair"])
     fixing_parser = OutputFixingParser.from_llm(
-        llm=llm,
+        llm=repair_llm,
         parser=parser,
+        prompt=_FORMAT_REPAIR_PROMPT.partial(no_answer=NO_ANSWER),
         max_retries=1,
     )
     return prompt | llm | fixing_parser

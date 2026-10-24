@@ -163,6 +163,61 @@ def test_rag_rejects_invalid_structured_generation():
 
 
 @pytest.mark.asyncio
+async def test_stream_disconnect_before_first_token_does_not_record_a_turn():
+    from contextlib import contextmanager
+
+    session_store = rag.session_store
+    session_store.clear_all_sessions()
+    generation_started = asyncio.Event()
+
+    class FakeStreamChain:
+        async def astream(self, *args, **kwargs):
+            generation_started.set()
+            await asyncio.Event().wait()
+            yield "unreachable"
+
+    class FakePrompt:
+        def __or__(self, llm):
+            return FakeStreamChain()
+
+    async def inline_threadpool(function, *args):
+        return function(*args)
+
+    async def no_rewrite(question, history):
+        return question
+
+    @contextmanager
+    def no_trace(*args, **kwargs):
+        yield
+
+    request = RagAskRequest(question="Question without output?", session_id="empty-stream")
+    with (
+        patch.object(rag, "rewrite_question_if_needed", no_rewrite),
+        patch.object(rag, "run_in_threadpool", inline_threadpool),
+        patch.object(rag, "retrieve_and_gate", return_value=([{
+            "content": "Evidence", "source": "policy.md", "chunk_index": 0,
+            "score": 0.8, "section": None, "page_number": None,
+        }], False)),
+        patch.object(rag, "build_rag_text_prompt", return_value=FakePrompt()),
+        patch.object(rag, "get_rag_llm", return_value=object()),
+        patch.object(rag, "get_langfuse_handler", return_value=None),
+        patch.object(rag, "langfuse_observation", no_trace),
+        patch.object(rag, "update_langfuse_observation"),
+        patch.object(rag, "langfuse_context", no_trace),
+    ):
+        response = await rag.ask_rag_stream(request)
+        stream = response.body_iterator
+        pending_event = asyncio.create_task(anext(stream))
+        await asyncio.wait_for(generation_started.wait(), timeout=2)
+        pending_event.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await pending_event
+
+    assert session_store.get_history("empty-stream") == []
+    session_store.clear_all_sessions()
+
+
+@pytest.mark.asyncio
 async def test_stream_disconnect_persists_partial_turn_for_followup():
     from contextlib import contextmanager
     from types import SimpleNamespace

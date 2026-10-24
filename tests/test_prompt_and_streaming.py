@@ -61,7 +61,7 @@ def test_structured_rag_chain_repairs_parse_errors_with_format_feedback():
     def fake_model(prompt_value):
         calls.append(prompt_value)
         if len(calls) == 1:
-            return "not valid JSON"
+            return "Câu trả lời đã sửa"
         return '{"answer":"Câu trả lời đã sửa","abstain":false}'
 
     chain = build_rag_chain(
@@ -73,7 +73,10 @@ def test_structured_rag_chain_repairs_parse_errors_with_format_feedback():
     assert result.answer == "Câu trả lời đã sửa"
     assert result.abstain is False
     assert len(calls) == 2
-    assert "Please try again" in calls[1].to_string()
+    repair_prompt = calls[1].to_string()
+    assert "không thêm" in repair_prompt
+    assert "không trả lời lại câu hỏi" in repair_prompt
+    assert NO_ANSWER in repair_prompt
 
 
 @pytest.mark.asyncio

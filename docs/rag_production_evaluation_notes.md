@@ -29,17 +29,21 @@ the default.
 - PDF page overlap now keeps the whole next-page chunk when it fits the budget,
   avoiding a one-word remainder chunk.
 - Structured answer parsing uses `OutputFixingParser` with parser feedback;
-  malformed output is repaired instead of regenerating the original prompt
-  unchanged.
+  its repair prompt is format-only and forbids adding or inferring facts. Since
+  it does not receive the original context/question, this is not a factual
+  verification step. Repair calls are tagged `rag-output-format-repair` so
+  their frequency can be reviewed alongside a human-checked sample.
 - Database pool checkout and PostgreSQL connection attempts use the configured
   `DATABASE_CONNECTION_TIMEOUT_SECONDS` (default 3 seconds).
 - Long follow-ups containing Vietnamese pronouns such as “nó”, “họ”, “ấy”, or
   “kia” are sent through the question rewriter.
-- Stream closure handles both task cancellation and generator closure. Any
-  saved partial answer is explicitly marked incomplete in conversation history.
-- BM25 cache access/copy and invalidation are serialized. Empty corpus
-  replacement now raises instead of deleting the indexed table, and the unused
-  `sources` parameter was removed.
+- Stream closure handles both task cancellation and generator closure. A turn
+  is saved only if at least one non-empty token was generated; saved partial
+  answers are explicitly marked incomplete in conversation history.
+- BM25 rebuild and invalidation are serialized; warm-path revision checks and
+  copies stay outside the lock using a local reference. Empty corpus replacement
+  now raises instead of deleting the indexed table, and the unused `sources`
+  parameter was removed.
 - `X-Forwarded-For` still assumes the trusted proxy overwrites the header or
   appends the client address at the end; multi-proxy chains require a trusted
   proxy-chain policy before changing that interpretation.

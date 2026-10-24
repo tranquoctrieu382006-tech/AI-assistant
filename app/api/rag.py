@@ -141,12 +141,13 @@ async def ask_rag_stream(request: RagAskRequest):
         except (asyncio.CancelledError, GeneratorExit):
             # Preserve already generated context if the client drops the stream.
             # Mark it partial so follow-ups do not treat the answer as complete.
-            partial_answer = "".join(full_answer).strip() or NO_ANSWER
-            session_store.add_turn(
-                request.session_id,
-                request.question,
-                f"[Câu trả lời bị ngắt, chưa hoàn tất]\n{partial_answer}",
-            )
+            partial_answer = "".join(full_answer).strip()
+            if partial_answer:
+                session_store.add_turn(
+                    request.session_id,
+                    request.question,
+                    f"[Câu trả lời bị ngắt, chưa hoàn tất]\n{partial_answer}",
+                )
             raise
 
         complete_answer = "".join(full_answer).strip() or NO_ANSWER
