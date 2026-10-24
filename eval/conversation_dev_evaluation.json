@@ -1,0 +1,409 @@
+{
+  "total_conversations": 10,
+  "total_turns": 23,
+  "rewrite_accuracy": 1.0,
+  "retrieval_accuracy": 0.8695652173913043,
+  "conversations": [
+    {
+      "id": "conv-001",
+      "topic": "Quy chế làm việc & nghỉ phép",
+      "turns": [
+        {
+          "turn": 1,
+          "original_question": "Nhân viên được nghỉ phép năm bao nhiêu ngày?",
+          "rewritten_question": "Nhân viên được nghỉ phép năm bao nhiêu ngày?",
+          "rewrite_passed": true,
+          "answer": "Nghỉ phép năm 12 ngày/năm sau khi hoàn tất thử việc.",
+          "sources": [
+            "01_quy_che_lam_viec.md",
+            "03_quy_che_luong_cong_tac_phi.md",
+            "11_faq_khach_hang.pdf",
+            "05_chinh_sach_bao_hanh.pdf"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": true
+        },
+        {
+          "turn": 2,
+          "original_question": "Phải gửi đề nghị trước bao lâu?",
+          "rewritten_question": "Phải gửi đề nghị nghỉ phép năm trước bao lâu?",
+          "rewrite_passed": true,
+          "answer": "Trước ít nhất 2 ngày làm việc, trừ trường hợp khẩn cấp.",
+          "sources": [
+            "01_quy_che_lam_viec.md",
+            "03_quy_che_luong_cong_tac_phi.md",
+            "06_chinh_sach_van_chuyen.pdf",
+            "11_faq_khach_hang.pdf",
+            "12_faq_nhan_vien.md"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": true
+        }
+      ]
+    },
+    {
+      "id": "conv-002",
+      "topic": "Đổi trả và bảo hành",
+      "turns": [
+        {
+          "turn": 1,
+          "original_question": "Chính sách đổi trả hàng như thế nào?",
+          "rewritten_question": "Chính sách đổi trả hàng như thế nào?",
+          "rewrite_passed": true,
+          "answer": "Khách được yêu cầu đổi hoặc trả trong 7 ngày lịch kể từ ngày giao thành công nếu sản phẩm chưa qua sử dụng, đủ phụ kiện và có mã đơn hàng. Hàng lỗi do nhà sản xuất được tiếp nhận trong 30 ngày; bộ phận kiểm tra xác minh trong 3 ngày làm việc. Sản phẩm cá nhân hóa, hàng tiêu hao đã mở niêm phong và quà tặng kèm đã sử dụng không áp dụng đổi trả thông thường. Hoàn tiền về phương thức thanh toán ban đầu trong 5–7 ngày làm việc sau khi duyệt.",
+          "sources": [
+            "11_faq_khach_hang.pdf",
+            "04_chinh_sach_doi_tra.docx",
+            "04_chinh_sach_doi_tra.docx",
+            "05_chinh_sach_bao_hanh.pdf",
+            "06_chinh_sach_van_chuyen.pdf"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": true
+        },
+        {
+          "turn": 2,
+          "original_question": "Thế còn hàng lỗi?",
+          "rewritten_question": "Thời gian tiếp nhận đổi trả đối với hàng lỗi do nhà sản xuất là bao lâu?",
+          "rewrite_passed": true,
+          "answer": "Hàng lỗi do nhà sản xuất được tiếp nhận trong 30 ngày.",
+          "sources": [
+            "04_chinh_sach_doi_tra.docx",
+            "05_chinh_sach_bao_hanh.pdf",
+            "11_faq_khach_hang.pdf",
+            "06_chinh_sach_van_chuyen.pdf",
+            "12_faq_nhan_vien.md"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": true
+        },
+        {
+          "turn": 3,
+          "original_question": "Hoàn tiền qua ngân hàng nào?",
+          "rewritten_question": "Hoàn tiền cho việc đổi trả hàng lỗi hoặc hàng không lỗi sẽ được thực hiện qua ngân hàng nào?",
+          "rewrite_passed": true,
+          "answer": "Hoàn tiền về phương thức thanh toán ban đầu trong 5–7 ngày làm việc sau khi duyệt.",
+          "sources": [
+            "04_chinh_sach_doi_tra.docx",
+            "11_faq_khach_hang.pdf",
+            "04_chinh_sach_doi_tra.docx",
+            "05_chinh_sach_bao_hanh.pdf",
+            "12_faq_nhan_vien.md"
+          ],
+          "retrieval_hit": false,
+          "answer_matched": false
+        }
+      ]
+    },
+    {
+      "id": "conv-003",
+      "topic": "Thời gian làm việc và nghỉ trưa",
+      "turns": [
+        {
+          "turn": 1,
+          "original_question": "Khung giờ làm việc của công ty là mấy giờ?",
+          "rewritten_question": "Khung giờ làm việc của công ty là mấy giờ?",
+          "rewrite_passed": true,
+          "answer": "Nhân viên làm việc từ thứ Hai đến thứ Sáu, 08:30–17:30, nghỉ trưa 12:00–13:00.",
+          "sources": [
+            "01_quy_che_lam_viec.md",
+            "01_quy_che_lam_viec.md",
+            "03_quy_che_luong_cong_tac_phi.md",
+            "03_quy_che_luong_cong_tac_phi.md",
+            "06_chinh_sach_van_chuyen.pdf"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": true
+        },
+        {
+          "turn": 2,
+          "original_question": "Thời gian nghỉ trưa kéo dài bao lâu?",
+          "rewritten_question": "Thời gian nghỉ trưa của nhân viên công ty kéo dài bao lâu?",
+          "rewrite_passed": true,
+          "answer": "Thời gian nghỉ trưa là 12:00–13:00.",
+          "sources": [
+            "01_quy_che_lam_viec.md",
+            "03_quy_che_luong_cong_tac_phi.md",
+            "06_chinh_sach_van_chuyen.pdf",
+            "05_chinh_sach_bao_hanh.pdf"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": true
+        }
+      ]
+    },
+    {
+      "id": "conv-004",
+      "topic": "Vận chuyển hàng hóa",
+      "turns": [
+        {
+          "turn": 1,
+          "original_question": "Thời gian giao hàng nội thành là bao lâu?",
+          "rewritten_question": "Thời gian giao hàng nội thành là bao lâu?",
+          "rewrite_passed": true,
+          "answer": "Đơn nội thành dự kiến 1–2 ngày làm việc.",
+          "sources": [
+            "06_chinh_sach_van_chuyen.pdf",
+            "11_faq_khach_hang.pdf",
+            "04_chinh_sach_doi_tra.docx",
+            "05_chinh_sach_bao_hanh.pdf",
+            "10_huong_dan_don_hang_khieu_nai.docx"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": false
+        },
+        {
+          "turn": 2,
+          "original_question": "Thế còn liên tỉnh?",
+          "rewritten_question": "Thời gian giao hàng liên tỉnh là bao lâu?",
+          "rewrite_passed": true,
+          "answer": "2–5 ngày làm việc sau khi xác nhận.",
+          "sources": [
+            "06_chinh_sach_van_chuyen.pdf",
+            "11_faq_khach_hang.pdf",
+            "04_chinh_sach_doi_tra.docx",
+            "05_chinh_sach_bao_hanh.pdf",
+            "10_huong_dan_don_hang_khieu_nai.docx"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": false
+        },
+        {
+          "turn": 3,
+          "original_question": "Đơn hàng bao nhiêu thì được miễn phí giao?",
+          "rewritten_question": "Đơn hàng có giá trị bao nhiêu thì được miễn phí giao hàng?",
+          "rewrite_passed": true,
+          "answer": "Miễn phí với đơn từ 1.000.000 đồng trước giảm giá.",
+          "sources": [
+            "06_chinh_sach_van_chuyen.pdf",
+            "11_faq_khach_hang.pdf",
+            "04_chinh_sach_doi_tra.docx",
+            "07_khuyen_mai_thanh_vien.docx",
+            "03_quy_che_luong_cong_tac_phi.md"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": false
+        }
+      ]
+    },
+    {
+      "id": "conv-005",
+      "topic": "Khuyến mãi thành viên",
+      "turns": [
+        {
+          "turn": 1,
+          "original_question": "Hạng thành viên Bạc được giảm giá bao nhiêu?",
+          "rewritten_question": "Hạng thành viên Bạc được giảm giá bao nhiêu?",
+          "rewrite_passed": true,
+          "answer": "Hạng Bạc giảm 3% trên giá sản phẩm đủ điều kiện.",
+          "sources": [
+            "07_khuyen_mai_thanh_vien.docx"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": false
+        },
+        {
+          "turn": 2,
+          "original_question": "Hạng Vàng thì sao?",
+          "rewritten_question": "Hạng thành viên Vàng được giảm giá bao nhiêu?",
+          "rewrite_passed": true,
+          "answer": "5% trên giá sản phẩm đủ điều kiện.",
+          "sources": [
+            "07_khuyen_mai_thanh_vien.docx",
+            "11_faq_khach_hang.pdf"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": false
+        },
+        {
+          "turn": 3,
+          "original_question": "Hạng Kim Cương?",
+          "rewritten_question": "Hạng Kim Cương được giảm giá bao nhiêu?",
+          "rewrite_passed": true,
+          "answer": "Hạng Kim cương giảm 8% trên giá sản phẩm đủ điều kiện.",
+          "sources": [
+            "07_khuyen_mai_thanh_vien.docx"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": false
+        }
+      ]
+    },
+    {
+      "id": "conv-006",
+      "topic": "Chính sách bảo hành",
+      "turns": [
+        {
+          "turn": 1,
+          "original_question": "Thời hạn bảo hành thiết bị điện tử là bao lâu?",
+          "rewritten_question": "Thời hạn bảo hành thiết bị điện tử là bao lâu?",
+          "rewrite_passed": true,
+          "answer": "Sản phẩm điện tử được bảo hành 12 tháng kể từ ngày giao nếu còn tem/serial và lỗi phát sinh trong điều kiện sử dụng bình thường.",
+          "sources": [
+            "05_chinh_sach_bao_hanh.pdf",
+            "11_faq_khach_hang.pdf",
+            "04_chinh_sach_doi_tra.docx",
+            "02_quy_che_bao_mat.md",
+            "10_huong_dan_don_hang_khieu_nai.docx"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": true
+        },
+        {
+          "turn": 2,
+          "original_question": "Còn phụ kiện thì sao?",
+          "rewritten_question": "Thời hạn bảo hành phụ kiện đi kèm thiết bị điện tử là bao lâu?",
+          "rewrite_passed": true,
+          "answer": "Sản phẩm điện tử được bảo hành 12 tháng kể từ ngày giao nếu còn tem/serial và lỗi phát sinh trong điều kiện sử dụng bình thường.",
+          "sources": [
+            "05_chinh_sach_bao_hanh.pdf",
+            "04_chinh_sach_doi_tra.docx",
+            "11_faq_khach_hang.pdf",
+            "02_quy_che_bao_mat.md",
+            "06_chinh_sach_van_chuyen.pdf"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": false
+        }
+      ]
+    },
+    {
+      "id": "conv-007",
+      "topic": "Lương và tạm ứng",
+      "turns": [
+        {
+          "turn": 1,
+          "original_question": "Lương nhân viên được chi trả vào ngày nào?",
+          "rewritten_question": "Lương nhân viên được chi trả vào ngày nào?",
+          "rewrite_passed": true,
+          "answer": "Lương được thanh toán ngày 05 của tháng kế tiếp.",
+          "sources": [
+            "03_quy_che_luong_cong_tac_phi.md",
+            "01_quy_che_lam_viec.md",
+            "12_faq_nhan_vien.md",
+            "03_quy_che_luong_cong_tac_phi.md",
+            "04_chinh_sach_doi_tra.docx"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": true
+        },
+        {
+          "turn": 2,
+          "original_question": "Có được tạm ứng không và hạn mức bao nhiêu?",
+          "rewritten_question": "Có được tạm ứng lương không và hạn mức tạm ứng lương là bao nhiêu?",
+          "rewrite_passed": true,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "sources": [],
+          "retrieval_hit": false,
+          "answer_matched": false
+        }
+      ]
+    },
+    {
+      "id": "conv-008",
+      "topic": "Chuyển chủ đề đột ngột",
+      "turns": [
+        {
+          "turn": 1,
+          "original_question": "Thời gian thử việc tối đa là bao lâu?",
+          "rewritten_question": "Thời gian thử việc tối đa là bao lâu?",
+          "rewrite_passed": true,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "sources": [],
+          "retrieval_hit": false,
+          "answer_matched": false
+        },
+        {
+          "turn": 2,
+          "original_question": "Quy trình khiếu nại đơn hàng xử lý trong bao lâu?",
+          "rewritten_question": "Quy trình khiếu nại đơn hàng xử lý trong bao lâu?",
+          "rewrite_passed": true,
+          "answer": "Phản hồi đầu tiên trong 1 ngày làm việc.",
+          "sources": [
+            "10_huong_dan_don_hang_khieu_nai.docx",
+            "12_faq_nhan_vien.md",
+            "04_chinh_sach_doi_tra.docx",
+            "11_faq_khach_hang.pdf",
+            "06_chinh_sach_van_chuyen.pdf"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": false
+        }
+      ]
+    },
+    {
+      "id": "conv-009",
+      "topic": "Bảo mật tài khoản",
+      "turns": [
+        {
+          "turn": 1,
+          "original_question": "Nhân viên có được chia sẻ tài khoản làm việc cho người khác không?",
+          "rewritten_question": "Nhân viên có được chia sẻ tài khoản làm việc cho người khác không?",
+          "rewrite_passed": true,
+          "answer": "Không tải danh sách khách hàng về thiết bị cá nhân, gửi qua email cá nhân hoặc chia sẻ mật khẩu.",
+          "sources": [
+            "02_quy_che_bao_mat.md",
+            "01_quy_che_lam_viec.md",
+            "02_quy_che_bao_mat.md",
+            "03_quy_che_luong_cong_tac_phi.md",
+            "08_quy_trinh_nhap_kho.md"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": true
+        },
+        {
+          "turn": 2,
+          "original_question": "Nếu vi phạm thì bị xử lý thế nào?",
+          "rewritten_question": "Nếu nhân viên vi phạm quy định không được chia sẻ tài khoản làm việc cho người khác thì bị xử lý thế nào?",
+          "rewrite_passed": true,
+          "answer": "Vi phạm được ghi nhận, giải trình và xử lý theo mức độ.",
+          "sources": [
+            "02_quy_che_bao_mat.md",
+            "01_quy_che_lam_viec.md",
+            "12_faq_nhan_vien.md"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": false
+        }
+      ]
+    },
+    {
+      "id": "conv-010",
+      "topic": "Nhập kho và kiểm kê",
+      "turns": [
+        {
+          "turn": 1,
+          "original_question": "Hàng hóa nhập kho cần đối chiếu những chứng từ gì?",
+          "rewritten_question": "Hàng hóa nhập kho cần đối chiếu những chứng từ gì?",
+          "rewrite_passed": true,
+          "answer": "Đối chiếu đơn mua/phiếu điều chuyển.",
+          "sources": [
+            "08_quy_trinh_nhap_kho.md",
+            "08_quy_trinh_nhap_kho.md",
+            "09_quy_trinh_xuat_kho_kiem_ke.md",
+            "12_faq_nhan_vien.md",
+            "09_quy_trinh_xuat_kho_kiem_ke.md"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": false
+        },
+        {
+          "turn": 2,
+          "original_question": "Việc kiểm kê kho được thực hiện khi nào?",
+          "rewritten_question": "Việc kiểm kê kho được thực hiện khi nào?",
+          "rewrite_passed": true,
+          "answer": "Kiểm kê luân phiên hàng tháng; kiểm kê toàn bộ tối thiểu mỗi năm.",
+          "sources": [
+            "12_faq_nhan_vien.md",
+            "09_quy_trinh_xuat_kho_kiem_ke.md",
+            "08_quy_trinh_nhap_kho.md",
+            "09_quy_trinh_xuat_kho_kiem_ke.md",
+            "08_quy_trinh_nhap_kho.md"
+          ],
+          "retrieval_hit": true,
+          "answer_matched": false
+        }
+      ]
+    }
+  ]
+}

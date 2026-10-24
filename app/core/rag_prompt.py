@@ -1,8 +1,14 @@
-"""Shared prompt construction for production RAG and offline evaluation."""
+"""Shared prompt construction for production RAG, offline evaluation, and streaming."""
+from __future__ import annotations
+
+import logging
+from typing import Any
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 
 from app.schemas.rag import RagGeneratedAnswer
+
+logger = logging.getLogger(__name__)
 
 NO_ANSWER = "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này."
 
@@ -17,7 +23,8 @@ def format_context(matches: list[dict]) -> str:
     )
 
 
-def build_rag_prompt() -> ChatPromptTemplate:
+def build_hardcoded_rag_prompt() -> ChatPromptTemplate:
+    """Default fallback prompt with strict Vietnamese factual grounding."""
     parser = PydanticOutputParser(pydantic_object=RagGeneratedAnswer)
     system_message = (
         "Bạn là trợ lý hỏi đáp tài liệu. Trả lời bằng tiếng Việt chỉ dựa trên CONTEXT. "
@@ -38,9 +45,65 @@ def build_rag_prompt() -> ChatPromptTemplate:
     ]).partial(format_instructions=parser.get_format_instructions())
 
 
-def build_rag_chain(llm):
+def build_rag_text_prompt() -> ChatPromptTemplate:
+    """Prompt for plain-text streaming without structured JSON parser envelope."""
+    system_message = (
+        "Bạn là trợ lý hỏi đáp tài liệu nội bộ. Trả lời bằng tiếng Việt chỉ dựa trên CONTEXT. "
+        f"Nếu CONTEXT không đủ thông tin, hãy trả lời chính xác: {NO_ANSWER} "
+        "Nếu có thông tin, hãy trả lời rõ ràng, súc tích, đi thẳng vào câu hỏi."
+    )
+    user_message = (
+        "<CONTEXT>\n{context}\n</CONTEXT>\n"
+        "<QUESTION>\n{question}\n</QUESTION>"
+    )
+    return ChatPromptTemplate.from_messages([
+        ("system", system_message),
+        ("human", user_message),
+    ])
+
+
+def build_rag_prompt(
+    prompt_name: str = "rag-answer",
+    label: str = "production",
+    version: int | None = None,
+    cache_ttl_seconds: int = 60,
+) -> ChatPromptTemplate:
+    """
+    Fetches prompt from Langfuse Prompt Management when available.
+    Explicitly binds prompt metadata to template for Langfuse trace version linkage.
+    Falls back gracefully to hardcoded prompt if Langfuse is offline or not configured.
+    """
+    from app.core.tracing import is_langfuse_configured
+    if is_langfuse_configured():
+        try:
+            from langfuse import Langfuse
+            from app.core.config import settings
+            client = Langfuse(
+                public_key=settings.langfuse_public_key,
+                secret_key=settings.langfuse_secret_key,
+                host=settings.langfuse_host,
+            )
+            prompt_obj = client.get_prompt(
+                name=prompt_name,
+                label=label if version is None else None,
+                version=version,
+                cache_ttl_seconds=cache_ttl_seconds,
+            )
+            template = prompt_obj.get_langchain_prompt()
+            # Explicitly bind metadata so Langfuse trace links the exact prompt version
+            template.metadata = {"langfuse_prompt": prompt_obj}
+            parser = PydanticOutputParser(pydantic_object=RagGeneratedAnswer)
+            return template.partial(format_instructions=parser.get_format_instructions())
+        except Exception as exc:
+            logger.warning("Could not fetch prompt '%s' from Langfuse: %s; using hardcoded fallback", prompt_name, exc)
+
+    return build_hardcoded_rag_prompt()
+
+
+def build_rag_chain(llm, prompt_name: str = "rag-answer", label: str = "production", version: int | None = None):
     parser = PydanticOutputParser(pydantic_object=RagGeneratedAnswer)
-    return build_rag_prompt() | llm | parser
+    prompt = build_rag_prompt(prompt_name=prompt_name, label=label, version=version)
+    return prompt | llm | parser
 
 
 def build_rag_messages(question: str, context: str) -> list:

@@ -1,7 +1,7 @@
 # Kiến trúc hệ thống Mini AI Assistant
 
-> **Phiên bản**: 0.1.0
-> **Cập nhật**: 2026-10-23
+> **Phiên bản**: 0.2.0
+> **Cập nhật**: 2026-10-24
 > **Tác giả**: Trần Quốc Triệu – Intern AI, IOC
 
 ## 1. Tổng quan
@@ -96,7 +96,8 @@ flowchart TB
 | `GET /api/health` | Readiness check (Ollama, Langfuse) | ✅ |
 | `GET /api/health/live` | Liveness probe | ✅ |
 | `GET /api/health/verify-model` | Kiểm tra model (debug only, cần API key) | ✅ |
-| `POST /api/rag/ask` | Hỏi đáp từ tài liệu | ✅ |
+| `POST /api/rag/ask` | Hỏi đáp từ tài liệu (JSON response) | ✅ |
+| `POST /api/rag/ask/stream` | Hỏi đáp tài liệu dạng streaming Server-Sent Events (SSE) | ✅ |
 
 **Lifespan**: Khởi tạo tracing → kiểm tra Ollama async → flush traces khi shutdown.
 
@@ -130,38 +131,32 @@ Các endpoint RAG và kiểm tra model yêu cầu `X-API-Key`; `/api/health` và
 | `fast` | Router, rewrite, format | `openai/gpt-4o-mini` | Phản hồi nhanh, chi phí thấp |
 | `strong` | SQL phức tạp, synthesize | `openai/gpt-4o` | Chất lượng cao nhất |
 
-### 3.3 Request flow and tracing
+### 3.3 Request flow, Tracing & Streaming
 
 ```mermaid
-flowchart LR
-    REQ["POST /api/rag/ask"] --> ROOT["Request observation"]
-    ROOT --> RET["Retrieval span"]
-    RET --> CTX["Filtered context"]
-    CTX --> LLM["LCEL\nChatPromptTemplate | ChatModel | PydanticOutputParser"]
-    LLM --> RESP["Answer + retrieval sources"]
+flowchart TD
+    REQ["POST /api/rag/ask hoặc /api/rag/ask/stream"] --> SESS["Session Store\nLấy lịch sử hội thoại"]
+    SESS --> REW["Question Rewriter\nViết lại câu hỏi tỉnh lược (nếu có lịch sử)"]
+    REW --> GATE["retrieve_and_gate()\nVector / Hybrid + Cổng Cosine Gate (>= 0.5)"]
+    GATE -->|Từ chối| NO_ANS["Trả về NO_ANSWER\nLưu turn vào session"]
+    GATE -->|Đủ bằng chứng| RERANK["Optional Reranker\nbge-reranker-v2-m3 (top-n)"]
+    RERANK --> PROMPT["Langfuse Prompt Management\n(Fallback hardcoded prompt)"]
+    PROMPT --> LLM["LLM Answer Generation\n(Local Gemma3:12b / Cloud)"]
+    LLM --> RESP["JSON / SSE Streaming\nLưu turn vào session"]
 ```
 
-`/api/rag/ask` dựng LCEL chain `ChatPromptTemplate | ChatModel | PydanticOutputParser`; parser kiểm tra đầu ra model theo `RagGeneratedAnswer` (`answer`, `abstain`). API giữ response schema ổn định với `answer` là chuỗi và `sources` do retrieval tạo, không lấy nguồn trích dẫn từ model. Request observation bao ngoài retrieval span và callback được truyền vào chain. LangGraph chưa được dùng.
+`/api/rag/ask` hỗ trợ trả về JSON có cấu trúc (`RagAskResponse`), trong khi `/api/rag/ask/stream` hỗ trợ Server-Sent Events (SSE) trả về từng token (`text/event-stream`). Cả 2 endpoint đều đi qua cổng ngữ cảnh (`session_store`), viết lại câu hỏi phụ thuộc ngữ cảnh (`question_rewriter`), và cổng retrieval (`retrieve_and_gate`). Khi điểm tương đồng cosine cao nhất dưới ngưỡng (`0.5`), hệ thống lập tức từ chối mà không gọi LLM suy luận, bảo đảm tiết kiệm tài nguyên và phòng tránh hallucination.
 
-Chunking mặc định gộp các paragraph trong cùng section/page cho đến giới hạn kích thước. `paragraph_blocks` là biến thể đánh giá giữ riêng ranh giới block được trích xuất. So sánh trên golden set ngày 2026-10-23 không cho thấy lợi ích của biến thể này (Hit@3 0.974 so với 1.000); mặc định hiện tại không thay đổi. Xem kết quả trong `eval/chunking_comparison_2026-10-23.json`.
+### 3.4 RAG Pipeline & Retrieval Abstraction
 
-Một lời gọi HTTP trực tiếp tới `/api/rag/ask` với retriever/model và dữ liệu tổng hợp đã được xác nhận xuất hiện trong Langfuse Cloud, gồm các observation request, retrieval và LCEL/model. Phép thử xác nhận đường truyền tracing; nó không kiểm tra provider model thật hoặc dữ liệu retrieval thật.
+Pipeline tìm kiếm được chuẩn hóa thông qua module `app/core/retriever.py` và `app/core/reranker.py`:
 
-### 3.4 RAG Pipeline
+1. **Vector Retriever (`VectorStoreRetriever`)**: Bọc quanh `vector_store.similarity_search` với cosine similarity trên PGVector (`bge-m3`).
+2. **Hybrid Retriever (`EnsembleRetriever`)**: Kết hợp BM25 (`rank-bm25` tính trên toàn bộ chunk trong DB) và Vector Retriever thông qua thuật toán Reciprocal Rank Fusion (RRF). Đặt `id_key="chunk_id"` (`{source}::{chunk_index}`) để ngăn chặn việc EnsembleRetriever gộp nhầm các chunk có nội dung văn bản trùng lặp giữa các văn bản khác nhau (ví dụ: mục "Trách nhiệm thực hiện").
+3. **Cosine Gating**: Điểm RRF chỉ dựa trên thứ hạng (rank) chứ không phải độ tương đồng ngữ nghĩa. Để đảm bảo tính công bằng và bảo vệ cổng từ chối (abstention), cổng luôn kiểm tra điểm cosine cao nhất từ nhánh vector (`>= rag_min_relevance_score`).
+4. **Cross-Encoder Reranker (`BAAI/bge-reranker-v2-m3`)**: Chạy local inference thông qua `sentence-transformers` trên CPU, bọc bởi `ContextualCompressionRetriever` và `CrossEncoderCompressor`. Lấy top 10 chunk từ retriever cơ sở và rerank xuống top 5.
+5. **Langfuse Prompt Management**: `build_rag_prompt()` kết nối tới Langfuse Prompt API (cache TTL 60s) với nhãn `production`/`staging`, tự động gán metadata `langfuse_prompt` vào LangChain PromptTemplate để trace liên kết trực tiếp với version prompt trên dashboard. Tự động fallback về hardcoded prompt khi mất mạng hoặc chưa cấu hình Langfuse.
 
-```mermaid
-flowchart LR
-    A["Tài liệu\n(PDF/DOCX/MD/TXT)"] --> B["LangChain TextLoader / PyPDFLoader\npython-docx for ordered DOCX"]
-    B --> C["Chunker\n900 chars / 150 overlap"]
-    C --> D["Embedding\nbge-m3"]
-    D --> E["PGVector\nPostgreSQL"]
-    E --> F["Retriever\ncosine similarity k=5"]
-    F --> G["Prompt + Context"]
-    G --> H["LLM\n(configured RAG model; local by default)"]
-    H --> I["Câu trả lời\n+ nguồn từ retrieval"]
-```
-
-Markdown headings and DOCX Heading styles are stored as section metadata; PDF chunks retain page numbers. Other formats or PDF headings are not inferred. Re-run document ingestion after deployment to apply the section-column migration and rebuild chunks.
 
 ### 3.5 NLQ model evaluator (offline)
 
@@ -235,12 +230,14 @@ erDiagram
 | Layer | Công nghệ | Phiên bản |
 |-------|-----------|-----------|
 | Backend | FastAPI + Uvicorn | 0.115+ |
-| Orchestration | Direct FastAPI flow + LangChain model calls | Current |
+| Orchestration | Direct FastAPI flow + LangChain LCEL & retrievers | 1.4.7+ |
 | LLM Local | Ollama (gemma3:12b) | latest |
 | LLM Cloud | OpenAI API, Google GenAI | gpt-4o, gemini-2.0-flash |
-| Embedding | bge-m3 (BAAI) | – |
+| Embedding | bge-m3 (BAAI) | 1024-dim |
+| Hybrid Retrieval | rank-bm25 + PGVector (EnsembleRetriever RRF) | 0.2.2 |
+| Reranker | BAAI/bge-reranker-v2-m3 (sentence-transformers) | 6.2.0 |
 | Vector DB | PostgreSQL + pgvector | 16+ |
-| Tracing | Langfuse Cloud | v5+ |
+| Tracing & Prompts | Langfuse Cloud | v5+ |
 | Testing | pytest + pytest-asyncio | 9.1+ |
 | Frontend (dự kiến) | Streamlit | 1.38+ |
 
@@ -251,32 +248,45 @@ ai-assistant/
 ├── app/
 │   ├── main.py              # FastAPI entrypoint, lifespan
 │   ├── api/
-│   │   └── health.py        # Health check endpoints
+│   │   ├── health.py        # Health check endpoints
+│   │   └── rag.py           # POST /api/rag/ask & /api/rag/ask/stream
 │   ├── core/
 │   │   ├── config.py        # Pydantic Settings (.env)
 │   │   ├── llm.py           # Multi-model LLM factory
-│   │   └── tracing.py       # Langfuse integration
+│   │   ├── retriever.py     # Unified retrieval (Vector, Hybrid, Gate)
+│   │   ├── reranker.py      # Cross-encoder reranker
+│   │   ├── session_store.py # Multi-turn conversational memory
+│   │   ├── question_rewriter.py # Context-aware question rewriter
+│   │   ├── rag_prompt.py    # Langfuse Prompt Management & hardcoded prompt
+│   │   ├── security.py      # API key validation & rate limiting
+│   │   ├── tracing.py       # Langfuse integration
+│   │   └── vector_store.py  # PGVector database client
 │   └── schemas/             # Pydantic request/response models
 ├── data/
-│   ├── demo_sales_warehouse/
-│   │   ├── 01-12_*.md|docx|pdf  # 12 tài liệu tiếng Việt
-│   │   ├── schema_seed.sql       # 9 bảng, ~2346 rows
-│   │   └── data_dictionary.md    # Từ điển dữ liệu + ERD
-│   └── documents/                # Bộ tài liệu phụ (7 files MD)
+│   ├── demo_sales_warehouse/ # 12 tài liệu nghiệp vụ
+│   ├── conversation_dev_set.json # 10 kịch bản test hội thoại
+│   ├── rag_golden_set.json  # 65 test cases đánh giá RAG
+│   └── nlq_golden_set.json  # 30 test cases NLQ
+├── eval/
+│   ├── baseline_v5_65cases.json
+│   ├── hybrid_vs_vector_comparison.md
+│   ├── hybrid_vs_vector_comparison.json
+│   ├── rerank_config_comparison.md
+│   ├── rerank_config_comparison.json
+│   └── conversation_dev_evaluation.md
 ├── docs/
-│   ├── architecture.md           # (file này)
-│   ├── benchmark_results.md      # Kết quả benchmark LLM
-│   └── benchmark_runs/           # CSV exports
+│   ├── architecture.md      # (file này)
+│   ├── benchmark_results.md # Kết quả benchmark LLM
+│   └── rag_evaluation_v1.md
 ├── scripts/
-│   └── compare_models.py         # Script benchmark
-├── tests/
-│   ├── test_health.py            # 4 tests (mocked)
-│   ├── test_llm.py               # 13 tests
-│   └── test_tracing.py           # 7 tests
+│   ├── evaluate_hybrid_vs_vector.py # Thực nghiệm AI09
+│   ├── evaluate_rerank_configs.py   # Thực nghiệm AI10
+│   ├── evaluate_chat_history.py     # Thực nghiệm AI11
+│   ├── validate_golden_data.py
+│   └── ingest_documents.py
+├── tests/                   # 115 unit & integration tests
 ├── .env.example
-├── .gitignore
-├── pytest.ini
-├── requirements.txt
+├── requirements.lock
 └── README.md
 ```
 

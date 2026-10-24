@@ -43,6 +43,8 @@ Sửa biến trong `.env`, **không cần sửa code**:
 | Nhanh/rẻ (router, viết lại câu hỏi) | `FAST_MODEL` | `openai/gpt-4o-mini` |
 | Local inference | `LOCAL_MODEL` | `ollama/gemma3:12b` |
 | Mô hình trả lời RAG | `RAG_MODEL` | `local` |
+| Chế độ tìm kiếm | `SEARCH_MODE` | `vector` hoặc `hybrid` (BM25 + PGVector) |
+| Bật Reranker | `USE_RERANKER` | `false` (mặc định) hoặc `true` (`bge-reranker-v2-m3`) |
 
 Groq có thể dùng với `GROQ_API_KEY` trong `.env`, ví dụ `groq/openai/gpt-oss-120b` và `groq/openai/gpt-oss-20b`. Gemini vẫn được hỗ trợ bằng `GOOGLE_API_KEY` và model có tiền tố `google_genai/`.
 
@@ -147,10 +149,19 @@ Pipeline mặc định chia theo heading (`--strategy heading`); có thể chọ
 curl -X POST http://localhost:8000/api/rag/ask \
   -H "X-API-Key: <APP_API_KEY>" \
   -H "Content-Type: application/json" \
-  -d '{"question":"Nhân viên được nghỉ phép năm bao nhiêu ngày?","top_k":5}'
+  -d '{"question":"Nhân viên được nghỉ phép năm bao nhiêu ngày?","top_k":5,"session_id":"test-session-1"}'
 ```
 
-Phản hồi gồm `answer` và danh sách `sources` có đường dẫn, mục, đoạn, điểm và số trang (với PDF). API lọc từng chunk dưới ngưỡng và trả `sources: []` khi từ chối trả lời. Chạy `python -m scripts.validate_golden_data` để kiểm tra mã hóa, nhãn, nguồn và evidence offline; chạy `python -m scripts.evaluate_rag_retrieval` để đo context recall@5, Hit@1/3/5, MRR và lỗi từ chối theo nhóm. Evidence được gắn bằng đoạn văn bản nguồn thay vì chunk ID; câu multi-document chỉ được tính hit khi tìm thấy đủ tất cả nguồn. `python -m scripts.evaluate_rag_answers` kiểm tra chuỗi đáp án trên API đang chạy, gồm từng mảnh đáp án với câu tổng hợp. Đây là bộ đo phát triển, không phải đánh giá held-out. Quy tắc đóng băng và tạo held-out nằm trong `docs/rag_eval_protocol.md`. NLQ golden script chỉ xác nhận SQL tham chiếu khớp dữ liệu seed, không đo khả năng sinh SQL của mô hình.
+Hoặc hỏi đáp dạng streaming từng token (Server-Sent Events - SSE):
+
+```bash
+curl -N -X POST http://localhost:8000/api/rag/ask/stream \
+  -H "X-API-Key: <APP_API_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"question":"Nhân viên được nghỉ phép năm bao nhiêu ngày?","top_k":5,"session_id":"test-session-1"}'
+```
+
+Hệ thống tự động lưu lịch sử hội thoại theo `session_id`, tự động nhận diện và viết lại các câu hỏi tỉnh lược ngữ cảnh (ví dụ: *"Phải gửi đề nghị trước bao lâu?"* -> *"Nhân viên phải gửi đề nghị nghỉ phép trước bao lâu?"*). Phản hồi gồm `answer` và danh sách `sources` có đường dẫn, mục, đoạn, điểm và số trang (với PDF). API lọc từng chunk dưới ngưỡng và trả `sources: []` khi từ chối trả lời. Chạy `python -m scripts.validate_golden_data` để kiểm tra mã hóa, nhãn, nguồn và evidence offline; chạy `python -m scripts.evaluate_rag_retrieval` để đo context recall@5, Hit@1/3/5, MRR và lỗi từ chối theo nhóm. Evidence được gắn bằng đoạn văn bản nguồn thay vì chunk ID; câu multi-document chỉ được tính hit khi tìm thấy đủ tất cả nguồn. `python -m scripts.evaluate_rag_answers` kiểm tra chuỗi đáp án trên API đang chạy, gồm từng mảnh đáp án với câu tổng hợp. Đây là bộ đo phát triển, không phải đánh giá held-out. Quy tắc đóng băng và tạo held-out nằm trong `docs/rag_eval_protocol.md`. NLQ golden script chỉ xác nhận SQL tham chiếu khớp dữ liệu seed, không đo khả năng sinh SQL của mô hình.
 
 So sánh chunking hiện tại (gộp paragraph trong cùng section/page) với phương án giữ riêng block trích xuất bằng `python -m scripts.compare_chunking_strategies`. Script dùng embedding local, cùng golden set và ngưỡng retrieval; không sửa vector store đang chạy. Kết quả lần gần nhất được lưu ở `eval/chunking_comparison_2026-10-23.json`.
 

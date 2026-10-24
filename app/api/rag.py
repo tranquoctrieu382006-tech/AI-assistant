@@ -1,6 +1,8 @@
+import json
 import logging
 
 from fastapi import APIRouter, HTTPException, Security
+from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
@@ -14,7 +16,15 @@ from app.core.tracing import (
 from app.core.security import require_api_key
 from app.schemas.rag import RagAskRequest, RagAskResponse, RagSource
 from app.core import vector_store
-from app.core.rag_prompt import NO_ANSWER, build_rag_chain, format_context
+from app.core import session_store
+from app.core.question_rewriter import rewrite_question_if_needed
+from app.core.retriever import retrieve_and_gate
+from app.core.rag_prompt import (
+    NO_ANSWER,
+    build_rag_chain,
+    build_rag_text_prompt,
+    format_context,
+)
 
 router = APIRouter(dependencies=[Security(require_api_key)])
 logger = logging.getLogger(__name__)
@@ -24,7 +34,11 @@ logger = logging.getLogger(__name__)
 async def ask_rag(request: RagAskRequest) -> RagAskResponse:
     with langfuse_observation(
         name="rag-request",
-        input={"question": request.question, "top_k": request.top_k},
+        input={
+            "question": request.question,
+            "top_k": request.top_k,
+            "session_id": request.session_id,
+        },
     ) as observation:
         response = await _answer_rag(request)
         update_langfuse_observation(
@@ -37,19 +51,109 @@ async def ask_rag(request: RagAskRequest) -> RagAskResponse:
         return response
 
 
+@router.post("/rag/ask/stream", summary="Hỏi đáp tài liệu dạng streaming Server-Sent Events (SSE)")
+async def ask_rag_stream(request: RagAskRequest):
+    """
+    Streaming endpoint returning Server-Sent Events (SSE).
+    Sends retrieved sources as the first event, then streams answer tokens incrementally.
+    If evidence is insufficient (gating cutoff), emits a no_answer event and finishes immediately.
+    """
+    history = session_store.get_history(request.session_id)
+    standalone_question = await rewrite_question_if_needed(request.question, history)
+
+    try:
+        matches, is_refused = await run_in_threadpool(
+            retrieve_and_gate,
+            standalone_question,
+            request.top_k,
+            settings.search_mode,
+            settings.use_reranker,
+        )
+    except Exception as exc:
+        logger.exception("RAG retrieval failed in stream endpoint")
+        raise HTTPException(status_code=503, detail="RAG retrieval unavailable") from exc
+
+    async def event_generator():
+        if is_refused or not matches:
+            session_store.add_turn(request.session_id, request.question, NO_ANSWER)
+            yield f"data: {json.dumps({'type': 'no_answer', 'answer': NO_ANSWER}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+
+        # 1. Send sources event
+        sources_payload = [
+            {
+                "source": m["source"],
+                "chunk_index": m["chunk_index"],
+                "score": m["score"],
+                "section": m.get("section"),
+                "page_number": m.get("page_number"),
+            }
+            for m in matches
+        ]
+        yield f"data: {json.dumps({'type': 'sources', 'sources': sources_payload}, ensure_ascii=False)}\n\n"
+
+        # 2. Stream tokens via plain-text prompt
+        context = format_context(matches)
+        prompt_template = build_rag_text_prompt()
+        llm = get_llm(settings.rag_model, temperature=0)
+        chain = prompt_template | llm
+
+        full_answer = []
+        try:
+            handler = get_langfuse_handler()
+            callbacks = [handler] if handler else []
+            with langfuse_context(session_id=request.session_id, tags=["rag", "streaming"]):
+                async for chunk in chain.astream(
+                    {"question": standalone_question, "context": context},
+                    config={"callbacks": callbacks},
+                ):
+                    token = chunk.content if hasattr(chunk, "content") else str(chunk)
+                    full_answer.append(token)
+                    yield f"data: {json.dumps({'type': 'token', 'token': token}, ensure_ascii=False)}\n\n"
+        except Exception as exc:
+            logger.exception("Error during answer streaming")
+            yield f"data: {json.dumps({'type': 'error', 'detail': str(exc)}, ensure_ascii=False)}\n\n"
+            return
+
+        # Save turn to session store
+        complete_answer = "".join(full_answer).strip() or NO_ANSWER
+        session_store.add_turn(request.session_id, request.question, complete_answer)
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 async def _answer_rag(request: RagAskRequest) -> RagAskResponse:
+    # 1. Multi-turn session context & question rewriting (TASK-AI11)
+    history = session_store.get_history(request.session_id)
+    standalone_question = await rewrite_question_if_needed(request.question, history)
+
+    # 2. Retrieval & Gating (TASK-AI09, TASK-AI10)
     try:
         with langfuse_observation(
             name="rag-retrieval",
-            input={"question": request.question, "top_k": request.top_k},
+            input={
+                "question": standalone_question,
+                "original_question": request.question,
+                "top_k": request.top_k,
+            },
         ) as observation:
-            matches = await run_in_threadpool(
-                vector_store.similarity_search, request.question, request.top_k
+            matches, is_refused = await run_in_threadpool(
+                retrieve_and_gate,
+                standalone_question,
+                request.top_k,
+                settings.search_mode,
+                settings.use_reranker,
             )
-            matches = [
-                match for match in matches
-                if match["score"] >= settings.rag_min_relevance_score
-            ]
             update_langfuse_observation(
                 observation,
                 output={
@@ -72,9 +176,11 @@ async def _answer_rag(request: RagAskRequest) -> RagAskResponse:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         raise HTTPException(status_code=503, detail="RAG retrieval unavailable") from exc
 
-    if not matches:
+    if is_refused or not matches:
+        session_store.add_turn(request.session_id, request.question, NO_ANSWER)
         return RagAskResponse(answer=NO_ANSWER, sources=[])
 
+    # 3. LLM Answer Generation
     context = format_context(matches)
     try:
         handler = get_langfuse_handler()
@@ -82,7 +188,7 @@ async def _answer_rag(request: RagAskRequest) -> RagAskResponse:
         with langfuse_context(session_id=request.session_id, tags=["rag", "ai07"]):
             chain = build_rag_chain(get_llm(settings.rag_model, temperature=0))
             generated = await chain.ainvoke(
-                {"question": request.question, "context": context},
+                {"question": standalone_question, "context": context},
                 config={"callbacks": callbacks}
             )
     except Exception as exc:
@@ -91,9 +197,14 @@ async def _answer_rag(request: RagAskRequest) -> RagAskResponse:
 
     answer = generated.answer.strip()
     if generated.abstain or not answer or answer == NO_ANSWER:
+        session_store.add_turn(request.session_id, request.question, NO_ANSWER)
         return RagAskResponse(answer=NO_ANSWER, sources=[])
+
     sources = list({(m["source"], m["chunk_index"]): RagSource(
         source=m["source"], chunk_index=m["chunk_index"], score=m["score"],
         page_number=m.get("page_number"), section=m.get("section")
     ) for m in matches}.values())
-    return RagAskResponse(answer=answer or NO_ANSWER, sources=sources)
+
+    final_answer = answer or NO_ANSWER
+    session_store.add_turn(request.session_id, request.question, final_answer)
+    return RagAskResponse(answer=final_answer, sources=sources)

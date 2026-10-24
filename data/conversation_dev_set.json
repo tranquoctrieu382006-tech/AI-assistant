@@ -1,0 +1,237 @@
+[
+  {
+    "id": "conv-001",
+    "topic": "Quy chế làm việc & nghỉ phép",
+    "turns": [
+      {
+        "turn": 1,
+        "question": "Nhân viên được nghỉ phép năm bao nhiêu ngày?",
+        "needs_rewrite": false,
+        "expected_standalone": "Nhân viên được nghỉ phép năm bao nhiêu ngày?",
+        "expected_answer_contains": "12 ngày",
+        "expected_source": "01_quy_che_lam_viec.md"
+      },
+      {
+        "turn": 2,
+        "question": "Phải gửi đề nghị trước bao lâu?",
+        "needs_rewrite": true,
+        "expected_standalone_keywords": ["nghỉ phép", "đề nghị", "bao lâu"],
+        "expected_answer_contains": "2 ngày làm việc",
+        "expected_source": "01_quy_che_lam_viec.md"
+      }
+    ]
+  },
+  {
+    "id": "conv-002",
+    "topic": "Đổi trả và bảo hành",
+    "turns": [
+      {
+        "turn": 1,
+        "question": "Chính sách đổi trả hàng như thế nào?",
+        "needs_rewrite": false,
+        "expected_standalone": "Chính sách đổi trả hàng như thế nào?",
+        "expected_answer_contains": "7 ngày",
+        "expected_source": "04_chinh_sach_doi_tra.docx"
+      },
+      {
+        "turn": 2,
+        "question": "Thế còn hàng lỗi?",
+        "needs_rewrite": true,
+        "expected_standalone_keywords": ["đổi trả", "hàng lỗi", "bao lâu"],
+        "expected_answer_contains": "30 ngày",
+        "expected_source": "04_chinh_sach_doi_tra.docx"
+      },
+      {
+        "turn": 3,
+        "question": "Hoàn tiền qua ngân hàng nào?",
+        "needs_rewrite": true,
+        "expected_standalone_keywords": ["hoàn tiền", "ngân hàng"],
+        "expected_abstain": true
+      }
+    ]
+  },
+  {
+    "id": "conv-003",
+    "topic": "Thời gian làm việc và nghỉ trưa",
+    "turns": [
+      {
+        "turn": 1,
+        "question": "Khung giờ làm việc của công ty là mấy giờ?",
+        "needs_rewrite": false,
+        "expected_standalone": "Khung giờ làm việc của công ty là mấy giờ?",
+        "expected_answer_contains": "08:30–17:30",
+        "expected_source": "01_quy_che_lam_viec.md"
+      },
+      {
+        "turn": 2,
+        "question": "Thời gian nghỉ trưa kéo dài bao lâu?",
+        "needs_rewrite": false,
+        "expected_standalone": "Thời gian nghỉ trưa kéo dài bao lâu?",
+        "expected_answer_contains": "12:00–13:00",
+        "expected_source": "01_quy_che_lam_viec.md"
+      }
+    ]
+  },
+  {
+    "id": "conv-004",
+    "topic": "Vận chuyển hàng hóa",
+    "turns": [
+      {
+        "turn": 1,
+        "question": "Thời gian giao hàng nội thành là bao lâu?",
+        "needs_rewrite": false,
+        "expected_standalone": "Thời gian giao hàng nội thành là bao lâu?",
+        "expected_answer_contains": "24",
+        "expected_source": "06_chinh_sach_van_chuyen.pdf"
+      },
+      {
+        "turn": 2,
+        "question": "Thế còn liên tỉnh?",
+        "needs_rewrite": true,
+        "expected_standalone_keywords": ["giao hàng", "liên tỉnh"],
+        "expected_answer_contains": "2-4 ngày",
+        "expected_source": "06_chinh_sach_van_chuyen.pdf"
+      },
+      {
+        "turn": 3,
+        "question": "Đơn hàng bao nhiêu thì được miễn phí giao?",
+        "needs_rewrite": false,
+        "expected_standalone": "Đơn hàng bao nhiêu thì được miễn phí giao?",
+        "expected_answer_contains": "500",
+        "expected_source": "06_chinh_sach_van_chuyen.pdf"
+      }
+    ]
+  },
+  {
+    "id": "conv-005",
+    "topic": "Khuyến mãi thành viên",
+    "turns": [
+      {
+        "turn": 1,
+        "question": "Hạng thành viên Bạc được giảm giá bao nhiêu?",
+        "needs_rewrite": false,
+        "expected_standalone": "Hạng thành viên Bạc được giảm giá bao nhiêu?",
+        "expected_answer_contains": "5%",
+        "expected_source": "07_khuyen_mai_thanh_vien.docx"
+      },
+      {
+        "turn": 2,
+        "question": "Hạng Vàng thì sao?",
+        "needs_rewrite": true,
+        "expected_standalone_keywords": ["hạng Vàng", "giảm giá"],
+        "expected_answer_contains": "10%",
+        "expected_source": "07_khuyen_mai_thanh_vien.docx"
+      },
+      {
+        "turn": 3,
+        "question": "Hạng Kim Cương?",
+        "needs_rewrite": true,
+        "expected_standalone_keywords": ["hạng Kim Cương", "giảm giá"],
+        "expected_answer_contains": "15%",
+        "expected_source": "07_khuyen_mai_thanh_vien.docx"
+      }
+    ]
+  },
+  {
+    "id": "conv-006",
+    "topic": "Chính sách bảo hành",
+    "turns": [
+      {
+        "turn": 1,
+        "question": "Thời hạn bảo hành thiết bị điện tử là bao lâu?",
+        "needs_rewrite": false,
+        "expected_standalone": "Thời hạn bảo hành thiết bị điện tử là bao lâu?",
+        "expected_answer_contains": "12 tháng",
+        "expected_source": "05_chinh_sach_bao_hanh.pdf"
+      },
+      {
+        "turn": 2,
+        "question": "Còn phụ kiện thì sao?",
+        "needs_rewrite": true,
+        "expected_standalone_keywords": ["phụ kiện", "bảo hành"],
+        "expected_answer_contains": "6 tháng",
+        "expected_source": "05_chinh_sach_bao_hanh.pdf"
+      }
+    ]
+  },
+  {
+    "id": "conv-007",
+    "topic": "Lương và tạm ứng",
+    "turns": [
+      {
+        "turn": 1,
+        "question": "Lương nhân viên được chi trả vào ngày nào?",
+        "needs_rewrite": false,
+        "expected_standalone": "Lương nhân viên được chi trả vào ngày nào?",
+        "expected_answer_contains": "5",
+        "expected_source": "03_quy_che_luong_cong_tac_phi.md"
+      },
+      {
+        "turn": 2,
+        "question": "Có được tạm ứng không và hạn mức bao nhiêu?",
+        "needs_rewrite": true,
+        "expected_standalone_keywords": ["tạm ứng lương", "hạn mức"],
+        "expected_source": "03_quy_che_luong_cong_tac_phi.md"
+      }
+    ]
+  },
+  {
+    "id": "conv-008",
+    "topic": "Chuyển chủ đề đột ngột",
+    "turns": [
+      {
+        "turn": 1,
+        "question": "Thời gian thử việc tối đa là bao lâu?",
+        "needs_rewrite": false,
+        "expected_source": "01_quy_che_lam_viec.md"
+      },
+      {
+        "turn": 2,
+        "question": "Quy trình khiếu nại đơn hàng xử lý trong bao lâu?",
+        "needs_rewrite": false,
+        "expected_standalone": "Quy trình khiếu nại đơn hàng xử lý trong bao lâu?",
+        "expected_answer_contains": "48",
+        "expected_source": "10_huong_dan_don_hang_khieu_nai.docx"
+      }
+    ]
+  },
+  {
+    "id": "conv-009",
+    "topic": "Bảo mật tài khoản",
+    "turns": [
+      {
+        "turn": 1,
+        "question": "Nhân viên có được chia sẻ tài khoản làm việc cho người khác không?",
+        "needs_rewrite": false,
+        "expected_answer_contains": "không",
+        "expected_source": "02_quy_che_bao_mat.md"
+      },
+      {
+        "turn": 2,
+        "question": "Nếu vi phạm thì bị xử lý thế nào?",
+        "needs_rewrite": true,
+        "expected_standalone_keywords": ["chia sẻ tài khoản", "vi phạm", "xử lý"],
+        "expected_source": "02_quy_che_bao_mat.md"
+      }
+    ]
+  },
+  {
+    "id": "conv-010",
+    "topic": "Nhập kho và kiểm kê",
+    "turns": [
+      {
+        "turn": 1,
+        "question": "Hàng hóa nhập kho cần đối chiếu những chứng từ gì?",
+        "needs_rewrite": false,
+        "expected_source": "08_quy_trinh_nhap_kho.md"
+      },
+      {
+        "turn": 2,
+        "question": "Việc kiểm kê kho được thực hiện khi nào?",
+        "needs_rewrite": false,
+        "expected_standalone": "Việc kiểm kê kho được thực hiện khi nào?",
+        "expected_source": "09_quy_trinh_xuat_kho_kiem_ke.md"
+      }
+    ]
+  }
+]

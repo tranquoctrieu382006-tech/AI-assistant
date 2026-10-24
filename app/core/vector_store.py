@@ -135,3 +135,67 @@ def similarity_search(query: str, k: int | None = None) -> list[dict]:
         ).fetchall()
     return [{"content": r[0], "source": r[1], "chunk_index": r[2],
              "page_number": r[3], "section": r[4], "score": float(r[5])} for r in rows]
+
+
+def score_chunks(query: str, chunk_keys: list[tuple[str, int]]) -> dict[tuple[str, int], float]:
+    """Return cosine similarities for specific chunks, including non-vector top-k hits."""
+    if not chunk_keys:
+        return {}
+
+    vector = Vector(get_embeddings().embed_query(query))
+    values = ", ".join(["(%s, %s)"] * len(chunk_keys))
+    params = [vector]
+    for source, chunk_index in chunk_keys:
+        params.extend((source, chunk_index))
+
+    with _connect() as conn:
+        ready = conn.execute(
+            "SELECT to_regtype('vector'), to_regclass('public.rag_chunks')"
+        ).fetchone()
+        if not ready[0] or not ready[1]:
+            raise VectorStoreNotReady(
+                "RAG vector store is not initialized; install pgvector and run `python -m scripts.ingest_documents`."
+            )
+        _register_vector_if_needed(conn)
+        rows = conn.execute(
+            f"""SELECT source, chunk_index, 1 - (embedding <=> %s) AS score
+                FROM rag_chunks
+                WHERE (source, chunk_index) IN (VALUES {values})""",
+            params,
+        ).fetchall()
+    return {(source, chunk_index): float(score) for source, chunk_index, score in rows}
+
+
+def get_corpus_revision() -> tuple[int, int]:
+    """Return a cheap revision token that changes after replace_corpus_chunks()."""
+    with _connect() as conn:
+        ready = conn.execute(
+            "SELECT to_regtype('vector'), to_regclass('public.rag_chunks')"
+        ).fetchone()
+        if not ready[0] or not ready[1]:
+            raise VectorStoreNotReady(
+                "RAG vector store is not initialized; install pgvector and run `python -m scripts.ingest_documents`."
+            )
+        _register_vector_if_needed(conn)
+        count, max_id = conn.execute(
+            "SELECT COUNT(*), COALESCE(MAX(id), 0) FROM rag_chunks"
+        ).fetchone()
+    return int(count), int(max_id)
+
+
+def get_all_chunks() -> list[dict]:
+    with _connect() as conn:
+        ready = conn.execute(
+            "SELECT to_regtype('vector'), to_regclass('public.rag_chunks')"
+        ).fetchone()
+        if not ready[0] or not ready[1]:
+            raise VectorStoreNotReady(
+                "RAG vector store is not initialized; install pgvector and run `python -m scripts.ingest_documents`."
+            )
+        _register_vector_if_needed(conn)
+        rows = conn.execute(
+            """SELECT content, source, chunk_index, page_number, section
+               FROM rag_chunks ORDER BY source, chunk_index"""
+        ).fetchall()
+    return [{"content": r[0], "source": r[1], "chunk_index": r[2],
+             "page_number": r[3], "section": r[4]} for r in rows]

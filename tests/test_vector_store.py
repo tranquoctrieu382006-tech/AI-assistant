@@ -147,3 +147,44 @@ def test_similarity_search_returns_section_metadata():
 
     assert results[0]["section"] == "Leave > Annual"
     assert results[0]["score"] == 0.9
+
+
+def test_score_chunks_returns_real_cosine_scores_for_requested_keys():
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.side_effect = [
+        MagicMock(fetchone=MagicMock(return_value=("vector", "rag_chunks"))),
+        MagicMock(fetchall=MagicMock(return_value=[("policy.md", 7, 0.62)])),
+    ]
+    embeddings = MagicMock()
+    embeddings.embed_query.return_value = [0.1, 0.2]
+
+    with (
+        patch.object(vector_store, "get_embeddings", return_value=embeddings),
+        patch.object(vector_store, "_connect", return_value=connection),
+        patch.object(vector_store, "register_vector"),
+        patch.object(vector_store, "Vector", side_effect=lambda value: value),
+    ):
+        scores = vector_store.score_chunks("question", [("policy.md", 7)])
+
+    assert scores == {("policy.md", 7): 0.62}
+    sql, params = connection.execute.call_args_list[1].args
+    assert "WHERE (source, chunk_index) IN (VALUES (%s, %s))" in sql
+    assert params == [[0.1, 0.2], "policy.md", 7]
+
+
+def test_get_corpus_revision_uses_count_and_latest_chunk_id():
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.side_effect = [
+        MagicMock(fetchone=MagicMock(return_value=("vector", "rag_chunks"))),
+        MagicMock(fetchone=MagicMock(return_value=(12, 98))),
+    ]
+
+    with (
+        patch.object(vector_store, "_connect", return_value=connection),
+        patch.object(vector_store, "register_vector"),
+    ):
+        revision = vector_store.get_corpus_revision()
+
+    assert revision == (12, 98)
