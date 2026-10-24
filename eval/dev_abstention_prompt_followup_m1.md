@@ -16,11 +16,17 @@ Combining the initial 8 cases with these 11 gives:
 | Correct refusals | 16/19 | 17/19 |
 | Generation/parse errors | 0 | 0 |
 
-The candidate fixes `rag-057`; it does not change the two remaining false
-answers, `rag-059` and `rag-060`. No candidate regressions occurred in the
-19-case group. In the 14 answerable controls from the initial sample, neither
-prompt falsely abstained; normalized expected-fragment matches were 12/14 for
-the baseline and 13/14 for the candidate.
+There was exactly one discordant pair: the candidate fixed `rag-057`, with zero
+regressions. The exact two-sided paired sign/McNemar test is p=1.0, so this
+single disagreement provides no evidence that the candidate is better than
+chance. Wilson 95% intervals are 5.5–37.6% for baseline (3/19) and 2.9–31.4%
+for candidate (2/19); they overlap substantially.
+
+On the same 14 answerable controls from the initial sample, false abstentions
+were 0/14 for both prompts (Wilson 95% interval 0–21.5% for each). This is a
+limited control sample, not all 41 answerable development questions. Normalized
+expected-fragment matches were 12/14 for baseline and 13/14 for candidate;
+that lexical score is not a semantic accuracy measure.
 
 ## Manual label audit of remaining errors
 
@@ -33,13 +39,13 @@ the baseline and 13/14 for the candidate.
   time; it does not specify when they are credited. The `in_scope_missing`
   label is appropriate.
 
-These are still small, synthetic development results and do not establish a
-reliable improvement. Four of the 19 missing-info cases have no retrieved
-context and are refused before prompt evaluation; the model-level refusal
-challenge is therefore represented by at most 15 cases. The 14 answerable
-controls and two far-topic cases were run only in the initial sample. The
-answer-fragment metric is lexical, not semantic. Baseline was always run before
-candidate for each question.
+These small synthetic development results do not establish a reliable
+improvement; the appropriate conclusion is **no detected regression**, not
+that the candidate is better. Four of the 19 missing-info cases have no
+retrieved context and are refused before prompt evaluation; the model-level
+refusal challenge is therefore represented by at most 15 cases. The 14
+answerable controls and two far-topic cases were run only in the initial
+sample. Baseline was always run before candidate for each question.
 
 The existing development set already contains 19 `in_scope_missing` cases, so
 the immediate gap is not raw count. Next, independently review the question

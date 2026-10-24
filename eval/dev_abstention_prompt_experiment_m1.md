@@ -4,7 +4,8 @@
 
 - Development M1 only; no held-out M2 examples or results used to select the candidate.
 - Fixed retrieval: current M1 corpus, `bge-m3`, top-k 5, cutoff 0.50. Each prompt
-  variant received the same retrieved context for each question.
+  variant received the same retrieved context for each question; retrieval was
+  run once per question and its context reused for both variants.
 - Local `gemma3:12b`, temperature 0. A deterministic stratified sample selected
   8 `in_scope_missing`, 8 `simple`, 4 `paraphrase`, 2 `multi_document`, and 2
   `out_of_scope_far` cases (24 total).
@@ -32,13 +33,12 @@ was newly refused.
 
 ## Interpretation and limits
 
-This small, deterministic development sample is a promising signal for the
-candidate instruction, not evidence of a reliable quality gain. Only 8
-same-topic missing-info examples were included; expected-fragment matching is
-lexical, not semantic; all documents are synthetic; and baseline was run before
-candidate for each case. The far-topic cases had no retrieved context, so they
-do not test the candidate prompt itself. Review the full per-case output in
-`eval/dev_abstention_prompt_experiment_m1.json`.
+This small, deterministic development sample does not establish a quality
+gain. Only 8 same-topic missing-info examples were included; expected-fragment
+matching is lexical, not semantic; all documents are synthetic; and baseline
+was run before candidate for each case. The far-topic cases had no retrieved
+context, so they do not test the candidate prompt itself. Review the full
+per-case output in `eval/dev_abstention_prompt_experiment_m1.json`.
 
 Next: expand the development sample for `in_scope_missing` and manually review
 all disagreement cases, then freeze exactly one candidate prompt and evaluator
