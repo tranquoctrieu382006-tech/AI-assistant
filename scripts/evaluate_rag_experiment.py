@@ -16,11 +16,16 @@ from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.core.llm import get_available_models, get_llm
-from app.core.rag_prompt import NO_ANSWER, build_rag_chain, format_context
+from app.core.rag_prompt import (
+    NO_ANSWER,
+    build_hardcoded_rag_prompt,
+    build_rag_chain,
+    format_context,
+)
 from app.core.tracing import flush_langfuse, init_tracing, is_langfuse_configured
 
 DATASET_VERSION = "v4"
-PROMPT_VERSION = "structured-pydantic-v1"
+PROMPT_VERSION = "repo-hardcoded-structured-v1"
 DATASET_NAME = f"ai-assistant-rag-golden-{DATASET_VERSION}"
 logger = logging.getLogger(__name__)
 
@@ -127,7 +132,7 @@ def _ensure_dataset(client, dataset_name: str, cases: list[dict]):
 
 def _make_task(role: str):
     llm = get_llm(role, temperature=0, max_retries=5)
-    chain = build_rag_chain(llm)
+    chain = build_rag_chain(llm, prompt_template=build_hardcoded_rag_prompt())
 
     def task(*, item, **kwargs):
         item_input = item.input if hasattr(item, "input") else item["input"]
@@ -447,6 +452,7 @@ def run_experiment(
         "dataset": dataset_name,
         "dataset_version": DATASET_VERSION,
         "prompt_version": PROMPT_VERSION,
+        "prompt_source": "checked-in hardcoded prompt; Langfuse prompt labels are not used for candidate evaluation",
         "judge_role": judge_role,
         "judge_model": available_models[judge_role],
         "cases": len(cases),

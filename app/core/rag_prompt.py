@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 
@@ -76,22 +75,36 @@ def build_rag_prompt(
     from app.core.tracing import is_langfuse_configured
     if is_langfuse_configured():
         try:
-            from langfuse import Langfuse
-            from app.core.config import settings
-            client = Langfuse(
-                public_key=settings.langfuse_public_key,
-                secret_key=settings.langfuse_secret_key,
-                host=settings.langfuse_host,
-            )
+            from app.core.tracing import get_langfuse_client
+
+            hardcoded = build_hardcoded_rag_prompt()
+            fallback = [
+                {
+                    "role": "system",
+                    "content": hardcoded.messages[0].prompt.template,
+                },
+                {
+                    "role": "user",
+                    "content": hardcoded.messages[1].prompt.template,
+                },
+            ]
+            client = get_langfuse_client()
             prompt_obj = client.get_prompt(
                 name=prompt_name,
                 label=label if version is None else None,
                 version=version,
+                type="chat",
                 cache_ttl_seconds=cache_ttl_seconds,
+                fallback=fallback,
             )
-            template = prompt_obj.get_langchain_prompt()
+            template = ChatPromptTemplate.from_messages(
+                prompt_obj.get_langchain_prompt()
+            )
             # Explicitly bind metadata so Langfuse trace links the exact prompt version
-            template.metadata = {"langfuse_prompt": prompt_obj}
+            template.metadata = {
+                "langfuse_prompt": prompt_obj,
+                "prompt_source": "hardcoded_fallback" if getattr(prompt_obj, "is_fallback", False) else "langfuse",
+            }
             parser = PydanticOutputParser(pydantic_object=RagGeneratedAnswer)
             return template.partial(format_instructions=parser.get_format_instructions())
         except Exception as exc:
@@ -100,9 +113,17 @@ def build_rag_prompt(
     return build_hardcoded_rag_prompt()
 
 
-def build_rag_chain(llm, prompt_name: str = "rag-answer", label: str = "production", version: int | None = None):
+def build_rag_chain(
+    llm,
+    prompt_name: str = "rag-answer",
+    label: str = "production",
+    version: int | None = None,
+    prompt_template: ChatPromptTemplate | None = None,
+):
     parser = PydanticOutputParser(pydantic_object=RagGeneratedAnswer)
-    prompt = build_rag_prompt(prompt_name=prompt_name, label=label, version=version)
+    prompt = prompt_template or build_rag_prompt(
+        prompt_name=prompt_name, label=label, version=version
+    )
     return prompt | llm | parser
 
 

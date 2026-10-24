@@ -1,0 +1,3 @@
+# Optional CPU cross-encoder reranker. Install alongside requirements.txt only
+# when USE_RERANKER=true; PyTorch makes this dependency set substantially larger.
+sentence-transformers>=6.2.0,<7.0.0

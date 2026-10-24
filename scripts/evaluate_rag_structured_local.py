@@ -13,7 +13,7 @@ from langfuse import get_client
 
 from app.core.config import settings
 from app.core.llm import get_llm
-from app.core.rag_prompt import NO_ANSWER, build_rag_chain
+from app.core.rag_prompt import NO_ANSWER, build_hardcoded_rag_prompt, build_rag_chain
 from app.core.tracing import init_tracing, is_langfuse_configured
 from scripts.evaluate_rag_experiment import _normalize_answer_fragment
 
@@ -45,7 +45,10 @@ def run_evaluation(
         raise RuntimeError(f"Langfuse dataset '{dataset_name}' contains no items.")
     items = items[:limit]
 
-    chain = build_rag_chain(get_llm(model_role, temperature=0))
+    chain = build_rag_chain(
+        get_llm(model_role, temperature=0),
+        prompt_template=build_hardcoded_rag_prompt(),
+    )
     records = []
     counts: Counter[str] = Counter()
     for item in items:
@@ -136,6 +139,7 @@ def run_evaluation(
         "model_role": model_role,
         "model": settings.local_model if model_role == "local" else model_role,
         "prompt_schema": "RagGeneratedAnswer(answer, abstain)",
+        "prompt_source": "checked-in hardcoded prompt",
         "dataset": dataset_name,
         "dataset_items": len(dataset.items),
         "evaluated_cases": len(records),

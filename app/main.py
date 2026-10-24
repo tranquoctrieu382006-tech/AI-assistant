@@ -3,6 +3,7 @@ FastAPI application entrypoint.
 """
 
 from contextlib import asynccontextmanager
+from importlib.util import find_spec
 import logging
 
 from fastapi import FastAPI
@@ -22,9 +23,27 @@ logging.basicConfig(
 logger = logging.getLogger("ai_assistant")
 
 
+def validate_optional_dependencies() -> None:
+    requirements = []
+    if settings.search_mode == "hybrid":
+        requirements.append(("rank_bm25", "rank-bm25", "requirements.txt"))
+    if settings.use_reranker:
+        requirements.append(("sentence_transformers", "sentence-transformers", "requirements-reranker.txt"))
+
+    missing = []
+    for module, package, requirement_file in requirements:
+        if find_spec(module) is None:
+            missing.append(f"{package} (install with `pip install -r {requirement_file}`)")
+    if missing:
+        raise RuntimeError(
+            "Enabled RAG feature is missing dependencies: " + "; ".join(missing)
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle startup / shutdown hook."""
+    validate_optional_dependencies()
     logger.info("Starting %s v%s...", settings.app_name, settings.app_version)
 
     # Khởi tạo tracing environment tường minh

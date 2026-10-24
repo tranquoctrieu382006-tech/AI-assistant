@@ -45,6 +45,9 @@ Sửa biến trong `.env`, **không cần sửa code**:
 | Mô hình trả lời RAG | `RAG_MODEL` | `local` |
 | Chế độ tìm kiếm | `SEARCH_MODE` | `vector` hoặc `hybrid` (BM25 + PGVector) |
 | Bật Reranker | `USE_RERANKER` | `false` (mặc định) hoặc `true` (`bge-reranker-v2-m3`) |
+| Mô hình reranker | `RERANKER_MODEL` | `BAAI/bge-reranker-v2-m3` |
+
+`rank-bm25` được cài trong bộ runtime mặc định cho chế độ hybrid. Reranker là tùy chọn nặng do phụ thuộc PyTorch; để bật `USE_RERANKER=true`, cài thêm `pip install -r requirements-reranker.txt`. Khi bật chế độ nhưng thiếu dependency, ứng dụng dừng ngay lúc startup và nêu lệnh cài đặt.
 
 Groq có thể dùng với `GROQ_API_KEY` trong `.env`, ví dụ `groq/openai/gpt-oss-120b` và `groq/openai/gpt-oss-20b`. Gemini vẫn được hỗ trợ bằng `GOOGLE_API_KEY` và model có tiền tố `google_genai/`.
 

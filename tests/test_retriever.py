@@ -5,36 +5,16 @@ from langchain_core.documents import Document
 
 from app.core.config import settings
 from app.core.retriever import (
-    VectorStoreRetriever,
+    _bm25_tokens,
+    _hybrid_fusion,
     get_bm25_retriever,
-    get_hybrid_retriever,
     retrieve_and_gate,
     clear_bm25_cache,
 )
 
 
-def test_vector_store_retriever_metadata_mapping():
-    fake_matches = [
-        {
-            "content": "Chính sách nghỉ phép 12 ngày/năm.",
-            "source": "01_quy_che_lam_viec.md",
-            "chunk_index": 2,
-            "score": 0.75,
-            "page_number": None,
-            "section": "Nghỉ phép",
-        }
-    ]
-    with patch("app.core.vector_store.similarity_search", return_value=fake_matches):
-        retriever = VectorStoreRetriever(top_k=3)
-        docs = retriever.invoke("nghỉ phép")
-
-    assert len(docs) == 1
-    doc = docs[0]
-    assert doc.page_content == "Chính sách nghỉ phép 12 ngày/năm."
-    assert doc.metadata["chunk_id"] == "01_quy_che_lam_viec.md::2"
-    assert doc.metadata["source"] == "01_quy_che_lam_viec.md"
-    assert doc.metadata["chunk_index"] == 2
-    assert doc.metadata["score"] == 0.75
+def test_bm25_tokens_ignore_case_and_normalize_unicode():
+    assert _bm25_tokens("NghỈ PHÉP") == _bm25_tokens("nghỉ phép")
 
 
 def test_retrieve_and_gate_abstains_when_vector_below_cutoff(monkeypatch):
@@ -73,80 +53,65 @@ def test_retrieve_and_gate_passes_when_vector_above_cutoff(monkeypatch):
     assert matches[0]["score"] == 0.78
 
 
-def test_hybrid_retriever_preserves_distinct_files_with_identical_text():
-    clear_bm25_cache()
-    # 2 chunk có cùng page_content nhưng khác file/chunk_id
-    fake_chunks = [
-        {
-            "content": "Trách nhiệm thực hiện: Toàn thể cán bộ nhân viên.",
-            "source": "file_a.md",
-            "chunk_index": 5,
-            "page_number": None,
-            "section": "Trách nhiệm",
-        },
-        {
-            "content": "Trách nhiệm thực hiện: Toàn thể cán bộ nhân viên.",
-            "source": "file_b.md",
-            "chunk_index": 4,
-            "page_number": None,
-            "section": "Trách nhiệm",
-        },
+def test_hybrid_fusion_keeps_same_text_from_distinct_sources():
+    text = "Trách nhiệm thực hiện: Toàn thể cán bộ nhân viên."
+    bm25 = [
+        Document(page_content=text, metadata={"source": "a.md", "chunk_index": 1}),
+        Document(page_content=text, metadata={"source": "b.md", "chunk_index": 1}),
     ]
-    with patch("app.core.vector_store.get_corpus_revision", return_value=(2, 9)), \
-         patch("app.core.vector_store.get_all_chunks", return_value=fake_chunks), \
-         patch("app.core.vector_store.similarity_search", return_value=[
-             {
-                 "content": fake_chunks[0]["content"],
-                 "source": "file_a.md",
-                 "chunk_index": 5,
-                 "score": 0.8,
-                 "page_number": None,
-                 "section": "Trách nhiệm",
-             },
-             {
-                 "content": fake_chunks[1]["content"],
-                 "source": "file_b.md",
-                 "chunk_index": 4,
-                 "score": 0.79,
-                 "page_number": None,
-                 "section": "Trách nhiệm",
-             },
-         ]):
-        hybrid = get_hybrid_retriever(k=2)
-        assert hybrid.id_key == "chunk_id"
-        docs = hybrid.invoke("Trách nhiệm thực hiện")
-        # EnsembleRetriever với id_key='chunk_id' không gộp 2 chunk của 2 file khác nhau
-        sources = {doc.metadata["source"] for doc in docs}
-        assert "file_a.md" in sources or "file_b.md" in sources
+    vector = [
+        {"content": text, "source": "a.md", "chunk_index": 1},
+        {"content": text, "source": "b.md", "chunk_index": 1},
+    ]
+    docs = _hybrid_fusion(bm25, vector, top_k=2)
+    assert {(doc.metadata["source"], doc.metadata["chunk_index"]) for doc in docs} == {
+        ("a.md", 1), ("b.md", 1)
+    }
 
 
 def test_hybrid_gate_scores_and_filters_bm25_only_candidates(monkeypatch):
     monkeypatch.setattr(settings, "rag_min_relevance_score", 0.5)
-    vector_match = {
-        "content": "vector relevant result",
-        "source": "vector.md",
-        "chunk_index": 0,
-        "score": 0.8,
-        "page_number": None,
-        "section": None,
-    }
     bm25_doc = Document(
         page_content="lexical-only weak result",
         metadata={"source": "bm25.md", "chunk_index": 4, "page_number": None, "section": None},
     )
-    hybrid = MagicMock()
-    hybrid.invoke.return_value = [bm25_doc]
+    bm25 = MagicMock()
+    bm25.invoke.return_value = [bm25_doc]
 
     with (
-        patch("app.core.vector_store.similarity_search", return_value=[vector_match]),
+        patch("app.core.vector_store.embed_query", return_value=[0.1, 0.2]) as embed,
+            patch("app.core.vector_store.similarity_search", return_value=[]),
         patch("app.core.vector_store.score_chunks", return_value={("bm25.md", 4): 0.31}) as score_chunks,
-        patch("app.core.retriever.get_hybrid_retriever", return_value=hybrid),
+        patch("app.core.retriever.get_bm25_retriever", return_value=bm25),
     ):
-        matches, refused = retrieve_and_gate("query", top_k=5, mode="hybrid")
+        matches, refused = retrieve_and_gate("query", top_k=1, mode="hybrid")
 
-    score_chunks.assert_called_once_with("query", [("bm25.md", 4)])
+    score_chunks.assert_called_once_with("query", [("bm25.md", 4)], embedding=[0.1, 0.2])
+    embed.assert_called_once_with("query")
     assert refused is True
     assert matches == []
+
+
+def test_hybrid_gate_can_keep_bm25_candidate_when_vector_top_k_is_empty(monkeypatch):
+    monkeypatch.setattr(settings, "rag_min_relevance_score", 0.5)
+    bm25_doc = Document(
+        page_content="lexical result with strong cosine score",
+        metadata={"source": "bm25.md", "chunk_index": 4, "page_number": None, "section": None},
+    )
+    bm25 = MagicMock()
+    bm25.invoke.return_value = [bm25_doc]
+    with (
+        patch("app.core.vector_store.embed_query", return_value=[0.1, 0.2]),
+        patch("app.core.vector_store.similarity_search", return_value=[]),
+        patch("app.core.vector_store.score_chunks", return_value={("bm25.md", 4): 0.8}),
+        patch("app.core.retriever.get_bm25_retriever", return_value=bm25),
+    ):
+        matches, refused = retrieve_and_gate("query", top_k=1, mode="hybrid")
+
+    assert refused is False
+    assert len(matches) == 1
+    assert matches[0]["source"] == "bm25.md"
+    assert matches[0]["score"] == 0.8
 
 
 def test_bm25_cache_refreshes_when_database_corpus_revision_changes():
@@ -158,12 +123,19 @@ def test_bm25_cache_refreshes_when_database_corpus_revision_changes():
     ]
     created = []
 
+    class FakeBM25Instance:
+        def __init__(self, docs, k):
+            self.docs = docs
+            self.k = k
+
+        def invoke(self, query):
+            return self.docs
+
     class FakeBM25:
         @classmethod
-        def from_documents(cls, docs, k):
-            instance = MagicMock()
-            instance.docs = docs
-            instance.k = k
+        def from_documents(cls, docs, k, preprocess_func):
+            instance = FakeBM25Instance(docs, k)
+            instance.preprocess_func = preprocess_func
             created.append(instance)
             return instance
 
@@ -179,6 +151,7 @@ def test_bm25_cache_refreshes_when_database_corpus_revision_changes():
     assert first is not second
     assert len(created) == 2
     assert second.k == 4
+    assert created[0].k == 20
     assert get_chunks.call_count == 2
     clear_bm25_cache()
 

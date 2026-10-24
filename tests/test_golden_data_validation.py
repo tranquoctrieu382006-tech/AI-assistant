@@ -5,6 +5,7 @@ from pathlib import Path
 from scripts.rag_eval_metrics import context_recall_at_k, paired_bootstrap_interval
 from scripts.validate_golden_data import validate_rag_cases, validate_text
 from scripts.evaluate_rag_retrieval import _abstention_risk_summary
+from scripts.manifest_hashing import sha256_file
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,6 +24,20 @@ def test_text_validator_detects_question_mark_between_letters_but_not_sentence_e
 def test_text_validator_requires_unicode_nfc():
     decomposed = unicodedata.normalize("NFD", "tiếng Việt")
     assert any("NFC" in error for error in validate_text(decomposed, "q"))
+
+
+def test_manifest_hash_normalizes_text_line_endings_but_not_binary(tmp_path):
+    lf = tmp_path / "a.md"
+    crlf = tmp_path / "b.md"
+    lf.write_bytes(b"one\ntwo\n")
+    crlf.write_bytes(b"one\r\ntwo\r\n")
+    assert sha256_file(lf) == sha256_file(crlf)
+
+    pdf_a = tmp_path / "a.pdf"
+    pdf_b = tmp_path / "b.pdf"
+    pdf_a.write_bytes(b"binary\n")
+    pdf_b.write_bytes(b"binary\r\n")
+    assert sha256_file(pdf_a) != sha256_file(pdf_b)
 
 
 def test_context_recall_matches_evidence_split_across_adjacent_chunks():

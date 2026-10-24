@@ -2,6 +2,8 @@
 Application settings – đọc từ .env, đổi model chỉ bằng biến môi trường.
 """
 
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
@@ -34,7 +36,7 @@ class Settings(BaseSettings):
     rag_exclude_files: list[str] = ["README.md", "data_dictionary.md", "nguon_dataset.md"]
     # RAG defaults to a local model; cloud use must be an explicit choice.
     rag_model: str = "local"
-    search_mode: str = "vector"  # "vector" | "hybrid"
+    search_mode: Literal["vector", "hybrid"] = "vector"
     use_reranker: bool = False
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     rag_chunk_size: int = 900

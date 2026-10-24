@@ -18,10 +18,11 @@
 4. *Lưu ý:* Đây là kết quả thăm dò trên development set để tìm kiếm cấu hình tối ưu.
 
 ## Phân tích & Kết luận
-- **Baseline V5 / V10:** Đạt Hit@1 cao nhất (**85.37%**) và MRR cao nhất (**0.9207**) với độ trễ cực thấp (< 75 ms). Khi tăng k từ 5 lên 10 không đổi Hit@1/Hit@3 do corpus 12 văn bản có độ tập trung cao.
-- **Hybrid H5:** Giúp tăng Hit@3 lên **97.56%** (+2.44% so với V5) với độ trễ chỉ 56.7 ms, tuy nhiên Hit@1 giảm xuống 75.61% do điểm RRF bình đẳng thứ hạng giữa BM25 và Vector.
-- **Reranker R10 & HR10:** Cả 2 cấu hình đều đạt Hit@3 = **97.56%** và Hit@5 = **97.56%**, giữ MRR ở mức cao (**0.9146**). Cả hai đều kiểm soát an toàn tuyệt đối các câu ngoài phạm vi (`FP out_of_scope_far = 0/5`).
-  - Về độ trễ: **R10** (2.571 ms) nằm trong giới hạn an toàn (< 3s). **HR10** (4.641 ms) vượt quá giới hạn 3 giây khi chạy CPU inference.
-- **Cấu hình mặc định đề xuất:**
-  - Giữ mặc định hệ thống: `search_mode = "vector"`, `use_reranker = False` (tối ưu hóa độ trễ 70ms và Hit@1 cao nhất 85.37%).
-  - Hỗ trợ bật cấu hình `use_reranker = True` (R10) hoặc `search_mode = "hybrid"` (H5) thông qua config / query param khi nghiệp vụ yêu cầu tối đa hóa Recall/Hit@3 (97.56%).
+- **V5/V10:** Hit@1 và MRR cao nhất trong các cấu hình đã đo (35/41, MRR 0.9207). V10 không cải thiện retrieval so với V5. Độ trễ 70.1 ms so với 24.5 ms không đáng tin để so sánh: script chạy một lượt theo thứ tự cấu hình, không warm-up riêng và lấy trung bình các câu; có thể bị ảnh hưởng bởi khởi động nguội.
+- **H5:** Hit@3 tăng đúng **1/41 câu** (39 lên 40), trong khi Hit@1 giảm **4/41 câu** (35 xuống 31) và MRR giảm 0.0467. Kết quả này chưa chứng minh BM25 cải thiện retrieval nói chung.
+- **R10/HR10:** Hit@3 tăng 1/41 câu, Hit@1 giảm 2/41 câu và MRR giảm 0.0061. R10 mất trung bình **2.571 giây** mỗi câu; HR10 mất **4.641 giây**. Đơn vị “ms” ở phần mô tả cũ bị sai 1.000 lần.
+- FP out-of-scope là 0/5 ở **mọi cấu hình**, do cùng dùng cổng cosine; không thể quy kết điều này cho reranker hay gọi reranker là bảo đảm an toàn. Nhóm chỉ có 5 câu nên đây cũng không phải bằng chứng an toàn tuyệt đối.
+
+### Quyết định
+
+Theo tiêu chí đã đặt trước (Hit@1 và MRR không giảm so với V5), **H5, R10 và HR10 đều không đạt**. Giữ V5 làm baseline tạm thời; không khuyến nghị bật hybrid/reranker dựa trên bộ số liệu này. Đây là phép đo một lượt trên development set, không có warm-up hoặc lặp nhiều lần. Hơn nữa, các số liệu được tạo bởi phiên bản hybrid trước khi sửa cosine gate theo từng chunk; cần chạy lại trước khi so sánh cấu hình của code hiện tại.

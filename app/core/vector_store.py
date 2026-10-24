@@ -65,6 +65,10 @@ def get_embeddings() -> OllamaEmbeddings:
     return OllamaEmbeddings(model=settings.embedding_model, base_url=settings.ollama_base_url)
 
 
+def embed_query(query: str) -> list[float]:
+    return get_embeddings().embed_query(query)
+
+
 def ensure_vector_schema() -> None:
     # DDL is performed during ingestion, not for every question.
     with psycopg.connect(settings.database_url) as conn:
@@ -114,8 +118,13 @@ def replace_corpus_chunks(chunks: list[dict], sources: list[str]) -> int:
     return len(chunks)
 
 
-def similarity_search(query: str, k: int | None = None) -> list[dict]:
-    vector = get_embeddings().embed_query(query)
+def similarity_search(
+    query: str,
+    k: int | None = None,
+    *,
+    embedding: list[float] | None = None,
+) -> list[dict]:
+    vector = embedding if embedding is not None else embed_query(query)
     with _connect() as conn:
         ready = conn.execute(
             "SELECT to_regtype('vector'), to_regclass('public.rag_chunks')"
@@ -137,12 +146,17 @@ def similarity_search(query: str, k: int | None = None) -> list[dict]:
              "page_number": r[3], "section": r[4], "score": float(r[5])} for r in rows]
 
 
-def score_chunks(query: str, chunk_keys: list[tuple[str, int]]) -> dict[tuple[str, int], float]:
+def score_chunks(
+    query: str,
+    chunk_keys: list[tuple[str, int]],
+    *,
+    embedding: list[float] | None = None,
+) -> dict[tuple[str, int], float]:
     """Return cosine similarities for specific chunks, including non-vector top-k hits."""
     if not chunk_keys:
         return {}
 
-    vector = Vector(get_embeddings().embed_query(query))
+    vector = Vector(embedding if embedding is not None else embed_query(query))
     values = ", ".join(["(%s, %s)"] * len(chunk_keys))
     params = [vector]
     for source, chunk_index in chunk_keys:

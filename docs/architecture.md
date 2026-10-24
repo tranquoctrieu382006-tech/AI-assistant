@@ -149,13 +149,15 @@ flowchart TD
 
 ### 3.4 RAG Pipeline & Retrieval Abstraction
 
-Pipeline tìm kiếm được chuẩn hóa thông qua module `app/core/retriever.py` và `app/core/reranker.py`:
+Pipeline retrieval có một đường thực thi tại `app/core/retriever.py`:
 
-1. **Vector Retriever (`VectorStoreRetriever`)**: Bọc quanh `vector_store.similarity_search` với cosine similarity trên PGVector (`bge-m3`).
-2. **Hybrid Retriever (`EnsembleRetriever`)**: Kết hợp BM25 (`rank-bm25` tính trên toàn bộ chunk trong DB) và Vector Retriever thông qua thuật toán Reciprocal Rank Fusion (RRF). Đặt `id_key="chunk_id"` (`{source}::{chunk_index}`) để ngăn chặn việc EnsembleRetriever gộp nhầm các chunk có nội dung văn bản trùng lặp giữa các văn bản khác nhau (ví dụ: mục "Trách nhiệm thực hiện").
-3. **Cosine Gating**: Điểm RRF chỉ dựa trên thứ hạng (rank) chứ không phải độ tương đồng ngữ nghĩa. Để đảm bảo tính công bằng và bảo vệ cổng từ chối (abstention), cổng luôn kiểm tra điểm cosine cao nhất từ nhánh vector (`>= rag_min_relevance_score`).
-4. **Cross-Encoder Reranker (`BAAI/bge-reranker-v2-m3`)**: Chạy local inference thông qua `sentence-transformers` trên CPU, bọc bởi `ContextualCompressionRetriever` và `CrossEncoderCompressor`. Lấy top 10 chunk từ retriever cơ sở và rerank xuống top 5.
-5. **Langfuse Prompt Management**: `build_rag_prompt()` kết nối tới Langfuse Prompt API (cache TTL 60s) với nhãn `production`/`staging`, tự động gán metadata `langfuse_prompt` vào LangChain PromptTemplate để trace liên kết trực tiếp với version prompt trên dashboard. Tự động fallback về hardcoded prompt khi mất mạng hoặc chưa cấu hình Langfuse.
+1. **Vector**: truy vấn cosine trên PGVector bằng `bge-m3`.
+2. **Hybrid**: trộn danh sách BM25 và vector bằng weighted Reciprocal Rank Fusion. Token BM25 chuẩn hóa Unicode và chữ hoa/thường; mỗi chunk được định danh bằng cặp `(source, chunk_index)` để không gộp các đoạn trùng chữ từ hai file.
+3. **Cosine gate**: chấm cosine cho từng chunk sau fusion và chỉ đưa chunk vượt `RAG_MIN_RELEVANCE_SCORE` vào context. Truy vấn hybrid tái sử dụng cùng một embedding câu hỏi cho cả truy vấn vector và chấm các chunk BM25-only.
+4. **Reranker**: khi bật, cùng hàm `rerank_documents` chạy `sentence-transformers` với model lấy từ `RERANKER_MODEL`. Cài tùy chọn nặng bằng `pip install -r requirements-reranker.txt`; startup kiểm tra dependency khi tính năng được bật.
+5. **Langfuse Prompt Management**: tải prompt dạng chat, chuyển danh sách message thành `ChatPromptTemplate`, dùng client SDK dùng chung để tái sử dụng prompt cache và truyền fallback hardcoded cho lần tải đầu. Các script đánh giá dùng prompt đã chốt trong repo và ghi nguồn prompt trong artifact.
+
+Lịch sử hội thoại hiện lưu trong bộ nhớ của một tiến trình, giữ tối đa 20 lượt gần nhất mỗi phiên và tối đa 1.000 phiên. Dùng một worker; nhiều worker hoặc khởi động lại sẽ không chia sẻ/giữ lịch sử, nên cần PostgreSQL/Redis store nếu triển khai nhiều tiến trình.
 
 
 ### 3.5 NLQ model evaluator (offline)
@@ -287,6 +289,7 @@ ai-assistant/
 ├── tests/                   # 115 unit & integration tests
 ├── .env.example
 ├── requirements.lock
+├── requirements-reranker.txt # Sentence-transformers/Torch (optional)
 └── README.md
 ```
 

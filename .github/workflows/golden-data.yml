@@ -8,6 +8,9 @@ on:
       - "data/demo_sales_warehouse/**"
       - "scripts/validate_golden_data.py"
       - "scripts/rag_eval_metrics.py"
+      - "scripts/manifest_hashing.py"
+      - "scripts/write_development_manifest.py"
+      - "scripts/write_heldout_manifest.py"
       - "tests/test_golden_data_validation.py"
       - ".github/workflows/golden-data.yml"
   pull_request:
@@ -17,6 +20,9 @@ on:
       - "data/demo_sales_warehouse/**"
       - "scripts/validate_golden_data.py"
       - "scripts/rag_eval_metrics.py"
+      - "scripts/manifest_hashing.py"
+      - "scripts/write_development_manifest.py"
+      - "scripts/write_heldout_manifest.py"
       - "tests/test_golden_data_validation.py"
       - ".github/workflows/golden-data.yml"
   workflow_dispatch:
@@ -29,6 +35,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install pytest python-docx pypdf
+      - run: python -m pip install pytest python-docx pypdf pydantic-settings
       - run: python -m scripts.validate_golden_data
-      - run: python -m pytest tests/test_golden_data_validation.py -q
+      - run: python -m pytest tests/test_golden_data_validation.py tests/test_rag_heldout.py -q

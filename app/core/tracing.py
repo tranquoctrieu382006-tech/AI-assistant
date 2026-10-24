@@ -98,13 +98,22 @@ def get_langfuse_handler():
     """
     if not is_langfuse_configured():
         return None
-
     try:
         from langfuse.langchain import CallbackHandler
         return CallbackHandler()
     except Exception as e:
         logger.warning("Không thể khởi tạo Langfuse CallbackHandler: %s", e)
         return None
+
+
+def get_langfuse_client():
+    """Return the SDK's process-wide client so its prompt cache is shared."""
+    if not is_langfuse_configured():
+        return None
+    init_tracing()
+    import langfuse
+
+    return langfuse.get_client()
 
 
 @contextmanager

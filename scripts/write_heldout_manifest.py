@@ -1,8 +1,9 @@
 """Create the held-out M2 fingerprint. Run and commit it before evaluation."""
-import hashlib
 import json
+import argparse
 from collections import Counter
 from pathlib import Path
+from scripts.manifest_hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[1]
 HELDOUT = ROOT / "eval/rag_heldout_m1.json"
@@ -16,19 +17,20 @@ EVALUATOR_FILES = [
 ]
 
 
-def digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def main() -> None:
+def main(output_path: Path = OUTPUT) -> None:
+    if output_path.exists():
+        raise FileExistsError(
+            f"Refusing to overwrite frozen manifest {output_path}; choose a new --output path."
+        )
     cases = json.loads(HELDOUT.read_text(encoding="utf-8"))
     counts = dict(sorted(Counter(case["category"] for case in cases).items()))
     manifest = {
         "manifest": "M2",
+        "hash_format": "sha256-canonical-text-lf-v1",
         "m1_commit": M1_COMMIT,
-        "m1_manifest_sha256": digest(M1_MANIFEST),
+        "m1_manifest_sha256": sha256_file(M1_MANIFEST),
         "heldout_path": "eval/rag_heldout_m1.json",
-        "heldout_sha256": digest(HELDOUT),
+        "heldout_sha256": sha256_file(HELDOUT),
         "case_count": len(cases),
         "category_counts": counts,
         "top_k": 5,
@@ -41,13 +43,17 @@ def main() -> None:
             "Treat this as exploratory and consider independent review before production claims."
         ),
         "heldout_evaluator_code": {
-            relative: digest(ROOT / relative) for relative in EVALUATOR_FILES
+            relative: sha256_file(ROOT / relative) for relative in EVALUATOR_FILES
         },
     }
-    OUTPUT.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"Wrote {OUTPUT.relative_to(ROOT).as_posix()}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"Wrote {output_path.relative_to(ROOT).as_posix()}")
     print(f"Held-out cases: {len(cases)}; categories: {counts}")
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, default=OUTPUT)
+    args = parser.parse_args()
+    main(args.output if args.output.is_absolute() else ROOT / args.output)

@@ -80,7 +80,6 @@ async def ask_rag_stream(request: RagAskRequest):
             yield "data: [DONE]\n\n"
             return
 
-        # 1. Send sources event
         sources_payload = [
             {
                 "source": m["source"],
@@ -91,16 +90,14 @@ async def ask_rag_stream(request: RagAskRequest):
             }
             for m in matches
         ]
-        yield f"data: {json.dumps({'type': 'sources', 'sources': sources_payload}, ensure_ascii=False)}\n\n"
-
-        # 2. Stream tokens via plain-text prompt
-        context = format_context(matches)
-        prompt_template = build_rag_text_prompt()
-        llm = get_llm(settings.rag_model, temperature=0)
-        chain = prompt_template | llm
-
         full_answer = []
+        pending = ""
+        sources_sent = False
         try:
+            context = format_context(matches)
+            prompt_template = build_rag_text_prompt()
+            llm = get_llm(settings.rag_model, temperature=0)
+            chain = prompt_template | llm
             handler = get_langfuse_handler()
             callbacks = [handler] if handler else []
             with langfuse_context(session_id=request.session_id, tags=["rag", "streaming"]):
@@ -110,14 +107,32 @@ async def ask_rag_stream(request: RagAskRequest):
                 ):
                     token = chunk.content if hasattr(chunk, "content") else str(chunk)
                     full_answer.append(token)
-                    yield f"data: {json.dumps({'type': 'token', 'token': token}, ensure_ascii=False)}\n\n"
+                    if not sources_sent:
+                        pending += token
+                        candidate = pending.strip()
+                        if candidate and NO_ANSWER.startswith(candidate) and len(candidate) <= len(NO_ANSWER):
+                            continue
+                        yield f"data: {json.dumps({'type': 'sources', 'sources': sources_payload}, ensure_ascii=False)}\n\n"
+                        sources_sent = True
+                        yield f"data: {json.dumps({'type': 'token', 'token': pending}, ensure_ascii=False)}\n\n"
+                        pending = ""
+                    else:
+                        yield f"data: {json.dumps({'type': 'token', 'token': token}, ensure_ascii=False)}\n\n"
         except Exception as exc:
             logger.exception("Error during answer streaming")
-            yield f"data: {json.dumps({'type': 'error', 'detail': str(exc)}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'detail': 'Answer generation failed'}, ensure_ascii=False)}\n\n"
             return
 
-        # Save turn to session store
         complete_answer = "".join(full_answer).strip() or NO_ANSWER
+        if not sources_sent:
+            if complete_answer == NO_ANSWER:
+                session_store.add_turn(request.session_id, request.question, NO_ANSWER)
+                yield f"data: {json.dumps({'type': 'no_answer', 'answer': NO_ANSWER}, ensure_ascii=False)}\n\n"
+                yield "data: [DONE]\n\n"
+                return
+            yield f"data: {json.dumps({'type': 'sources', 'sources': sources_payload}, ensure_ascii=False)}\n\n"
+            if pending:
+                yield f"data: {json.dumps({'type': 'token', 'token': pending}, ensure_ascii=False)}\n\n"
         session_store.add_turn(request.session_id, request.question, complete_answer)
         yield "data: [DONE]\n\n"
 
@@ -186,7 +201,10 @@ async def _answer_rag(request: RagAskRequest) -> RagAskResponse:
         handler = get_langfuse_handler()
         callbacks = [handler] if handler else []
         with langfuse_context(session_id=request.session_id, tags=["rag", "ai07"]):
-            chain = build_rag_chain(get_llm(settings.rag_model, temperature=0))
+            chain = await run_in_threadpool(
+                build_rag_chain,
+                get_llm(settings.rag_model, temperature=0),
+            )
             generated = await chain.ainvoke(
                 {"question": standalone_question, "context": context},
                 config={"callbacks": callbacks}

@@ -1,117 +1,105 @@
-"""
-Unified retrieval abstraction supporting Vector, Hybrid (BM25 + PGVector), and Reranking.
-"""
+"""Vector and BM25 retrieval, score gating, and optional cross-encoder reranking."""
 from __future__ import annotations
 
+import copy
 import logging
-from typing import Any
-from langchain_core.callbacks import CallbackManagerForRetrieverRun
-from langchain_core.documents import Document
-from langchain_core.retrievers import BaseRetriever
-from pydantic import Field
+import unicodedata
+from collections import defaultdict
 
-from app.core.config import settings
+from langchain_core.documents import Document
+
 from app.core import vector_store
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 _BM25_INSTANCE = None
 _BM25_REVISION: tuple[int, int] | None = None
+_RRF_CONSTANT = 60
+_RRF_WEIGHTS = (0.5, 0.5)  # BM25, vector
 
 
-class VectorStoreRetriever(BaseRetriever):
-    """LangChain BaseRetriever adapter around vector_store.similarity_search."""
-    top_k: int = Field(default=5)
-
-    def _get_relevant_documents(
-        self, query: str, *, run_manager: CallbackManagerForRetrieverRun | None = None
-    ) -> list[Document]:
-        matches = vector_store.similarity_search(query, k=self.top_k)
-        return [
-            Document(
-                page_content=m["content"],
-                metadata={
-                    "chunk_id": f"{m['source']}::{m['chunk_index']}",
-                    "source": m["source"],
-                    "chunk_index": m["chunk_index"],
-                    "score": m["score"],
-                    "page_number": m.get("page_number"),
-                    "section": m.get("section"),
-                },
-            )
-            for m in matches
-        ]
+def _bm25_tokens(text: str) -> list[str]:
+    """Use case-insensitive Unicode tokens so capitalization does not hurt recall."""
+    return unicodedata.normalize("NFKC", text).casefold().split()
 
 
 def get_bm25_retriever(k: int = 5):
-    """Build or retrieve cached BM25Retriever over all corpus chunks."""
+    """Return a per-call BM25 retriever over a revision-aware cached corpus index."""
     global _BM25_INSTANCE, _BM25_REVISION
     revision = vector_store.get_corpus_revision()
     if _BM25_INSTANCE is None or _BM25_REVISION != revision:
         from langchain_community.retrievers import BM25Retriever
-        raw_chunks = vector_store.get_all_chunks()
+
+        chunks = vector_store.get_all_chunks()
         docs = [
             Document(
-                page_content=c["content"],
+                page_content=chunk["content"],
                 metadata={
-                    "chunk_id": f"{c['source']}::{c['chunk_index']}",
-                    "source": c["source"],
-                    "chunk_index": c["chunk_index"],
-                    "page_number": c.get("page_number"),
-                    "section": c.get("section"),
+                    "source": chunk["source"],
+                    "chunk_index": chunk["chunk_index"],
+                    "page_number": chunk.get("page_number"),
+                    "section": chunk.get("section"),
                 },
             )
-            for c in raw_chunks
+            for chunk in chunks
         ]
         if not docs:
             _BM25_INSTANCE = None
             _BM25_REVISION = revision
             raise vector_store.VectorStoreNotReady("RAG vector store contains no indexed chunks.")
-        _BM25_INSTANCE = BM25Retriever.from_documents(docs, k=k)
+        _BM25_INSTANCE = BM25Retriever.from_documents(
+            docs,
+            k=max(k, 20),
+            preprocess_func=_bm25_tokens,
+        )
         _BM25_REVISION = revision
-    else:
-        _BM25_INSTANCE.k = k
-    return _BM25_INSTANCE
+    # The cached model shares its immutable token index; request-specific k is
+    # applied to a shallow copy so concurrent calls cannot overwrite each other.
+    per_call = copy.copy(_BM25_INSTANCE)
+    per_call.k = k
+    return per_call
 
 
 def clear_bm25_cache() -> None:
-    """Clear cached BM25 instance (e.g. after re-ingestion)."""
+    """Clear cached BM25 state, for tests and explicit in-process reindexing."""
     global _BM25_INSTANCE, _BM25_REVISION
     _BM25_INSTANCE = None
     _BM25_REVISION = None
 
 
-def get_hybrid_retriever(k: int = 5, weights: list[float] | None = None):
-    """
-    EnsembleRetriever combining BM25 and PGVector via Reciprocal Rank Fusion (RRF).
-    Uses id_key='chunk_id' to prevent deduplicating chunks with identical text across files.
-    """
-    from langchain_classic.retrievers import EnsembleRetriever
-    vector_retriever = VectorStoreRetriever(top_k=k)
-    bm25_retriever = get_bm25_retriever(k=k)
-    return EnsembleRetriever(
-        retrievers=[bm25_retriever, vector_retriever],
-        weights=weights or [0.5, 0.5],
-        id_key="chunk_id",
-    )
+def _hybrid_fusion(bm25_docs: list[Document], vector_matches: list[dict], top_k: int) -> list[Document]:
+    """Fuse two ranked lists with weighted RRF while keeping source/chunk identity."""
+    scores: dict[tuple[str, int], float] = defaultdict(float)
+    documents: dict[tuple[str, int], Document] = {}
 
+    for weight, ranked_items, is_bm25 in (
+        (_RRF_WEIGHTS[0], bm25_docs, True),
+        (_RRF_WEIGHTS[1], vector_matches, False),
+    ):
+        for rank, item in enumerate(ranked_items, start=1):
+            if is_bm25:
+                source = item.metadata["source"]
+                chunk_index = item.metadata["chunk_index"]
+                doc = item
+            else:
+                source = item["source"]
+                chunk_index = item["chunk_index"]
+                doc = Document(
+                    page_content=item["content"],
+                    metadata={
+                        "source": source,
+                        "chunk_index": chunk_index,
+                        "page_number": item.get("page_number"),
+                        "section": item.get("section"),
+                    },
+                )
+            key = (source, chunk_index)
+            scores[key] += weight / (_RRF_CONSTANT + rank)
+            documents.setdefault(key, doc)
 
-def get_retriever(
-    mode: str = "vector",
-    top_k: int = 5,
-    use_reranker: bool = False,
-    reranker_top_n: int = 5,
-) -> BaseRetriever:
-    """Factory function for retrievers."""
-    if mode == "hybrid":
-        base = get_hybrid_retriever(k=top_k)
-    else:
-        base = VectorStoreRetriever(top_k=top_k)
-
-    if use_reranker:
-        from app.core.reranker import get_reranked_retriever
-        return get_reranked_retriever(base, top_n=reranker_top_n)
-    return base
+    ranked_keys = sorted(scores, key=scores.get, reverse=True)
+    return [documents[key] for key in ranked_keys[:top_k]]
 
 
 def retrieve_and_gate(
@@ -121,86 +109,87 @@ def retrieve_and_gate(
     use_reranker: bool = False,
     reranker_top_n: int = 5,
 ) -> tuple[list[dict], bool]:
-    """
-    Retrieves documents according to mode ('vector' or 'hybrid') and enforces cosine gate.
-    Optionally applies cross-encoder reranking down to reranker_top_n.
+    """Retrieve evidence, enforce per-chunk cosine gating, and optionally rerank."""
+    if mode not in {"vector", "hybrid"}:
+        raise ValueError(f"Unknown retrieval mode: {mode}")
 
-    Returns:
-        (matches, is_refused):
-            - matches: list of chunk dicts {content, source, chunk_index, score, page_number, section}
-            - is_refused: True if top vector similarity score is below rag_min_relevance_score
-    """
-    vector_matches = vector_store.similarity_search(query, k=top_k)
+    if mode == "hybrid":
+        query_vector = vector_store.embed_query(query)
+        vector_matches = vector_store.similarity_search(
+            query, k=top_k, embedding=query_vector
+        )
+    else:
+        query_vector = None
+        vector_matches = vector_store.similarity_search(query, k=top_k)
     gated_vector_matches = [
-        m for m in vector_matches
-        if m["score"] >= settings.rag_min_relevance_score
+        match for match in vector_matches
+        if match["score"] >= settings.rag_min_relevance_score
     ]
-
-    # Gating rule: cosine score from vector branch determines if there is sufficient evidence.
-    if not gated_vector_matches:
+    if mode == "vector" and not gated_vector_matches:
         return [], True
 
     if mode == "vector":
         candidates = gated_vector_matches
-    elif mode == "hybrid":
-        hybrid_retriever = get_hybrid_retriever(k=top_k)
-        docs = hybrid_retriever.invoke(query)
-        docs = docs[:top_k]
-
+    else:
+        bm25_docs = get_bm25_retriever(k=top_k).invoke(query)
+        # Gate after fusion, so keep both lists' candidates until each has a
+        # real cosine score; otherwise low-score BM25 hits can consume top-k.
+        fused_docs = _hybrid_fusion(bm25_docs, vector_matches, top_k * 2)
         score_lookup = {
-            (m["source"], m["chunk_index"]): m["score"]
-            for m in vector_matches
+            (match["source"], match["chunk_index"]): match["score"]
+            for match in vector_matches
         }
-        candidate_keys = [
+        missing_keys = [
             (doc.metadata["source"], doc.metadata["chunk_index"])
-            for doc in docs
+            for doc in fused_docs
+            if (doc.metadata["source"], doc.metadata["chunk_index"]) not in score_lookup
         ]
-        missing_scores = vector_store.score_chunks(
-            query,
-            [key for key in candidate_keys if key not in score_lookup],
+        score_lookup.update(
+            vector_store.score_chunks(query, missing_keys, embedding=query_vector)
         )
-        score_lookup.update(missing_scores)
-
         candidates = []
-        for doc in docs:
-            chunk_key = (doc.metadata["source"], doc.metadata["chunk_index"])
-            cosine_score = score_lookup.get(chunk_key)
-            if cosine_score is None or cosine_score < settings.rag_min_relevance_score:
+        for doc in fused_docs:
+            key = (doc.metadata["source"], doc.metadata["chunk_index"])
+            score = score_lookup.get(key)
+            if score is None or score < settings.rag_min_relevance_score:
                 continue
             candidates.append({
                 "content": doc.page_content,
-                "source": doc.metadata["source"],
-                "chunk_index": doc.metadata["chunk_index"],
-                "score": float(cosine_score),
+                "source": key[0],
+                "chunk_index": key[1],
+                "score": float(score),
                 "page_number": doc.metadata.get("page_number"),
                 "section": doc.metadata.get("section"),
             })
         if not candidates:
             return [], True
-    else:
-        raise ValueError(f"Unknown retrieval mode: {mode}")
+        candidates = candidates[:top_k]
 
     if not use_reranker or len(candidates) <= 1:
         return candidates[:reranker_top_n if use_reranker else top_k], False
 
-    # Apply cross-encoder reranking
     from app.core.reranker import rerank_documents
-    doc_candidates = [
+
+    docs = [
         Document(
-            page_content=c["content"],
+            page_content=candidate["content"],
             metadata={
-                "source": c["source"],
-                "chunk_index": c["chunk_index"],
-                "score": c["score"],
-                "page_number": c.get("page_number"),
-                "section": c.get("section"),
+                "source": candidate["source"],
+                "chunk_index": candidate["chunk_index"],
+                "score": candidate["score"],
+                "page_number": candidate.get("page_number"),
+                "section": candidate.get("section"),
             },
         )
-        for c in candidates
+        for candidate in candidates
     ]
-    reranked_docs = rerank_documents(query, doc_candidates, top_n=reranker_top_n)
-
-    reranked_matches = [
+    reranked_docs = rerank_documents(
+        query,
+        docs,
+        top_n=reranker_top_n,
+        model_name=settings.reranker_model,
+    )
+    return [
         {
             "content": doc.page_content,
             "source": doc.metadata["source"],
@@ -211,5 +200,4 @@ def retrieve_and_gate(
             "section": doc.metadata.get("section"),
         }
         for doc in reranked_docs
-    ]
-    return reranked_matches, False
+    ], False

@@ -11,7 +11,12 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from app.core.config import settings
 from app.core.llm import get_llm
-from app.core.rag_prompt import NO_ANSWER, build_rag_chain, build_rag_prompt, format_context
+from app.core.rag_prompt import (
+    NO_ANSWER,
+    build_hardcoded_rag_prompt,
+    build_rag_chain,
+    format_context,
+)
 from app.schemas.rag import RagGeneratedAnswer
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,7 +37,7 @@ def normalize(value: str) -> str:
 
 
 def make_candidate_chain(llm):
-    base_prompt = build_rag_prompt()
+    base_prompt = build_hardcoded_rag_prompt()
     parser = PydanticOutputParser(pydantic_object=RagGeneratedAnswer)
     system_template = base_prompt.messages[0].prompt.template
     candidate_prompt = ChatPromptTemplate.from_messages([
@@ -62,7 +67,9 @@ def run(*, sample_counts: dict[str, int] | None = None, seed: int = 20261023,
     else:
         cases = select_cases(full_cases, sample_counts, seed) if sample_counts else full_cases
     llm = get_llm(settings.rag_model, temperature=0)
-    baseline_chain = build_rag_chain(llm)
+    baseline_chain = build_rag_chain(
+        llm, prompt_template=build_hardcoded_rag_prompt()
+    )
     candidate_chain = make_candidate_chain(llm)
     records = []
     try:
@@ -147,6 +154,7 @@ def run(*, sample_counts: dict[str, int] | None = None, seed: int = 20261023,
             "embedding_model": settings.embedding_model,
         },
         "candidate_rule": CANDIDATE_RULE,
+        "prompt_source": "checked-in hardcoded prompt; Langfuse prompt labels are not used for this development experiment",
         "summary": summary,
         "paired_case_changes": {
             "candidate_fixes_missing_false_answers": sum(

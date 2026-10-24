@@ -21,12 +21,38 @@ def test_build_rag_prompt_fallback_when_langfuse_unconfigured(monkeypatch):
     assert prompt.messages[0].prompt.template == hardcoded.messages[0].prompt.template
 
 
+def test_build_rag_prompt_converts_langfuse_chat_prompt(monkeypatch):
+    monkeypatch.setattr(settings, "langfuse_public_key", "pk-test")
+    monkeypatch.setattr(settings, "langfuse_secret_key", "sk-test")
+
+    class FakePrompt:
+        is_fallback = False
+
+        def get_langchain_prompt(self):
+            return [
+                ("system", "Ground answers in the context."),
+                ("human", "{context}\n{question}\n{format_instructions}"),
+            ]
+
+    client = __import__("unittest.mock", fromlist=["MagicMock"]).MagicMock()
+    client.get_prompt.return_value = FakePrompt()
+    with patch("app.core.tracing.get_langfuse_client", return_value=client):
+        prompt = build_rag_prompt()
+
+    client.get_prompt.assert_called_once()
+    assert client.get_prompt.call_args.kwargs["type"] == "chat"
+    rendered = prompt.format_messages(context="evidence", question="question")
+    assert "evidence" in rendered[1].content
+    assert "question" in rendered[1].content
+
+
 @pytest.mark.asyncio
 async def test_ask_rag_stream_no_answer_event():
     fake_matches = []
     transport = httpx.ASGITransport(app=app)
 
-    with patch("app.api.rag.retrieve_and_gate", return_value=(fake_matches, True)):
+    with patch("app.api.rag.rewrite_question_if_needed", new=AsyncMock(side_effect=lambda q, _h: q)), \
+         patch("app.api.rag.run_in_threadpool", new=AsyncMock(return_value=(fake_matches, True))):
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.post(
                 "/api/rag/ask/stream",
@@ -55,7 +81,8 @@ async def test_ask_rag_stream_emits_sources_and_tokens():
 
     transport = httpx.ASGITransport(app=app)
 
-    with patch("app.api.rag.retrieve_and_gate", return_value=(fake_matches, False)), \
+    with patch("app.api.rag.rewrite_question_if_needed", new=AsyncMock(side_effect=lambda q, _h: q)), \
+         patch("app.api.rag.run_in_threadpool", new=AsyncMock(return_value=(fake_matches, False))), \
          patch("langchain_core.runnables.base.RunnableSequence.astream", side_effect=fake_astream):
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.post(
@@ -71,3 +98,28 @@ async def test_ask_rag_stream_emits_sources_and_tokens():
             assert 'data: {"type": "token", "token": "Nhân "}' in body
             assert 'data: {"type": "token", "token": "12 ngày."}' in body
             assert "data: [DONE]" in body
+
+
+@pytest.mark.asyncio
+async def test_streaming_model_refusal_does_not_emit_sources():
+    fake_matches = [
+        {"content": "Gần chủ đề nhưng thiếu dữ kiện", "source": "policy.md", "chunk_index": 0, "score": 0.8}
+    ]
+
+    async def fake_astream(*args, **kwargs):
+        chunk = AsyncMock()
+        chunk.content = NO_ANSWER
+        yield chunk
+
+    transport = httpx.ASGITransport(app=app)
+    with patch("app.api.rag.rewrite_question_if_needed", new=AsyncMock(side_effect=lambda q, _h: q)), \
+         patch("app.api.rag.run_in_threadpool", new=AsyncMock(return_value=(fake_matches, False))), \
+         patch("langchain_core.runnables.base.RunnableSequence.astream", side_effect=fake_astream):
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                "/api/rag/ask/stream",
+                headers={"X-API-Key": settings.app_api_key},
+                json={"question": "Thông tin còn thiếu là gì?"},
+            )
+    assert '"type": "sources"' not in resp.text
+    assert '"type": "no_answer"' in resp.text

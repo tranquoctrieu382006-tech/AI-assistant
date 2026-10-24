@@ -1,8 +1,9 @@
 """Write the frozen-corpus/development (M1) fingerprint for RAG evaluation."""
-import hashlib
 import json
+import argparse
 from collections import Counter
 from pathlib import Path
+from scripts.manifest_hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[1]
 CORPUS_DIR = ROOT / "data/demo_sales_warehouse"
@@ -18,11 +19,11 @@ EVALUATION_FILES = [
 ]
 
 
-def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def main() -> None:
+def main(output_path: Path = MANIFEST) -> None:
+    if output_path.exists():
+        raise FileExistsError(
+            f"Refusing to overwrite frozen manifest {output_path}; choose a new --output path."
+        )
     corpus = sorted(
         path for path in CORPUS_DIR.iterdir()
         if path.is_file() and path.name not in EXCLUDED
@@ -43,31 +44,36 @@ def main() -> None:
     }
     manifest = {
         "manifest": "M1",
+        "hash_format": "sha256-canonical-text-lf-v1",
         "purpose": "Frozen corpus, development data, scorer, and retrieval configuration before held-out creation.",
         "configuration": config,
         "corpus_files": {
-            path.relative_to(ROOT).as_posix(): sha256(path) for path in corpus
+            path.relative_to(ROOT).as_posix(): sha256_file(path) for path in corpus
         },
         "development_sets": {
             "data/rag_golden_set.json": {
-                "sha256": sha256(rag_path),
+                "sha256": sha256_file(rag_path),
                 "case_count": len(rag),
                 "categories": dict(sorted(Counter(case["category"] for case in rag).items())),
             },
             "data/nlq_golden_set.json": {
-                "sha256": sha256(nlq_path),
+                "sha256": sha256_file(nlq_path),
                 "case_count": len(json.loads(nlq_path.read_text(encoding="utf-8"))),
             },
         },
         "evaluation_code": {
-            rel: sha256(ROOT / rel) for rel in EVALUATION_FILES
+            rel: sha256_file(ROOT / rel) for rel in EVALUATION_FILES
         },
         "held_out": None,
     }
-    MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"Wrote {MANIFEST.relative_to(ROOT).as_posix()}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"Wrote {output_path.relative_to(ROOT).as_posix()}")
     print(f"Corpus files: {len(corpus)}; RAG development cases: {len(rag)}")
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, default=MANIFEST)
+    args = parser.parse_args()
+    main(args.output if args.output.is_absolute() else ROOT / args.output)

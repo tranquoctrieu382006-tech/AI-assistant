@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 # In-memory dictionary: session_id -> list of message dicts
 _SESSIONS: dict[str, list[dict]] = {}
 _MAX_SESSIONS = 1000
+_MAX_MESSAGES_PER_SESSION = 40
 
 
 class ChatMessage(BaseModel):
@@ -20,7 +21,7 @@ def get_history(session_id: str | None) -> list[dict]:
     """Retrieve message history for a given session."""
     if not session_id:
         return []
-    return _SESSIONS.get(session_id, [])
+    return list(_SESSIONS.get(session_id, []))
 
 
 def add_turn(session_id: str | None, question: str, answer: str) -> None:
@@ -29,7 +30,7 @@ def add_turn(session_id: str | None, question: str, answer: str) -> None:
         return
 
     # Basic eviction if too many sessions
-    if len(_SESSIONS) > _MAX_SESSIONS and session_id not in _SESSIONS:
+    if len(_SESSIONS) >= _MAX_SESSIONS and session_id not in _SESSIONS:
         # Remove oldest session
         oldest_key = next(iter(_SESSIONS))
         _SESSIONS.pop(oldest_key, None)
@@ -39,6 +40,8 @@ def add_turn(session_id: str | None, question: str, answer: str) -> None:
 
     _SESSIONS[session_id].append({"role": "user", "content": question, "timestamp": time.time()})
     _SESSIONS[session_id].append({"role": "assistant", "content": answer, "timestamp": time.time()})
+    if len(_SESSIONS[session_id]) > _MAX_MESSAGES_PER_SESSION:
+        del _SESSIONS[session_id][:_MAX_MESSAGES_PER_SESSION]
 
 
 def clear_session(session_id: str) -> None:

@@ -294,6 +294,8 @@ pyyaml==6.0.3
     #   langchain-community
     #   langchain-core
     #   uvicorn
+rank-bm25==0.2.2
+    # via -r requirements.txt
 regex==2026.9.29
     # via tiktoken
 requests==2.34.2

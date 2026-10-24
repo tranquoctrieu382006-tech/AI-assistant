@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import unicodedata
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
@@ -52,12 +53,31 @@ async def rewrite_question_if_needed(
         history_lines.append(f"{role_label}: {msg['content']}")
     history_text = "\n".join(history_lines)
 
-    role = model_role or settings.rag_model
-    chain = build_rewriter_chain(role)
     try:
-        rewritten = await chain.ainvoke({"history": history_text, "question": question})
+        role = model_role or settings.rag_model
+        chain = build_rewriter_chain(role)
+        from app.core.tracing import get_langfuse_handler, langfuse_context
+
+        handler = get_langfuse_handler()
+        callbacks = [handler] if handler else []
+        with langfuse_context(tags=["rag", "question-rewrite"]):
+            rewritten = await chain.ainvoke(
+                {"history": history_text, "question": question},
+                config={"callbacks": callbacks},
+            )
         clean = rewritten.strip().strip('"').strip("'")
-        return clean or question
+        max_length = min(2000, max(200, len(question) * 4))
+        if not clean or len(clean) > max_length:
+            logger.warning("Question rewrite returned empty or oversized output; using original question")
+            return question
+        if question.rstrip().endswith(("?", "？")) and not clean.rstrip().endswith(("?", "？")):
+            logger.warning("Question rewrite did not preserve question form; using original question")
+            return question
+        if unicodedata.normalize("NFC", clean).casefold() in {
+            "i don't know", "i cannot answer", "i can't answer", "không biết", "không thể trả lời"
+        }:
+            return question
+        return clean
     except Exception as exc:
         logger.warning("Question rewrite failed, falling back to original: %s", exc)
         return question
