@@ -1,5 +1,6 @@
 """API key authentication and per-client request limiting."""
 from collections import OrderedDict
+import ipaddress
 from secrets import compare_digest
 from threading import Lock
 from time import monotonic
@@ -22,7 +23,9 @@ def require_api_key(api_key: str | None = Security(_api_key_header)) -> None:
             status_code=503,
             detail="API authentication is not configured; set APP_API_KEY to a random value of at least 32 characters.",
         )
-    if not api_key or not compare_digest(api_key, configured_key):
+    if not api_key or not compare_digest(
+        api_key.encode("utf-8"), configured_key.encode("utf-8")
+    ):
         raise HTTPException(
             status_code=401,
             detail="Missing or invalid API key.",
@@ -46,6 +49,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         client_ip = request.client.host if request.client else "unknown"
+        if client_ip in settings.trusted_proxy_ips:
+            forwarded = request.headers.get("x-forwarded-for", "")
+            # Only honor the proxy header when the immediate peer is trusted.
+            # Trusted proxies must overwrite this header or append the actual
+            # client address as its final value.
+            candidate = forwarded.rsplit(",", 1)[-1].strip()
+            try:
+                client_ip = str(ipaddress.ip_address(candidate))
+            except ValueError:
+                pass
         now = monotonic()
         window_start = now - 60
         limit = settings.api_rate_limit_per_minute

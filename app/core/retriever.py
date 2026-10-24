@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import logging
+import re
 import unicodedata
 from collections import defaultdict
 
@@ -20,8 +21,9 @@ _RRF_WEIGHTS = (0.5, 0.5)  # BM25, vector
 
 
 def _bm25_tokens(text: str) -> list[str]:
-    """Use case-insensitive Unicode tokens so capitalization does not hurt recall."""
-    return unicodedata.normalize("NFKC", text).casefold().split()
+    """Normalize Unicode/case and discard punctuation around Vietnamese tokens."""
+    normalized = unicodedata.normalize("NFKC", text).casefold()
+    return re.findall(r"\w+", normalized, flags=re.UNICODE)
 
 
 def get_bm25_retriever(k: int = 5):
@@ -108,19 +110,21 @@ def retrieve_and_gate(
     mode: str = "vector",
     use_reranker: bool = False,
     reranker_top_n: int = 5,
+    reranker_pool_size: int = 20,
 ) -> tuple[list[dict], bool]:
     """Retrieve evidence, enforce per-chunk cosine gating, and optionally rerank."""
     if mode not in {"vector", "hybrid"}:
         raise ValueError(f"Unknown retrieval mode: {mode}")
 
+    candidate_k = max(top_k, reranker_pool_size) if use_reranker else top_k
     if mode == "hybrid":
         query_vector = vector_store.embed_query(query)
         vector_matches = vector_store.similarity_search(
-            query, k=top_k, embedding=query_vector
+            query, k=candidate_k, embedding=query_vector
         )
     else:
         query_vector = None
-        vector_matches = vector_store.similarity_search(query, k=top_k)
+        vector_matches = vector_store.similarity_search(query, k=candidate_k)
     gated_vector_matches = [
         match for match in vector_matches
         if match["score"] >= settings.rag_min_relevance_score
@@ -131,10 +135,10 @@ def retrieve_and_gate(
     if mode == "vector":
         candidates = gated_vector_matches
     else:
-        bm25_docs = get_bm25_retriever(k=top_k).invoke(query)
+        bm25_docs = get_bm25_retriever(k=candidate_k).invoke(query)
         # Gate after fusion, so keep both lists' candidates until each has a
         # real cosine score; otherwise low-score BM25 hits can consume top-k.
-        fused_docs = _hybrid_fusion(bm25_docs, vector_matches, top_k * 2)
+        fused_docs = _hybrid_fusion(bm25_docs, vector_matches, candidate_k * 2)
         score_lookup = {
             (match["source"], match["chunk_index"]): match["score"]
             for match in vector_matches
@@ -163,7 +167,8 @@ def retrieve_and_gate(
             })
         if not candidates:
             return [], True
-        candidates = candidates[:top_k]
+        if not use_reranker:
+            candidates = candidates[:top_k]
 
     if not use_reranker or len(candidates) <= 1:
         return candidates[:reranker_top_n if use_reranker else top_k], False

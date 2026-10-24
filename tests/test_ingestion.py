@@ -25,6 +25,35 @@ def test_chunk_text_splits_long_paragraphs():
     assert len(chunks) > 1
 
 
+def test_chunk_text_never_exceeds_size_when_overlap_plus_long_word_would_overflow():
+    text = " ".join(["abcdefghij"] * 10) + "\n" + ("y" * 890)
+    chunks = chunk_text(text, size=900, overlap=150)
+    assert chunks
+    assert all(len(chunk) <= 900 for chunk in chunks)
+
+
+def test_chunk_text_keeps_consecutive_nested_headings_with_following_content():
+    chunks = chunk_text("## Parent\n### Child\nActual policy text", size=100, overlap=10)
+    assert len(chunks) == 1
+    assert "## Parent" in chunks[0]
+    assert "### Child" in chunks[0]
+    assert "Actual policy text" in chunks[0]
+
+
+def test_pdf_chunks_overlap_across_page_boundary(monkeypatch):
+    monkeypatch.setattr("app.core.ingestion.settings.rag_chunk_size", 80)
+    monkeypatch.setattr("app.core.ingestion.settings.rag_chunk_overlap", 20)
+    chunks = chunk_document_blocks([
+        (1, None, "The required condition continues with the phrase across"),
+        (2, None, "the page boundary and completes here."),
+    ])
+    assert len(chunks) >= 2
+    assert "phrase across" in chunks[0]["content"]
+    next_page_chunks = [chunk["content"] for chunk in chunks if chunk["page_number"] == 2]
+    assert "phrase across" in next_page_chunks[0]
+    assert "completes" in " ".join(next_page_chunks)
+
+
 def test_paragraph_block_strategy_preserves_extracted_boundaries_and_headings():
     blocks = [
         (None, "Policy", "Policy"),
@@ -208,3 +237,26 @@ def test_ingest_directory_sends_current_relative_source_set(tmp_path: Path, monk
     assert captured["sources"] == ["nested/guide.txt", "policy.md"]
     assert {item["source"] for item in captured["chunks"]} == set(captured["sources"])
     assert all("section" in item for item in captured["chunks"])
+
+
+def test_ingest_rejects_missing_or_empty_directory_before_replacing_index(tmp_path, monkeypatch):
+    calls = []
+    fake_store = types.ModuleType("app.core.vector_store")
+    fake_store.replace_corpus_chunks = lambda *args: calls.append(args)
+    monkeypatch.setitem(sys.modules, "app.core.vector_store", fake_store)
+    from app.core.ingestion import ingest_directory
+
+    try:
+        ingest_directory(tmp_path / "missing")
+    except FileNotFoundError:
+        pass
+    else:
+        raise AssertionError("Missing directory must be rejected")
+
+    try:
+        ingest_directory(tmp_path)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Directory with no supported files must be rejected")
+    assert calls == []

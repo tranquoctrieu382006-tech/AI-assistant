@@ -1,11 +1,13 @@
 """Load documents and split them into bounded, word-safe chunks."""
 from pathlib import Path
+import logging
 import re
 
 from app.core.config import settings
 
 _HEADING = re.compile(r"^#{1,6}\s+.+")
 _MARKDOWN_HEADING = re.compile(r"^(#{1,6})\s+(.+)$")
+logger = logging.getLogger(__name__)
 
 
 def load_document_blocks(path: Path) -> list[tuple[int | None, str | None, str]]:
@@ -113,7 +115,10 @@ def _split_long(text: str, size: int, overlap: int) -> list[str]:
             chunks.append(" ".join(current))
             tail: list[str] = []
             for previous in reversed(current):
-                if len(" ".join([previous, *tail])) > overlap:
+                candidate_tail = " ".join([previous, *tail])
+                if len(candidate_tail) > overlap:
+                    break
+                if len(candidate_tail) + 1 + len(word) > size:
                     break
                 tail.insert(0, previous)
             current = [*tail, word]
@@ -134,9 +139,7 @@ def chunk_text(text: str, size: int | None = None, overlap: int | None = None) -
     pending_heading = ""
     for line in lines:
         if _HEADING.match(line):
-            if pending_heading:
-                paragraphs.append(pending_heading)
-            pending_heading = line
+            pending_heading = f"{pending_heading}\n{line}" if pending_heading else line
             continue
         paragraphs.append(f"{pending_heading}\n{line}" if pending_heading else line)
         pending_heading = ""
@@ -155,13 +158,13 @@ def chunk_text(text: str, size: int | None = None, overlap: int | None = None) -
                 chunks.append(current)
             tail_words = []
             for word in reversed(current.split()):
-                if len(" ".join([word, *tail_words])) > overlap:
+                candidate_tail = " ".join([word, *tail_words])
+                if len(candidate_tail) > overlap:
+                    break
+                if len(candidate_tail) + 1 + len(part) > size:
                     break
                 tail_words.insert(0, word)
             current = " ".join([*tail_words, part]).strip()
-            if len(current) > size:
-                chunks.extend(_split_long(current, size, overlap)[:-1])
-                current = _split_long(current, size, overlap)[-1]
     if current:
         chunks.append(current)
     return chunks
@@ -226,7 +229,7 @@ def chunk_document_blocks(
                 {"content": content, "section": section, "page_number": page}
                 for content in chunk_text(heading)
             )
-        return chunks
+        return _add_page_boundary_overlap(chunks)
 
     if strategy == "fixed_size":
         runs: list[tuple[int | None, set[str | None], str]] = []
@@ -246,7 +249,7 @@ def chunk_document_blocks(
                 {"content": content, "section": section, "page_number": page_number}
                 for content in chunk_text(text)
             )
-        return chunks
+        return _add_page_boundary_overlap(chunks)
 
     runs: list[tuple[int | None, str | None, str]] = []
     for page_number, section, text in blocks:
@@ -258,13 +261,79 @@ def chunk_document_blocks(
         else:
             runs.append((page_number, section, text.strip()))
 
+    def is_heading_only(section: str | None, text: str) -> bool:
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if not lines:
+            return False
+        section_name = section.split(" > ")[-1] if section else None
+        return all(
+            bool(_HEADING.match(line)) or (section_name is not None and line == section_name)
+            for line in lines
+        )
+
+    # Heading-aware extraction can create a run containing only a parent
+    # heading when the next line starts a child section. Carry that heading
+    # forward so it describes the content rather than becoming its own vector.
+    merged_runs: list[tuple[int | None, str | None, str]] = []
+    for page_number, section, text in runs:
+        if (
+            merged_runs
+            and is_heading_only(merged_runs[-1][1], merged_runs[-1][2])
+            and merged_runs[-1][0] == page_number
+            and (
+                merged_runs[-1][1] is None
+                or section == merged_runs[-1][1]
+                or (section is not None and section.startswith(merged_runs[-1][1] + " > "))
+            )
+        ):
+            previous_page, previous_section, previous_text = merged_runs.pop()
+            text = f"{previous_text}\n{text}"
+            section = section or previous_section
+        merged_runs.append((page_number, section, text))
+    runs = merged_runs
+
     chunks = []
     for page_number, section, text in runs:
         chunks.extend(
             {"content": content, "section": section, "page_number": page_number}
             for content in chunk_text(text)
         )
-    return chunks
+    return _add_page_boundary_overlap(chunks)
+
+
+def _add_page_boundary_overlap(chunks: list[dict]) -> list[dict]:
+    """Copy a bounded tail of the prior PDF page into the next page's first chunk."""
+    output: list[dict] = []
+    overlap = settings.rag_chunk_overlap
+    size = settings.rag_chunk_size
+    for chunk in chunks:
+        page = chunk.get("page_number")
+        previous = output[-1] if output else None
+        previous_page = previous.get("page_number") if previous else None
+        if (
+            not isinstance(page, int)
+            or not isinstance(previous_page, int)
+            or page <= previous_page
+            or overlap <= 0
+        ):
+            output.append(chunk)
+            continue
+
+        tail = previous["content"][-overlap:]
+        if " " in tail:
+            tail = tail[tail.find(" ") + 1:]
+        content = chunk["content"]
+        budget = size - len(tail) - 1
+        cut = content.rfind(" ", 0, budget + 1)
+        if not tail or cut <= 0:
+            output.append(chunk)
+            continue
+        merged = {**chunk, "content": f"{tail}\n{content[:cut]}".strip()}
+        output.append(merged)
+        remainder = content[cut + 1:].strip()
+        if remainder:
+            output.append({**chunk, "content": remainder})
+    return output
 
 
 def build_corpus_chunks(
@@ -273,6 +342,10 @@ def build_corpus_chunks(
 ) -> tuple[list[dict], list[str]]:
     """Build indexed chunks without changing the vector store."""
     root = Path(directory or settings.rag_document_dir)
+    if not root.exists():
+        raise FileNotFoundError(f"Document directory does not exist: {root}")
+    if not root.is_dir():
+        raise NotADirectoryError(f"Document path is not a directory: {root}")
     excluded = {name.casefold() for name in settings.rag_exclude_files}
     files = sorted(
         p for p in root.rglob("*")
@@ -281,12 +354,17 @@ def build_corpus_chunks(
     )
     records: list[dict] = []
     sources = [path.relative_to(root).as_posix() for path in files]
+    if not files:
+        raise ValueError(f"No supported documents found in {root}")
     for path in files:
         source = path.relative_to(root).as_posix()
-        for index, chunk in enumerate(
-            chunk_document_blocks(load_document_blocks(path), strategy=strategy)
-        ):
+        file_chunks = chunk_document_blocks(load_document_blocks(path), strategy=strategy)
+        if not file_chunks:
+            logger.warning("Document produced no text chunks (possibly scanned/empty): %s", path)
+        for index, chunk in enumerate(file_chunks):
             records.append({"source": source, "chunk_index": index, **chunk})
+    if not records:
+        raise ValueError(f"No text chunks could be extracted from documents in {root}")
     return records, sources
 
 

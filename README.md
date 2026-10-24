@@ -43,6 +43,8 @@ Sửa biến trong `.env`, **không cần sửa code**:
 | Nhanh/rẻ (router, viết lại câu hỏi) | `FAST_MODEL` | `openai/gpt-4o-mini` |
 | Local inference | `LOCAL_MODEL` | `ollama/gemma3:12b` |
 | Mô hình trả lời RAG | `RAG_MODEL` | `local` |
+| Số chiều embedding | `EMBEDDING_DIMENSIONS` | `1024` (đổi chiều cần tạo lại bảng và nạp lại corpus) |
+| Context window Ollama cho RAG | `RAG_NUM_CTX` | `8192` |
 | Chế độ tìm kiếm | `SEARCH_MODE` | `vector` hoặc `hybrid` (BM25 + PGVector) |
 | Bật Reranker | `USE_RERANKER` | `false` (mặc định) hoặc `true` (`bge-reranker-v2-m3`) |
 | Mô hình reranker | `RERANKER_MODEL` | `BAAI/bge-reranker-v2-m3` |
@@ -146,7 +148,7 @@ ollama pull bge-m3
 python -m scripts.ingest_documents --strategy heading
 ```
 
-Pipeline mặc định chia theo heading (`--strategy heading`); có thể chọn `--strategy fixed_size` để chia kích thước cố định có overlap. Hai cách được so sánh độc lập, không ghi vào vector store, bằng `python -m scripts.compare_chunking_strategies`. Pipeline dùng LangChain `TextLoader` cho MD/TXT và `PyPDFLoader` cho PDF; DOCX tiếp tục dùng parser `python-docx` để giữ thứ tự đoạn/bảng và style Heading mà `Docx2txtLoader` làm mất. Sau đó, pipeline ghi embedding vào bảng `rag_chunks` (tự tạo nếu chưa có). Chunk giữ metadata nguồn, mục heading (Markdown/DOCX) và trang PDF; chunk fixed-size trộn nhiều mục sẽ để section trống thay vì gắn sai mục. Sau khi cập nhật phiên bản có metadata mục, cần chạy lại ingestion để migrate schema và tái lập chỉ mục. `RAG_MIN_RELEVANCE_SCORE` cấu hình ngưỡng để API từ chối câu hỏi không có đoạn liên quan đủ mạnh. Hỏi tài liệu qua:
+Pipeline mặc định chia theo heading (`--strategy heading`); có thể chọn `--strategy fixed_size` để chia kích thước cố định có overlap. Hai cách được so sánh độc lập, không ghi vào vector store, bằng `python -m scripts.compare_chunking_strategies`. Pipeline dùng LangChain `TextLoader` cho MD/TXT và `PyPDFLoader` cho PDF; DOCX tiếp tục dùng parser `python-docx` để giữ thứ tự đoạn/bảng và style Heading mà `Docx2txtLoader` làm mất. Chunk PDF có overlap nhỏ qua ranh giới trang, và heading Markdown liên tiếp được gộp với nội dung sau. Nếu thư mục sai, không có file hỗ trợ hoặc không trích được chunk nào, ingestion dừng trước khi thay index; file riêng lẻ trống được cảnh báo. Embedding dimensions mặc định là 1024; khi đổi sang model khác chiều cần đặt `EMBEDDING_DIMENSIONS`, tạo lại bảng `rag_chunks` và nạp lại corpus. `RAG_MIN_RELEVANCE_SCORE` cấu hình ngưỡng để API từ chối câu hỏi không có đoạn liên quan đủ mạnh. Hỏi tài liệu qua:
 
 ```bash
 curl -X POST http://localhost:8000/api/rag/ask \
@@ -174,7 +176,7 @@ Chạy `python -m scripts.evaluate_nlq_golden` để kiểm tra SQL tham chiếu
 
 `requirements.lock` khóa phiên bản runtime và dev đã resolve cho nhiều nền tảng. Khi thay dependencies, cập nhật bằng `uv pip compile requirements-dev.txt --output-file requirements.lock --universal`, review diff rồi cài lại từ lock.
 
-API `/api/rag/*` và endpoint debug `/api/health/verify-model` yêu cầu header `X-API-Key`; đặt `APP_API_KEY` thành chuỗi bí mật ngẫu nhiên tối thiểu 32 ký tự. Khi chưa cấu hình key, các endpoint được bảo vệ trả HTTP 503 thay vì mở công khai. `/api/health` và `/api/health/live` vẫn công khai để health checks. Các endpoint API được giới hạn mặc định 60 request/phút theo IP; bộ đếm nằm trong tiến trình, nên nếu chạy nhiều worker hoặc sau reverse proxy thì cần giới hạn ở proxy/chia sẻ store. Middleware không tin `X-Forwarded-For`, tránh giả mạo IP; cấu hình proxy tin cậy riêng nếu cần.
+API `/api/rag/*` và endpoint debug `/api/health/verify-model` yêu cầu header `X-API-Key`; đặt `APP_API_KEY` thành chuỗi bí mật ngẫu nhiên tối thiểu 32 ký tự. Khi chưa cấu hình key, các endpoint được bảo vệ trả HTTP 503 thay vì mở công khai. `/api/health` và `/api/health/live` vẫn công khai để health checks. Các endpoint API được giới hạn mặc định 60 request/phút theo IP; bộ đếm nằm trong tiến trình, nên nếu chạy nhiều worker thì cần giới hạn ở proxy/chia sẻ store. Sau reverse proxy, chỉ khai báo `TRUSTED_PROXY_IPS` khi proxy ghi đè `X-Forwarded-For` hoặc thêm IP client thật ở cuối header; nếu không, middleware chỉ dùng IP kết nối trực tiếp.
 
 ## Benchmark mô hình
 

@@ -3,6 +3,8 @@ import pytest
 
 from app.core.config import settings
 from app.main import app
+from app.core.security import require_api_key
+from fastapi import HTTPException
 
 
 async def request(
@@ -44,3 +46,21 @@ async def test_api_rate_limit_is_applied_by_client_ip(monkeypatch):
     assert second.status_code == 401
     assert limited.status_code == 429
     assert limited.headers["retry-after"]
+
+
+def test_non_ascii_invalid_api_key_returns_401_instead_of_compare_digest_500(monkeypatch):
+    monkeypatch.setattr(settings, "app_api_key", "a-valid-test-key-with-more-than-32-chars")
+    try:
+        require_api_key(api_key="không-đúng")
+    except HTTPException as exc:
+        assert exc.status_code == 401
+    else:
+        raise AssertionError("Invalid key should be rejected")
+
+
+def test_cors_wraps_rate_limit_middleware_for_429_responses():
+    from fastapi.middleware.cors import CORSMiddleware
+    from app.core.security import RateLimitMiddleware
+
+    classes = [middleware.cls for middleware in app.user_middleware]
+    assert classes.index(CORSMiddleware) < classes.index(RateLimitMiddleware)

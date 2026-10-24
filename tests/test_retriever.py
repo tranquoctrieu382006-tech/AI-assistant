@@ -15,6 +15,7 @@ from app.core.retriever import (
 
 def test_bm25_tokens_ignore_case_and_normalize_unicode():
     assert _bm25_tokens("NghỈ PHÉP") == _bm25_tokens("nghỉ phép")
+    assert _bm25_tokens("ngày, lỗi?") == ["ngày", "lỗi"]
 
 
 def test_retrieve_and_gate_abstains_when_vector_below_cutoff(monkeypatch):
@@ -203,3 +204,22 @@ def test_retrieve_and_gate_with_reranker():
     assert matches[0]["rerank_score"] == 0.99
     assert matches[1]["content"] == "Doc 2"
     assert matches[1]["rerank_score"] == 0.5
+
+
+def test_reranker_uses_larger_candidate_pool_then_returns_requested_top_k(monkeypatch):
+    monkeypatch.setattr(settings, "rag_min_relevance_score", 0.0)
+    fake_matches = [
+        {"content": f"Doc {i}", "source": f"{i}.md", "chunk_index": i, "score": 0.8}
+        for i in range(20)
+    ]
+    model = MagicMock()
+    model.predict.return_value = list(range(20))
+    with patch("app.core.vector_store.similarity_search", return_value=fake_matches) as search, \
+         patch("app.core.reranker.get_cross_encoder", return_value=model):
+        matches, refused = retrieve_and_gate(
+            "question", top_k=5, mode="vector", use_reranker=True,
+            reranker_top_n=5, reranker_pool_size=20,
+        )
+    search.assert_called_once_with("question", k=20)
+    assert refused is False
+    assert len(matches) == 5

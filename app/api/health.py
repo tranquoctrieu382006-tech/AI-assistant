@@ -15,7 +15,7 @@ from app.core.llm import (
 )
 from app.core.tracing import is_langfuse_configured
 from app.core.security import require_api_key
-import psycopg
+from app.core import vector_store
 
 router = APIRouter()
 
@@ -24,10 +24,20 @@ def _database_readiness() -> dict:
     if not settings.database_url.strip():
         return {"status": "error", "detail": "DATABASE_URL is not configured"}
     try:
-        with psycopg.connect(settings.database_url, connect_timeout=3) as conn:
+        with vector_store._connect() as conn:
+            ready = conn.execute(
+                "SELECT to_regtype('vector'), to_regclass('public.rag_chunks')"
+            ).fetchone()
+            if not ready[0] or not ready[1]:
+                return {"status": "not_ready", "detail": "pgvector or rag_chunks is missing"}
+            vector_store._register_vector_if_needed(conn)
             vector = conn.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'").fetchone()
-        return {"status": "ok" if vector else "missing_vector_extension",
-                "pgvector_version": vector[0] if vector else None}
+        return {
+            "status": "ok" if vector else "missing_vector_extension",
+            "pgvector_version": vector[0] if vector else None,
+        }
+    except vector_store.VectorStoreNotReady as exc:
+        return {"status": "not_ready", "detail": str(exc)}
     except Exception as exc:
         return {"status": "error", "detail": type(exc).__name__}
 
@@ -55,13 +65,15 @@ async def health_check() -> HealthResponse:
     is_healthy = database_info["status"] == "ok" and (not requires_ollama or ollama_info.get("status") == "ok")
     system_status = "ok" if is_healthy else "degraded"
 
+    # Public health stays useful without disclosing installed Ollama model names.
+    ollama_summary = {"status": ollama_info.get("status", "unknown")}
     return HealthResponse(
         status=system_status,
         version=settings.app_version,
         default_model=settings.default_model,
         available_roles=list(MODEL_REGISTRY.keys()),
         langfuse_enabled=langfuse_on,
-        ollama_status=ollama_info,
+        ollama_status=ollama_summary,
         database_status=database_info,
     )
 

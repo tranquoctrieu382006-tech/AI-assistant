@@ -2,15 +2,20 @@
 from __future__ import annotations
 
 import logging
+import re
 import unicodedata
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
 from app.core.config import settings
-from app.core.llm import get_llm
+from app.core.llm import get_rag_llm
 from app.core.session_store import trim_history
 
 logger = logging.getLogger(__name__)
+_FOLLOWUP_CUES = re.compile(
+    r"\b(?:còn|thế|vậy|đó|này|nữa|trên|như vậy|trường hợp ấy)\b",
+    re.IGNORECASE,
+)
 
 REWRITE_SYSTEM_PROMPT = """Bạn là chuyên viên làm rõ câu hỏi trong hệ thống hỏi đáp tài liệu nội bộ.
 Dựa vào LỊCH SỬ HỘI THOẠI và CÂU HỎI MỚI, hãy diễn giải câu hỏi mới thành một câu hỏi ĐỘC LẬP, RÕ RÀNG bằng tiếng Việt.
@@ -27,7 +32,7 @@ def build_rewriter_chain(model_role: str = "local"):
         ("system", REWRITE_SYSTEM_PROMPT),
         ("human", "LỊCH SỬ HỘI THOẠI:\n{history}\n\nCÂU HỎI MỚI: {question}\n\nCÂU HỎI ĐỘC LẬP:"),
     ])
-    llm = get_llm(model_role, temperature=0.0)
+    llm = get_rag_llm(model_role, temperature=0.0)
     return prompt | llm | StrOutputParser()
 
 
@@ -41,6 +46,10 @@ async def rewrite_question_if_needed(
     If history is empty, skips LLM call and returns original question immediately.
     """
     if not history:
+        return question
+    # Long, self-contained questions rarely need conversational coreference.
+    # Keep short follow-ups ("Ai ký?", "Còn điều đó?") on the rewrite path.
+    if len(question.split()) >= 8 and not _FOLLOWUP_CUES.search(question):
         return question
 
     trimmed = trim_history(history, max_turns=5)
@@ -71,8 +80,9 @@ async def rewrite_question_if_needed(
             logger.warning("Question rewrite returned empty or oversized output; using original question")
             return question
         if question.rstrip().endswith(("?", "？")) and not clean.rstrip().endswith(("?", "？")):
-            logger.warning("Question rewrite did not preserve question form; using original question")
-            return question
+            if len(clean) >= max_length:
+                return question
+            clean = clean.rstrip() + "?"
         if unicodedata.normalize("NFC", clean).casefold() in {
             "i don't know", "i cannot answer", "i can't answer", "không biết", "không thể trả lời"
         }:

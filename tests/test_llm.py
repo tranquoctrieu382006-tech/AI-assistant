@@ -9,6 +9,7 @@ from app.core.llm import (
     _parse_provider_and_model,
     _resolve_model_name,
     get_llm,
+    get_rag_llm,
     clear_llm_cache,
     verify_model,
     check_ollama_status_async,
@@ -52,6 +53,23 @@ class TestModelResolution:
     def test_direct_model_name_resolves_for_configured_workflows(self):
         custom = "openai/custom-model-v1"
         assert _resolve_model_name(custom) == custom
+
+
+def test_rag_llm_sets_explicit_context_for_ollama(monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "rag_model", "local")
+    monkeypatch.setattr(settings, "rag_num_ctx", 8192)
+    with patch("app.core.llm.get_llm", return_value=object()) as builder:
+        get_rag_llm()
+    builder.assert_called_once_with("local", temperature=0.0, num_ctx=8192)
+
+
+def test_rag_llm_does_not_pass_ollama_context_to_cloud_model(monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "rag_model", "strong")
+    with patch("app.core.llm.get_llm", return_value=object()) as builder:
+        get_rag_llm()
+    builder.assert_called_once_with("strong", temperature=0.0)
 
 
 class TestLLMCacheAndError:

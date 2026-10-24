@@ -2,13 +2,26 @@
 from __future__ import annotations
 
 import time
+from collections import OrderedDict
 from typing import Literal
 from pydantic import BaseModel, Field
 
 # In-memory dictionary: session_id -> list of message dicts
-_SESSIONS: dict[str, list[dict]] = {}
+_SESSIONS: OrderedDict[str, list[dict]] = OrderedDict()
+_SESSION_LAST_ACTIVITY: dict[str, float] = {}
 _MAX_SESSIONS = 1000
 _MAX_MESSAGES_PER_SESSION = 40
+_SESSION_TTL_SECONDS = 30 * 60
+
+
+def _expire_sessions(now: float) -> None:
+    expired = [
+        session_id for session_id, last_active in _SESSION_LAST_ACTIVITY.items()
+        if now - last_active >= _SESSION_TTL_SECONDS
+    ]
+    for session_id in expired:
+        _SESSIONS.pop(session_id, None)
+        _SESSION_LAST_ACTIVITY.pop(session_id, None)
 
 
 class ChatMessage(BaseModel):
@@ -21,7 +34,13 @@ def get_history(session_id: str | None) -> list[dict]:
     """Retrieve message history for a given session."""
     if not session_id:
         return []
-    return list(_SESSIONS.get(session_id, []))
+    now = time.monotonic()
+    _expire_sessions(now)
+    if session_id not in _SESSIONS:
+        return []
+    _SESSIONS.move_to_end(session_id)
+    _SESSION_LAST_ACTIVITY[session_id] = now
+    return list(_SESSIONS[session_id])
 
 
 def add_turn(session_id: str | None, question: str, answer: str) -> None:
@@ -29,11 +48,13 @@ def add_turn(session_id: str | None, question: str, answer: str) -> None:
     if not session_id:
         return
 
-    # Basic eviction if too many sessions
+    now = time.monotonic()
+    _expire_sessions(now)
     if len(_SESSIONS) >= _MAX_SESSIONS and session_id not in _SESSIONS:
-        # Remove oldest session
+        # OrderedDict is maintained as least- to most-recently-used.
         oldest_key = next(iter(_SESSIONS))
         _SESSIONS.pop(oldest_key, None)
+        _SESSION_LAST_ACTIVITY.pop(oldest_key, None)
 
     if session_id not in _SESSIONS:
         _SESSIONS[session_id] = []
@@ -41,17 +62,21 @@ def add_turn(session_id: str | None, question: str, answer: str) -> None:
     _SESSIONS[session_id].append({"role": "user", "content": question, "timestamp": time.time()})
     _SESSIONS[session_id].append({"role": "assistant", "content": answer, "timestamp": time.time()})
     if len(_SESSIONS[session_id]) > _MAX_MESSAGES_PER_SESSION:
-        del _SESSIONS[session_id][:_MAX_MESSAGES_PER_SESSION]
+        del _SESSIONS[session_id][:-_MAX_MESSAGES_PER_SESSION]
+    _SESSIONS.move_to_end(session_id)
+    _SESSION_LAST_ACTIVITY[session_id] = now
 
 
 def clear_session(session_id: str) -> None:
     """Clear history for a specific session."""
     _SESSIONS.pop(session_id, None)
+    _SESSION_LAST_ACTIVITY.pop(session_id, None)
 
 
 def clear_all_sessions() -> None:
     """Clear all sessions (useful for unit tests)."""
     _SESSIONS.clear()
+    _SESSION_LAST_ACTIVITY.clear()
 
 
 def trim_history(

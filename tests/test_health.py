@@ -25,8 +25,13 @@ def test_database_readiness_checks_pgvector(monkeypatch):
     monkeypatch.setattr(settings, "database_url", "postgresql://test/db")
     connection = MagicMock()
     connection.__enter__.return_value = connection
-    connection.execute.return_value.fetchone.return_value = ("0.8.7",)
-    with patch("app.api.health.psycopg.connect", return_value=connection):
+    connection.execute.side_effect = [
+        MagicMock(fetchone=MagicMock(return_value=("vector", "rag_chunks"))),
+        MagicMock(fetchone=MagicMock(return_value=("0.8.7",))),
+    ]
+    with patch("app.api.health.vector_store._connect") as connect, \
+         patch("app.api.health.vector_store._register_vector_if_needed"):
+        connect.return_value.__enter__.return_value = connection
         assert _database_readiness() == {"status": "ok", "pgvector_version": "0.8.7"}
 
 
@@ -39,15 +44,18 @@ async def test_liveness_endpoint():
 
 @pytest.mark.asyncio
 @patch("app.api.health.check_ollama_status_async", new_callable=AsyncMock)
-@patch("app.api.health.psycopg.connect")
-async def test_health_check_healthy(mock_connect, mock_ollama):
+async def test_health_check_healthy(mock_ollama):
     mock_ollama.return_value = {"status": "ok", "models": ["gemma3:12b"]}
     connection = MagicMock()
     connection.__enter__.return_value = connection
-    connection.execute.return_value.fetchone.return_value = ("0.8.7",)
-    mock_connect.return_value = connection
-
-    response = await request("GET", "/api/health")
+    connection.execute.side_effect = [
+        MagicMock(fetchone=MagicMock(return_value=("vector", "rag_chunks"))),
+        MagicMock(fetchone=MagicMock(return_value=("0.8.7",))),
+    ]
+    with patch("app.api.health.vector_store._connect") as connect, \
+         patch("app.api.health.vector_store._register_vector_if_needed"):
+        connect.return_value.__enter__.return_value = connection
+        response = await request("GET", "/api/health")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
@@ -55,35 +63,44 @@ async def test_health_check_healthy(mock_connect, mock_ollama):
     assert data["default_model"] == settings.default_model
     assert {"strong", "fast", "local"}.issubset(data["available_roles"])
     assert data["ollama_status"]["status"] == "ok"
+    assert "models" not in data["ollama_status"]
     assert data["database_status"]["pgvector_version"] == "0.8.7"
 
 
 @pytest.mark.asyncio
 @patch("app.api.health.check_ollama_status_async", new_callable=AsyncMock)
-@patch("app.api.health.psycopg.connect")
-async def test_health_degraded_when_required_local_model_is_offline(mock_connect, mock_ollama, monkeypatch):
+async def test_health_degraded_when_required_local_model_is_offline(mock_ollama, monkeypatch):
     mock_ollama.return_value = {"status": "offline", "detail": "offline"}
     connection = MagicMock()
     connection.__enter__.return_value = connection
-    connection.execute.return_value.fetchone.return_value = ("0.8.7",)
-    mock_connect.return_value = connection
+    connection.execute.side_effect = [
+        MagicMock(fetchone=MagicMock(return_value=("vector", "rag_chunks"))),
+        MagicMock(fetchone=MagicMock(return_value=("0.8.7",))),
+    ]
     monkeypatch.setattr(settings, "rag_model", "local")
-    data = (await request("GET", "/api/health")).json()
+    with patch("app.api.health.vector_store._connect") as connect, \
+         patch("app.api.health.vector_store._register_vector_if_needed"):
+        connect.return_value.__enter__.return_value = connection
+        data = (await request("GET", "/api/health")).json()
     assert data["status"] == "degraded"
     assert data["database_status"]["status"] == "ok"
 
 
 @pytest.mark.asyncio
 @patch("app.api.health.check_ollama_status_async", new_callable=AsyncMock)
-@patch("app.api.health.psycopg.connect")
-async def test_health_does_not_require_ollama_for_cloud_rag(mock_connect, mock_ollama, monkeypatch):
+async def test_health_does_not_require_ollama_for_cloud_rag(mock_ollama, monkeypatch):
     mock_ollama.return_value = {"status": "offline", "detail": "offline"}
     connection = MagicMock()
     connection.__enter__.return_value = connection
-    connection.execute.return_value.fetchone.return_value = ("0.8.7",)
-    mock_connect.return_value = connection
+    connection.execute.side_effect = [
+        MagicMock(fetchone=MagicMock(return_value=("vector", "rag_chunks"))),
+        MagicMock(fetchone=MagicMock(return_value=("0.8.7",))),
+    ]
     monkeypatch.setattr(settings, "rag_model", "strong")
-    data = (await request("GET", "/api/health")).json()
+    with patch("app.api.health.vector_store._connect") as connect, \
+         patch("app.api.health.vector_store._register_vector_if_needed"):
+        connect.return_value.__enter__.return_value = connection
+        data = (await request("GET", "/api/health")).json()
     assert data["status"] == "ok"
 
 

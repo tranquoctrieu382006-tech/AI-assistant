@@ -189,6 +189,15 @@ def get_llm(
     return llm
 
 
+def get_rag_llm(model_role: str | None = None, temperature: float = 0.0) -> BaseChatModel:
+    """Build the configured RAG model with an explicit Ollama context window."""
+    model_role = model_role or settings.rag_model
+    raw_model_name = _resolve_model_name(model_role)
+    provider, _ = _parse_provider_and_model(raw_model_name)
+    kwargs = {"num_ctx": settings.rag_num_ctx} if provider == "ollama" else {}
+    return get_llm(model_role, temperature=temperature, **kwargs)
+
+
 def clear_llm_cache():
     """Xóa sạch cache instance LLM."""
     _LLM_CACHE.clear()

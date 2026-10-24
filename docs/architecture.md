@@ -152,12 +152,12 @@ flowchart TD
 Pipeline retrieval có một đường thực thi tại `app/core/retriever.py`:
 
 1. **Vector**: truy vấn cosine trên PGVector bằng `bge-m3`.
-2. **Hybrid**: trộn danh sách BM25 và vector bằng weighted Reciprocal Rank Fusion. Token BM25 chuẩn hóa Unicode và chữ hoa/thường; mỗi chunk được định danh bằng cặp `(source, chunk_index)` để không gộp các đoạn trùng chữ từ hai file.
+2. **Hybrid**: trộn danh sách BM25 và vector bằng weighted Reciprocal Rank Fusion (hiện dùng trọng số đều 0.5/0.5). Token BM25 chuẩn hóa Unicode/chữ hoa-thường và tách bỏ dấu câu; mỗi chunk được định danh bằng cặp `(source, chunk_index)` để không gộp các đoạn trùng chữ từ hai file.
 3. **Cosine gate**: chấm cosine cho từng chunk sau fusion và chỉ đưa chunk vượt `RAG_MIN_RELEVANCE_SCORE` vào context. Truy vấn hybrid tái sử dụng cùng một embedding câu hỏi cho cả truy vấn vector và chấm các chunk BM25-only.
-4. **Reranker**: khi bật, cùng hàm `rerank_documents` chạy `sentence-transformers` với model lấy từ `RERANKER_MODEL`. Cài tùy chọn nặng bằng `pip install -r requirements-reranker.txt`; startup kiểm tra dependency khi tính năng được bật.
+4. **Reranker**: khi bật, lấy tối đa 20 ứng viên (hoặc `top_k` nếu lớn hơn), cosine-gate rồi xếp hạng lại và trả `top_k`. Hàm `rerank_documents` dùng `sentence-transformers` với model lấy từ `RERANKER_MODEL`; khởi tạo model có lock để tránh tải trùng đồng thời. Cài tùy chọn nặng bằng `pip install -r requirements-reranker.txt`; startup kiểm tra dependency khi tính năng được bật.
 5. **Langfuse Prompt Management**: tải prompt dạng chat, chuyển danh sách message thành `ChatPromptTemplate`, dùng client SDK dùng chung để tái sử dụng prompt cache và truyền fallback hardcoded cho lần tải đầu. Các script đánh giá dùng prompt đã chốt trong repo và ghi nguồn prompt trong artifact.
 
-Lịch sử hội thoại hiện lưu trong bộ nhớ của một tiến trình, giữ tối đa 20 lượt gần nhất mỗi phiên và tối đa 1.000 phiên. Dùng một worker; nhiều worker hoặc khởi động lại sẽ không chia sẻ/giữ lịch sử, nên cần PostgreSQL/Redis store nếu triển khai nhiều tiến trình.
+Lịch sử hội thoại hiện lưu trong bộ nhớ của một tiến trình, giữ tối đa 20 lượt gần nhất mỗi phiên, xóa phiên không hoạt động 30 phút và giới hạn 1.000 phiên theo LRU. Dùng một worker; nhiều worker hoặc khởi động lại sẽ không chia sẻ/giữ lịch sử, nên cần PostgreSQL/Redis store nếu triển khai nhiều tiến trình.
 
 
 ### 3.5 NLQ model evaluator (offline)

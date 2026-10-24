@@ -5,7 +5,12 @@ import types
 from app.core import vector_store
 
 
-def test_replace_corpus_removes_stale_sources_and_replaces_current_sources():
+def setup_function():
+    vector_store._STORE_READY = None
+
+
+def test_replace_corpus_removes_stale_sources_and_replaces_current_sources(monkeypatch):
+    monkeypatch.setattr(vector_store.settings, "embedding_dimensions", 2)
     connection = MagicMock()
     connection.__enter__.return_value = connection
     cursor_context = connection.cursor.return_value
@@ -24,9 +29,8 @@ def test_replace_corpus_removes_stale_sources_and_replaces_current_sources():
     assert stored == 1
     register.assert_called_once_with(connection)
     assert connection._vector_adapter_registered is True
-    assert cursor.execute.call_args_list[0].args[0] == "DELETE FROM rag_chunks WHERE source <> ALL(%s)"
-    assert cursor.execute.call_args_list[0].args[1] == (["policy.md"],)
-    assert cursor.execute.call_args_list[1].args[0] == "DELETE FROM rag_chunks WHERE source = ANY(%s)"
+    assert cursor.execute.call_args_list[0].args[0] == "DELETE FROM rag_chunks"
+    assert cursor.execute.call_count == 1
     cursor.executemany.assert_called_once()
 
 
@@ -45,11 +49,12 @@ def test_replace_empty_corpus_clears_all_indexed_chunks():
 
 
 def test_embeddings_are_requested_in_configured_batches(monkeypatch):
+    monkeypatch.setattr(vector_store.settings, "embedding_dimensions", 2)
     connection = MagicMock()
     connection.__enter__.return_value = connection
     cursor = connection.cursor.return_value.__enter__.return_value
     embeddings = MagicMock()
-    embeddings.embed_documents.side_effect = [[[0.1]], [[0.2]]]
+    embeddings.embed_documents.side_effect = [[[0.1, 0.2]], [[0.2, 0.3]]]
     chunks = [
         {"content": "one", "source": "a.md", "chunk_index": 0},
         {"content": "two", "source": "a.md", "chunk_index": 1},
@@ -104,7 +109,8 @@ def test_pool_connection_registers_vector_when_extension_exists():
     connection.commit.assert_called_once()
 
 
-def test_similarity_search_registers_vector_once_after_extension_is_added():
+def test_similarity_search_registers_vector_once_after_extension_is_added(monkeypatch):
+    monkeypatch.setattr(vector_store.settings, "embedding_dimensions", 2)
     connection = MagicMock()
     connection.__enter__.return_value = connection
     connection.execute.side_effect = [
@@ -124,10 +130,11 @@ def test_similarity_search_registers_vector_once_after_extension_is_added():
         assert vector_store.similarity_search("second question") == []
 
     register.assert_called_once_with(connection)
-    assert connection.execute.call_count == 4
+    assert connection.execute.call_count == 3
 
 
-def test_similarity_search_returns_section_metadata():
+def test_similarity_search_returns_section_metadata(monkeypatch):
+    monkeypatch.setattr(vector_store.settings, "embedding_dimensions", 2)
     connection = MagicMock()
     connection.__enter__.return_value = connection
     connection.execute.side_effect = [
@@ -149,7 +156,8 @@ def test_similarity_search_returns_section_metadata():
     assert results[0]["score"] == 0.9
 
 
-def test_score_chunks_returns_real_cosine_scores_for_requested_keys():
+def test_score_chunks_returns_real_cosine_scores_for_requested_keys(monkeypatch):
+    monkeypatch.setattr(vector_store.settings, "embedding_dimensions", 2)
     connection = MagicMock()
     connection.__enter__.return_value = connection
     connection.execute.side_effect = [

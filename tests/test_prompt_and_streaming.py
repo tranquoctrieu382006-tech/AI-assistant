@@ -5,7 +5,12 @@ from unittest.mock import AsyncMock, patch
 import httpx
 
 from app.core.config import settings
-from app.core.rag_prompt import build_rag_prompt, build_hardcoded_rag_prompt, NO_ANSWER
+from app.core.rag_prompt import (
+    build_rag_prompt,
+    build_hardcoded_rag_prompt,
+    build_rag_text_prompt,
+    NO_ANSWER,
+)
 from app.main import app
 
 
@@ -19,6 +24,7 @@ def test_build_rag_prompt_fallback_when_langfuse_unconfigured(monkeypatch):
     # Verify template structures match fallback
     assert len(prompt.messages) == len(hardcoded.messages)
     assert prompt.messages[0].prompt.template == hardcoded.messages[0].prompt.template
+    assert "dữ liệu không đáng tin cậy" in build_rag_text_prompt().messages[0].prompt.template
 
 
 def test_build_rag_prompt_converts_langfuse_chat_prompt(monkeypatch):
@@ -44,6 +50,17 @@ def test_build_rag_prompt_converts_langfuse_chat_prompt(monkeypatch):
     rendered = prompt.format_messages(context="evidence", question="question")
     assert "evidence" in rendered[1].content
     assert "question" in rendered[1].content
+
+
+def test_structured_rag_chain_is_configured_to_retry_parser_errors():
+    from langchain_core.runnables import RunnableLambda
+    from app.core.rag_prompt import build_rag_chain
+
+    chain = build_rag_chain(
+        RunnableLambda(lambda _prompt: "{}"),
+        prompt_template=build_hardcoded_rag_prompt(),
+    )
+    assert type(chain).__name__ == "RunnableRetry"
 
 
 @pytest.mark.asyncio

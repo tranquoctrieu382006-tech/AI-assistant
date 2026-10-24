@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
-from app.core.llm import get_llm
+from app.core.llm import get_rag_llm
 from app.core.tracing import (
     get_langfuse_handler,
     langfuse_context,
@@ -62,15 +62,24 @@ async def ask_rag_stream(request: RagAskRequest):
     standalone_question = await rewrite_question_if_needed(request.question, history)
 
     try:
-        matches, is_refused = await run_in_threadpool(
-            retrieve_and_gate,
-            standalone_question,
-            request.top_k,
-            settings.search_mode,
-            settings.use_reranker,
-        )
+        with langfuse_observation(name="rag-stream-retrieval") as observation:
+            matches, is_refused = await run_in_threadpool(
+                retrieve_and_gate,
+                standalone_question,
+                request.top_k,
+                settings.search_mode,
+                settings.use_reranker,
+                request.top_k,
+                max(request.top_k, 20),
+            )
+            update_langfuse_observation(
+                observation,
+                output={"match_count": len(matches), "refused_by_retrieval": is_refused},
+            )
     except Exception as exc:
         logger.exception("RAG retrieval failed in stream endpoint")
+        if isinstance(exc, vector_store.VectorStoreNotReady):
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         raise HTTPException(status_code=503, detail="RAG retrieval unavailable") from exc
 
     async def event_generator():
@@ -96,7 +105,7 @@ async def ask_rag_stream(request: RagAskRequest):
         try:
             context = format_context(matches)
             prompt_template = build_rag_text_prompt()
-            llm = get_llm(settings.rag_model, temperature=0)
+            llm = get_rag_llm(temperature=0)
             chain = prompt_template | llm
             handler = get_langfuse_handler()
             callbacks = [handler] if handler else []
@@ -110,7 +119,13 @@ async def ask_rag_stream(request: RagAskRequest):
                     if not sources_sent:
                         pending += token
                         candidate = pending.strip()
-                        if candidate and NO_ANSWER.startswith(candidate) and len(candidate) <= len(NO_ANSWER):
+                        if (
+                            candidate
+                            and (
+                                NO_ANSWER.startswith(candidate)
+                                or candidate.startswith(NO_ANSWER)
+                            )
+                        ):
                             continue
                         yield f"data: {json.dumps({'type': 'sources', 'sources': sources_payload}, ensure_ascii=False)}\n\n"
                         sources_sent = True
@@ -125,7 +140,7 @@ async def ask_rag_stream(request: RagAskRequest):
 
         complete_answer = "".join(full_answer).strip() or NO_ANSWER
         if not sources_sent:
-            if complete_answer == NO_ANSWER:
+            if complete_answer.startswith(NO_ANSWER):
                 session_store.add_turn(request.session_id, request.question, NO_ANSWER)
                 yield f"data: {json.dumps({'type': 'no_answer', 'answer': NO_ANSWER}, ensure_ascii=False)}\n\n"
                 yield "data: [DONE]\n\n"
@@ -168,6 +183,8 @@ async def _answer_rag(request: RagAskRequest) -> RagAskResponse:
                 request.top_k,
                 settings.search_mode,
                 settings.use_reranker,
+                request.top_k,
+                max(request.top_k, 20),
             )
             update_langfuse_observation(
                 observation,
@@ -203,7 +220,7 @@ async def _answer_rag(request: RagAskRequest) -> RagAskResponse:
         with langfuse_context(session_id=request.session_id, tags=["rag", "ai07"]):
             chain = await run_in_threadpool(
                 build_rag_chain,
-                get_llm(settings.rag_model, temperature=0),
+                get_rag_llm(temperature=0),
             )
             generated = await chain.ainvoke(
                 {"question": standalone_question, "context": context},

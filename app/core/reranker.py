@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from threading import Lock
 from typing import Sequence
 from langchain_core.documents import Document
 from app.core.config import settings
@@ -9,15 +10,18 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 _CROSS_ENCODER_MODELS = {}
+_CROSS_ENCODER_LOCK = Lock()
 
 
 def get_cross_encoder(model_name: str | None = None):
     """Lazy-load and cache the CrossEncoder instance."""
     resolved_name = model_name or settings.reranker_model
     if resolved_name not in _CROSS_ENCODER_MODELS:
-        from sentence_transformers import CrossEncoder
-        logger.info("Initializing CrossEncoder: %s", resolved_name)
-        _CROSS_ENCODER_MODELS[resolved_name] = CrossEncoder(resolved_name)
+        with _CROSS_ENCODER_LOCK:
+            if resolved_name not in _CROSS_ENCODER_MODELS:
+                from sentence_transformers import CrossEncoder
+                logger.info("Initializing CrossEncoder: %s", resolved_name)
+                _CROSS_ENCODER_MODELS[resolved_name] = CrossEncoder(resolved_name)
     return _CROSS_ENCODER_MODELS[resolved_name]
 
 

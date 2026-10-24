@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     local_model: str = "ollama/gemma3:12b"
     ollama_base_url: str = "http://localhost:11434"
     embedding_model: str = "bge-m3"
+    embedding_dimensions: int = Field(default=1024, ge=1)
+    rag_num_ctx: int = Field(default=8192, ge=512)
     # Require an explicit local DATABASE_URL instead of silently guessing credentials.
     database_url: str = ""
     rag_document_dir: str = "data/demo_sales_warehouse"
@@ -63,6 +65,7 @@ class Settings(BaseSettings):
     app_port: int = 8000
     app_api_key: str = ""
     api_rate_limit_per_minute: int = Field(default=60, ge=1)
+    trusted_proxy_ips: list[str] = []
 
     model_config = SettingsConfigDict(
         env_file=".env",

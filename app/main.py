@@ -75,6 +75,7 @@ app = FastAPI(
 )
 
 # CORS Middleware – sử dụng danh sách origin tường minh, an toàn khi có credentials
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -82,7 +83,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
-app.add_middleware(RateLimitMiddleware)
 
 # Routers
 app.include_router(health.router, prefix="/api", tags=["Health"])
