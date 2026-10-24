@@ -54,6 +54,22 @@ def test_pdf_chunks_overlap_across_page_boundary(monkeypatch):
     assert "completes" in " ".join(next_page_chunks)
 
 
+def test_pdf_page_overlap_does_not_split_fitting_chunk_into_last_word(monkeypatch):
+    from app.core.ingestion import _add_page_boundary_overlap
+
+    monkeypatch.setattr("app.core.ingestion.settings.rag_chunk_size", 50)
+    monkeypatch.setattr("app.core.ingestion.settings.rag_chunk_overlap", 10)
+    content = "a a a a a a a a a a CUOICUNG"
+    chunks = _add_page_boundary_overlap([
+        {"content": "0123456789", "page_number": 1, "section": None},
+        {"content": content, "page_number": 2, "section": None},
+    ])
+
+    assert len(chunks) == 2
+    assert chunks[-1]["content"].endswith("CUOICUNG")
+    assert all(len(chunk["content"]) > 8 for chunk in chunks)
+
+
 def test_paragraph_block_strategy_preserves_extracted_boundaries_and_headings():
     blocks = [
         (None, "Policy", "Policy"),
@@ -221,9 +237,8 @@ def test_ingest_directory_sends_current_relative_source_set(tmp_path: Path, monk
     (tmp_path / "nested" / "guide.txt").write_text("current guide", encoding="utf-8")
     captured = {}
 
-    def replace_corpus_chunks(chunks, sources):
+    def replace_corpus_chunks(chunks):
         captured["chunks"] = chunks
-        captured["sources"] = sources
         return len(chunks)
 
     fake_store = types.ModuleType("app.core.vector_store")
@@ -234,8 +249,7 @@ def test_ingest_directory_sends_current_relative_source_set(tmp_path: Path, monk
     result = ingest_directory(tmp_path)
 
     assert result["files"] == 2
-    assert captured["sources"] == ["nested/guide.txt", "policy.md"]
-    assert {item["source"] for item in captured["chunks"]} == set(captured["sources"])
+    assert {item["source"] for item in captured["chunks"]} == {"nested/guide.txt", "policy.md"}
     assert all("section" in item for item in captured["chunks"])
 
 

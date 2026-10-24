@@ -324,6 +324,11 @@ def _add_page_boundary_overlap(chunks: list[dict]) -> list[dict]:
             tail = tail[tail.find(" ") + 1:]
         content = chunk["content"]
         budget = size - len(tail) - 1
+        # If the entire next-page chunk fits, retain it whole. Cutting at its
+        # last whitespace would otherwise emit the final word as a tiny chunk.
+        if len(content) <= budget:
+            output.append({**chunk, "content": f"{tail}\n{content}".strip()})
+            continue
         cut = content.rfind(" ", 0, budget + 1)
         if not tail or cut <= 0:
             output.append(chunk)
@@ -376,7 +381,7 @@ def ingest_directory(
     from app.core.vector_store import replace_corpus_chunks
     root = Path(directory or settings.rag_document_dir)
     records, sources = build_corpus_chunks(root, strategy=strategy)
-    stored = replace_corpus_chunks(records, sources)
+    stored = replace_corpus_chunks(records)
     return {
         "files": len(sources),
         "chunks": stored,

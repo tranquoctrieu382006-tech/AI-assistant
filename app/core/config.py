@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     rag_num_ctx: int = Field(default=8192, ge=512)
     # Require an explicit local DATABASE_URL instead of silently guessing credentials.
     database_url: str = ""
+    database_connection_timeout_seconds: float = Field(default=3.0, gt=0)
     rag_document_dir: str = "data/demo_sales_warehouse"
     rag_exclude_files: list[str] = ["README.md", "data_dictionary.md", "nguon_dataset.md"]
     # RAG defaults to a local model; cloud use must be an explicit choice.
@@ -43,6 +44,7 @@ class Settings(BaseSettings):
     search_mode: Literal["vector", "hybrid"] = "vector"
     use_reranker: bool = False
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    reranker_pool_size: int = Field(default=20, ge=1, le=200)
     rag_chunk_size: int = 900
     rag_chunk_overlap: int = 150
     rag_top_k: int = 5

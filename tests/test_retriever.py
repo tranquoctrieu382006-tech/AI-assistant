@@ -1,6 +1,7 @@
 """Unit tests for the unified retrieval abstraction."""
 import pytest
 from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 from unittest.mock import MagicMock, patch
 from langchain_core.documents import Document
 
@@ -118,7 +119,7 @@ def test_hybrid_gate_can_keep_bm25_candidate_when_vector_top_k_is_empty(monkeypa
 
 def test_bm25_cache_refreshes_when_database_corpus_revision_changes():
     clear_bm25_cache()
-    revisions = iter([(2, 10), (3, 13), (4, 16), (4, 16)])
+    revisions = iter([(2, 10), (3, 13)])
     chunks = [
         {"content": "first indexed chunk", "source": "a.md", "chunk_index": 0},
         {"content": "second indexed chunk", "source": "a.md", "chunk_index": 1},
@@ -153,13 +154,55 @@ def test_bm25_cache_refreshes_when_database_corpus_revision_changes():
     assert first is not second
     assert len(created) == 2
     assert second.k == 4
-    assert created[0].k == 20
+    assert created[0].k == 3
     assert get_chunks.call_count == 2
     clear_bm25_cache()
 
 
 def test_concurrent_first_bm25_requests_build_index_once():
     clear_bm25_cache()
+
+
+def test_bm25_copy_is_serialized_with_cache_clear():
+    import copy
+
+    clear_bm25_cache()
+    copying = Event()
+    allow_copy = Event()
+    original_copy = copy.copy
+
+    class FakeBM25Instance:
+        def __init__(self, docs, k):
+            self.docs, self.k = docs, k
+
+    class FakeBM25:
+        @classmethod
+        def from_documents(cls, docs, k, preprocess_func):
+            return FakeBM25Instance(docs, k)
+
+    fake_module = __import__("types").SimpleNamespace(BM25Retriever=FakeBM25)
+
+    def slow_copy(value):
+        copying.set()
+        assert allow_copy.wait(timeout=3)
+        return original_copy(value)
+
+    with (
+        patch("app.core.vector_store.get_corpus_revision", return_value=(1, 1)),
+        patch("app.core.vector_store.get_all_chunks", return_value=[{
+            "content": "one", "source": "a.md", "chunk_index": 0,
+        }]),
+        patch("app.core.retriever.copy.copy", side_effect=slow_copy),
+        patch.dict("sys.modules", {"langchain_community.retrievers": fake_module}),
+    ):
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            retrieval = executor.submit(get_bm25_retriever, 5)
+            assert copying.wait(timeout=3)
+            clearing = executor.submit(clear_bm25_cache)
+            assert not clearing.done()
+            allow_copy.set()
+            assert retrieval.result(timeout=3).k == 5
+            clearing.result(timeout=3)
     created = []
 
     class FakeBM25Instance:
@@ -255,3 +298,37 @@ def test_reranker_uses_larger_candidate_pool_then_returns_requested_top_k(monkey
     search.assert_called_once_with("question", k=20)
     assert refused is False
     assert len(matches) == 5
+
+
+def test_hybrid_reranker_candidate_pairs_are_limited_to_configured_pool(monkeypatch):
+    monkeypatch.setattr(settings, "rag_min_relevance_score", 0.0)
+    vector_matches = [
+        {"content": f"vector {i}", "source": f"v{i}.md", "chunk_index": 0, "score": 0.8}
+        for i in range(3)
+    ]
+    bm25 = MagicMock()
+    bm25.invoke.return_value = [
+        Document(page_content=f"lexical {i}", metadata={
+            "source": f"b{i}.md", "chunk_index": 0,
+        })
+        for i in range(3)
+    ]
+    model = MagicMock()
+    model.predict.return_value = [0.9] * 6
+    with (
+        patch("app.core.vector_store.embed_query", return_value=[0.1, 0.2]),
+        patch("app.core.vector_store.similarity_search", return_value=vector_matches),
+        patch("app.core.vector_store.score_chunks", return_value={
+            (f"b{i}.md", 0): 0.8 for i in range(3)
+        }),
+        patch("app.core.retriever.get_bm25_retriever", return_value=bm25),
+        patch("app.core.reranker.get_cross_encoder", return_value=model),
+    ):
+        matches, refused = retrieve_and_gate(
+            "question", top_k=2, mode="hybrid", use_reranker=True,
+            reranker_top_n=2, reranker_pool_size=3,
+        )
+
+    assert refused is False
+    assert len(matches) == 2
+    assert len(model.predict.call_args.args[0]) == 3

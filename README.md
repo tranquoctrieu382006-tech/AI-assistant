@@ -49,6 +49,8 @@ Sửa biến trong `.env`, **không cần sửa code**:
 | Chế độ tìm kiếm | `SEARCH_MODE` | `vector` hoặc `hybrid` (BM25 + PGVector) |
 | Bật Reranker | `USE_RERANKER` | `false` (mặc định) hoặc `true` (`bge-reranker-v2-m3`) |
 | Mô hình reranker | `RERANKER_MODEL` | `BAAI/bge-reranker-v2-m3` |
+| Số ứng viên cho reranker | `RERANKER_POOL_SIZE` | `20` (giới hạn đầu vào CrossEncoder) |
+| Timeout kết nối/chờ DB | `DATABASE_CONNECTION_TIMEOUT_SECONDS` | `3` giây |
 
 `rank-bm25` được cài trong bộ runtime mặc định cho chế độ hybrid. Reranker là tùy chọn nặng do phụ thuộc PyTorch; để bật `USE_RERANKER=true`, cài thêm `pip install -r requirements-reranker.txt`. Khi bật chế độ nhưng thiếu dependency, ứng dụng dừng ngay lúc startup và nêu lệnh cài đặt.
 

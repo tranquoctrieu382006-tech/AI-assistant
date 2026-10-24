@@ -71,7 +71,7 @@ async def ask_rag_stream(request: RagAskRequest):
                 settings.search_mode,
                 settings.use_reranker,
                 request.top_k,
-                max(request.top_k, 20),
+                max(request.top_k, settings.reranker_pool_size),
             )
             update_langfuse_observation(
                 observation,
@@ -138,11 +138,15 @@ async def ask_rag_stream(request: RagAskRequest):
             logger.exception("Error during answer streaming")
             yield f"data: {json.dumps({'type': 'error', 'detail': 'Answer generation failed'}, ensure_ascii=False)}\n\n"
             return
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, GeneratorExit):
             # Preserve already generated context if the client drops the stream.
-            # The next follow-up can then still resolve references to this turn.
+            # Mark it partial so follow-ups do not treat the answer as complete.
             partial_answer = "".join(full_answer).strip() or NO_ANSWER
-            session_store.add_turn(request.session_id, request.question, partial_answer)
+            session_store.add_turn(
+                request.session_id,
+                request.question,
+                f"[Câu trả lời bị ngắt, chưa hoàn tất]\n{partial_answer}",
+            )
             raise
 
         complete_answer = "".join(full_answer).strip() or NO_ANSWER
@@ -191,7 +195,7 @@ async def _answer_rag(request: RagAskRequest) -> RagAskResponse:
                 settings.search_mode,
                 settings.use_reranker,
                 request.top_k,
-                max(request.top_k, 20),
+                max(request.top_k, settings.reranker_pool_size),
             )
             update_langfuse_observation(
                 observation,

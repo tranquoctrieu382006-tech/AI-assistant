@@ -31,42 +31,39 @@ def _bm25_tokens(text: str) -> list[str]:
 def get_bm25_retriever(k: int = 5):
     """Return a per-call BM25 retriever over a revision-aware cached corpus index."""
     global _BM25_INSTANCE, _BM25_REVISION
-    revision = vector_store.get_corpus_revision()
-    if _BM25_INSTANCE is None or _BM25_REVISION != revision:
-        with _BM25_LOCK:
-            # The cache may have been populated/reindexed while this caller waited.
-            revision = vector_store.get_corpus_revision()
-            if _BM25_INSTANCE is None or _BM25_REVISION != revision:
-                from langchain_community.retrievers import BM25Retriever
+    with _BM25_LOCK:
+        revision = vector_store.get_corpus_revision()
+        if _BM25_INSTANCE is None or _BM25_REVISION != revision:
+            from langchain_community.retrievers import BM25Retriever
 
-                chunks = vector_store.get_all_chunks()
-                docs = [
-                    Document(
-                        page_content=chunk["content"],
-                        metadata={
-                            "source": chunk["source"],
-                            "chunk_index": chunk["chunk_index"],
-                            "page_number": chunk.get("page_number"),
-                            "section": chunk.get("section"),
-                        },
-                    )
-                    for chunk in chunks
-                ]
-                if not docs:
-                    _BM25_INSTANCE = None
-                    _BM25_REVISION = revision
-                    raise vector_store.VectorStoreNotReady("RAG vector store contains no indexed chunks.")
-                _BM25_INSTANCE = BM25Retriever.from_documents(
-                    docs,
-                    k=max(k, 20),
-                    preprocess_func=_bm25_tokens,
+            chunks = vector_store.get_all_chunks()
+            docs = [
+                Document(
+                    page_content=chunk["content"],
+                    metadata={
+                        "source": chunk["source"],
+                        "chunk_index": chunk["chunk_index"],
+                        "page_number": chunk.get("page_number"),
+                        "section": chunk.get("section"),
+                    },
                 )
+                for chunk in chunks
+            ]
+            if not docs:
+                _BM25_INSTANCE = None
                 _BM25_REVISION = revision
-    # The cached model shares its immutable token index; request-specific k is
-    # applied to a shallow copy so concurrent calls cannot overwrite each other.
-    per_call = copy.copy(_BM25_INSTANCE)
-    per_call.k = k
-    return per_call
+                raise vector_store.VectorStoreNotReady("RAG vector store contains no indexed chunks.")
+            _BM25_INSTANCE = BM25Retriever.from_documents(
+                docs,
+                    k=max(k, 1),
+                preprocess_func=_bm25_tokens,
+            )
+            _BM25_REVISION = revision
+        # Copy and set k under the same lock as clear/rebuild so a concurrent
+        # cache invalidation cannot turn this into copy.copy(None).
+        per_call = copy.copy(_BM25_INSTANCE)
+        per_call.k = k
+        return per_call
 
 
 def clear_bm25_cache() -> None:
@@ -117,13 +114,14 @@ def retrieve_and_gate(
     mode: str = "vector",
     use_reranker: bool = False,
     reranker_top_n: int = 5,
-    reranker_pool_size: int = 20,
+    reranker_pool_size: int | None = None,
 ) -> tuple[list[dict], bool]:
     """Retrieve evidence, enforce per-chunk cosine gating, and optionally rerank."""
     if mode not in {"vector", "hybrid"}:
         raise ValueError(f"Unknown retrieval mode: {mode}")
 
-    candidate_k = max(top_k, reranker_pool_size) if use_reranker else top_k
+    configured_pool_size = reranker_pool_size or settings.reranker_pool_size
+    candidate_k = max(top_k, configured_pool_size) if use_reranker else top_k
     if mode == "hybrid":
         query_vector = vector_store.embed_query(query)
         vector_matches = vector_store.similarity_search(
@@ -176,6 +174,11 @@ def retrieve_and_gate(
             return [], True
         if not use_reranker:
             candidates = candidates[:top_k]
+
+    # Hybrid fusion can contain the union of both ranked lists (up to 2*k).
+    # Bound cross-encoder work by the explicitly configured candidate pool.
+    if use_reranker:
+        candidates = candidates[:candidate_k]
 
     if not use_reranker or len(candidates) <= 1:
         return candidates[:reranker_top_n if use_reranker else top_k], False

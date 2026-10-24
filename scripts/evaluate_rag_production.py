@@ -34,7 +34,7 @@ def evaluate_cases(cases: list[dict], retriever=retrieve_and_gate) -> dict:
             mode=settings.search_mode,
             use_reranker=settings.use_reranker,
             reranker_top_n=k,
-            reranker_pool_size=max(k, 20),
+            reranker_pool_size=max(k, settings.reranker_pool_size),
         )
         expected_sources = _source_targets(case)
         if expected_sources:
@@ -89,7 +89,7 @@ def evaluate_cases(cases: list[dict], retriever=retrieve_and_gate) -> dict:
             "top_k": k,
             "cosine_cutoff": settings.rag_min_relevance_score,
             "use_reranker": settings.use_reranker,
-            "reranker_candidate_pool": max(k, 20) if settings.use_reranker else k,
+            "reranker_candidate_pool": max(k, settings.reranker_pool_size) if settings.use_reranker else k,
             "reranker_top_n": k if settings.use_reranker else None,
             "embedding_model": settings.embedding_model,
         },

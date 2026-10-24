@@ -149,7 +149,7 @@ def main():
             "k": settings.rag_top_k,
             "use_reranker": settings.use_reranker,
             "reranker_top_n": settings.rag_top_k,
-            "reranker_pool_size": max(settings.rag_top_k, 20),
+            "reranker_pool_size": max(settings.rag_top_k, settings.reranker_pool_size),
         },
     ]
 
@@ -169,7 +169,7 @@ def main():
         "",
         "> **Dataset:** `data/rag_golden_set.json` (65 cases)",
         "> **Model Reranker:** `BAAI/bge-reranker-v2-m3`",
-        f"> **P-current:** mode={settings.search_mode}, top_k={settings.rag_top_k}, candidate pool={max(settings.rag_top_k, 20) if settings.use_reranker else settings.rag_top_k}, reranker={settings.use_reranker}, top_n={settings.rag_top_k if settings.use_reranker else 'n/a'}",
+        f"> **P-current:** mode={settings.search_mode}, top_k={settings.rag_top_k}, candidate pool={max(settings.rag_top_k, settings.reranker_pool_size) if settings.use_reranker else settings.rag_top_k}, reranker={settings.use_reranker}, top_n={settings.rag_top_k if settings.use_reranker else 'n/a'}",
         "",
         "| Cấu hình | Retrieval | k lấy | Rerank | Top n | Hit@1 | Hit@3 | Hit@5 | MRR | FP (in-missing) | FP (out-far) | FN (ans) | Độ trễ TB |",
         "|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|",

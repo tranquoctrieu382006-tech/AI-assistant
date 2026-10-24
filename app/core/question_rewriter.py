@@ -13,7 +13,7 @@ from app.core.session_store import trim_history
 
 logger = logging.getLogger(__name__)
 _FOLLOWUP_CUES = re.compile(
-    r"\b(?:còn|thế|vậy|đó|này|nữa|trên|như vậy|trường hợp ấy)\b",
+    r"\b(?:còn|thế|vậy|đó|này|nó|họ|ấy|kia|chúng|chúng nó|anh ấy|chị ấy|bạn ấy|nữa|trên|như vậy|trường hợp ấy)\b",
     re.IGNORECASE,
 )
 

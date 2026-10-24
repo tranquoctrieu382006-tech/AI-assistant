@@ -111,6 +111,21 @@ async def test_rewriter_uses_its_explicit_model_setting(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_long_followup_with_pronoun_is_rewritten():
+    history = [
+        {"role": "user", "content": "Chính sách thử việc thế nào?"},
+        {"role": "assistant", "content": "Áp dụng theo hợp đồng thử việc."},
+    ]
+    question = "Nó áp dụng cho nhân viên thử việc không?"
+    mock_chain = AsyncMock()
+    mock_chain.ainvoke.return_value = "Chính sách đó áp dụng cho nhân viên thử việc không?"
+    with patch("app.core.question_rewriter.build_rewriter_chain", return_value=mock_chain) as build:
+        rewritten = await rewrite_question_if_needed(question, history)
+    build.assert_called_once()
+    assert rewritten.startswith("Chính sách đó")
+
+
+@pytest.mark.asyncio
 async def test_rewrite_skips_long_self_contained_question_even_with_history():
     history = [
         {"role": "user", "content": "Question one"},

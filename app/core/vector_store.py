@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from math import ceil
 
 import psycopg
 from pgvector import Vector
@@ -44,9 +45,16 @@ def _pool():
         raise RuntimeError("DATABASE_URL is not configured; set it in the local .env file")
     if _POOL is None:
         from psycopg_pool import ConnectionPool
-        _POOL = ConnectionPool(settings.database_url, min_size=1, max_size=8,
-                               kwargs={"autocommit": False}, configure=_configure_connection,
-                               open=True)
+        timeout = settings.database_connection_timeout_seconds
+        _POOL = ConnectionPool(
+            settings.database_url,
+            min_size=1,
+            max_size=8,
+            timeout=timeout,
+            kwargs={"autocommit": False, "connect_timeout": ceil(timeout)},
+            configure=_configure_connection,
+            open=True,
+        )
     return _POOL
 
 
@@ -126,8 +134,10 @@ def _require_store_ready(conn) -> None:
     _register_vector_if_needed(conn)
 
 
-def replace_corpus_chunks(chunks: list[dict], sources: list[str]) -> int:
+def replace_corpus_chunks(chunks: list[dict]) -> int:
     """Atomically replace the indexed corpus, including removed/renamed sources."""
+    if not chunks:
+        raise ValueError("Refusing to replace the indexed corpus with an empty chunk list.")
     ensure_vector_schema()
     batch_size = settings.rag_embedding_batch_size
     embeddings = []
@@ -144,20 +154,18 @@ def replace_corpus_chunks(chunks: list[dict], sources: list[str]) -> int:
             f"{settings.embedding_dimensions}. Update the setting and rebuild the vector table."
         )
     with _connect() as conn:
-        if chunks:
-            _register_vector_if_needed(conn)
+        _register_vector_if_needed(conn)
         with conn.cursor() as cursor:
             # Replace the one configured corpus atomically. Both previous
             # predicates together selected every row, so one explicit delete is clearer.
             cursor.execute("DELETE FROM rag_chunks")
-            if chunks:
-                cursor.executemany(
-                    """INSERT INTO rag_chunks(content, source, chunk_index, page_number, section, embedding)
-                       VALUES (%s, %s, %s, %s, %s, %s)""",
-                    [(item["content"], item["source"], item["chunk_index"], item.get("page_number"),
-                      item.get("section"), Vector(vector))
-                     for item, vector in zip(chunks, embeddings)],
-                )
+            cursor.executemany(
+                """INSERT INTO rag_chunks(content, source, chunk_index, page_number, section, embedding)
+                   VALUES (%s, %s, %s, %s, %s, %s)""",
+                [(item["content"], item["source"], item["chunk_index"], item.get("page_number"),
+                  item.get("section"), Vector(vector))
+                 for item, vector in zip(chunks, embeddings)],
+            )
     return len(chunks)
 
 

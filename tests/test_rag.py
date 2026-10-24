@@ -207,14 +207,13 @@ async def test_stream_disconnect_persists_partial_turn_for_followup():
         stream = response.body_iterator
         first_event = await anext(stream)
         assert '"type": "sources"' in first_event
-        try:
-            await stream.athrow(asyncio.CancelledError())
-        except asyncio.CancelledError:
-            pass
+        await stream.aclose()
 
     history = session_store.get_history("disconnected-stream")
     assert history[-2]["content"] == "Question?"
-    assert history[-1]["content"] == "Partial answer"
+    assert history[-1]["content"] == (
+        "[Câu trả lời bị ngắt, chưa hoàn tất]\nPartial answer"
+    )
     session_store.clear_all_sessions()
 
 

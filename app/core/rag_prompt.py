@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import logging
+from langchain_classic.output_parsers import OutputFixingParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
-from langchain_core.exceptions import OutputParserException
 
 from app.schemas.rag import RagGeneratedAnswer
 
@@ -127,11 +127,14 @@ def build_rag_chain(
     prompt = prompt_template or build_rag_prompt(
         prompt_name=prompt_name, label=label, version=version
     )
-    # A single format error from local models should not immediately become a 502.
-    return (prompt | llm | parser).with_retry(
-        stop_after_attempt=2,
-        retry_if_exception_type=(OutputParserException,),
+    # Repair malformed output using the parser's error and format instructions;
+    # do not regenerate the same prompt unchanged at the same temperature.
+    fixing_parser = OutputFixingParser.from_llm(
+        llm=llm,
+        parser=parser,
+        max_retries=1,
     )
+    return prompt | llm | fixing_parser
 
 
 def build_rag_messages(question: str, context: str) -> list:

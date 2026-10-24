@@ -7,6 +7,7 @@ def test_production_evaluator_uses_retrieve_gate_config_and_strict_multisource_h
     monkeypatch.setattr(settings, "rag_top_k", 5)
     monkeypatch.setattr(settings, "search_mode", "hybrid")
     monkeypatch.setattr(settings, "use_reranker", True)
+    monkeypatch.setattr(settings, "reranker_pool_size", 20)
     monkeypatch.setattr(settings, "rag_min_relevance_score", 0.5)
     calls = []
 

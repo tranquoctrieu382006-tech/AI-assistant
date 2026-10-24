@@ -19,6 +19,31 @@ per-chunk cosine gate. Historical R10/HR10 used 10 candidates, unlike the API's
 current reranker pool of 20 and top 5 output. Run the production-path evaluator
 against a live vector store before making a new configuration decision.
 
+`RERANKER_POOL_SIZE` (default 20) controls the maximum number of candidate
+pairs sent to the cross-encoder, including hybrid mode. Increasing it can
+increase CPU latency; benchmark it on the deployment hardware before raising
+the default.
+
+## Runtime review follow-up
+
+- PDF page overlap now keeps the whole next-page chunk when it fits the budget,
+  avoiding a one-word remainder chunk.
+- Structured answer parsing uses `OutputFixingParser` with parser feedback;
+  malformed output is repaired instead of regenerating the original prompt
+  unchanged.
+- Database pool checkout and PostgreSQL connection attempts use the configured
+  `DATABASE_CONNECTION_TIMEOUT_SECONDS` (default 3 seconds).
+- Long follow-ups containing Vietnamese pronouns such as “nó”, “họ”, “ấy”, or
+  “kia” are sent through the question rewriter.
+- Stream closure handles both task cancellation and generator closure. Any
+  saved partial answer is explicitly marked incomplete in conversation history.
+- BM25 cache access/copy and invalidation are serialized. Empty corpus
+  replacement now raises instead of deleting the indexed table, and the unused
+  `sources` parameter was removed.
+- `X-Forwarded-For` still assumes the trusted proxy overwrites the header or
+  appends the client address at the end; multi-proxy chains require a trusted
+  proxy-chain policy before changing that interpretation.
+
 The saved M2 manifest also does not validate against the current branch: its
 recorded M1/M2 code hashes differ from the checked-out versions (including the
 manifest writers and protocol/test files). The frozen evaluator correctly

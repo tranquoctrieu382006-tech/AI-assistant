@@ -24,7 +24,7 @@ def test_replace_corpus_removes_stale_sources_and_replaces_current_sources(monke
           patch.object(vector_store, "_connect", return_value=connection),
           patch.object(vector_store, "register_vector") as register,
           patch.object(vector_store, "Vector", side_effect=lambda value: value)):
-        stored = vector_store.replace_corpus_chunks(chunks, ["policy.md"])
+        stored = vector_store.replace_corpus_chunks(chunks)
 
     assert stored == 1
     register.assert_called_once_with(connection)
@@ -34,18 +34,18 @@ def test_replace_corpus_removes_stale_sources_and_replaces_current_sources(monke
     cursor.executemany.assert_called_once()
 
 
-def test_replace_empty_corpus_clears_all_indexed_chunks():
-    connection = MagicMock()
-    connection.__enter__.return_value = connection
-    cursor = connection.cursor.return_value.__enter__.return_value
+def test_replace_empty_corpus_is_rejected_without_touching_database():
+    with (patch.object(vector_store, "ensure_vector_schema") as ensure,
+          patch.object(vector_store, "_connect") as connect):
+        try:
+            vector_store.replace_corpus_chunks([])
+        except ValueError as exc:
+            assert "empty chunk list" in str(exc)
+        else:
+            raise AssertionError("Replacing the corpus with no chunks must be rejected")
 
-    with (patch.object(vector_store, "ensure_vector_schema"),
-          patch.object(vector_store, "_connect", return_value=connection),
-          patch.object(vector_store, "register_vector")):
-        assert vector_store.replace_corpus_chunks([], []) == 0
-
-    cursor.execute.assert_called_once_with("DELETE FROM rag_chunks")
-    cursor.executemany.assert_not_called()
+    ensure.assert_not_called()
+    connect.assert_not_called()
 
 
 def test_embeddings_are_requested_in_configured_batches(monkeypatch):
@@ -65,7 +65,7 @@ def test_embeddings_are_requested_in_configured_batches(monkeypatch):
           patch.object(vector_store, "_connect", return_value=connection),
           patch.object(vector_store, "register_vector"),
           patch.object(vector_store, "Vector", side_effect=lambda value: value)):
-        assert vector_store.replace_corpus_chunks(chunks, ["a.md"]) == 2
+        assert vector_store.replace_corpus_chunks(chunks) == 2
     assert embeddings.embed_documents.call_count == 2
     cursor.executemany.assert_called_once()
 
@@ -82,9 +82,12 @@ def test_connection_pool_is_reused_and_closed(monkeypatch):
 
     monkeypatch.setitem(sys.modules, "psycopg_pool", types.SimpleNamespace(ConnectionPool=FakePool))
     monkeypatch.setattr(vector_store.settings, "database_url", "postgresql://local/db")
+    monkeypatch.setattr(vector_store.settings, "database_connection_timeout_seconds", 3)
     monkeypatch.setattr(vector_store, "_POOL", None)
     assert vector_store._pool() is vector_store._pool()
     assert len(created) == 1
+    assert created[0].kwargs["timeout"] == 3
+    assert created[0].kwargs["kwargs"]["connect_timeout"] == 3
     assert vector_store._connect() == "pooled-connection"
     vector_store.close_pool()
     assert created[0].closed

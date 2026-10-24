@@ -52,15 +52,28 @@ def test_build_rag_prompt_converts_langfuse_chat_prompt(monkeypatch):
     assert "question" in rendered[1].content
 
 
-def test_structured_rag_chain_is_configured_to_retry_parser_errors():
+def test_structured_rag_chain_repairs_parse_errors_with_format_feedback():
     from langchain_core.runnables import RunnableLambda
     from app.core.rag_prompt import build_rag_chain
 
+    calls = []
+
+    def fake_model(prompt_value):
+        calls.append(prompt_value)
+        if len(calls) == 1:
+            return "not valid JSON"
+        return '{"answer":"Câu trả lời đã sửa","abstain":false}'
+
     chain = build_rag_chain(
-        RunnableLambda(lambda _prompt: "{}"),
+        RunnableLambda(fake_model),
         prompt_template=build_hardcoded_rag_prompt(),
     )
-    assert type(chain).__name__ == "RunnableRetry"
+    result = chain.invoke({"question": "Câu hỏi?", "context": "Bằng chứng."})
+
+    assert result.answer == "Câu trả lời đã sửa"
+    assert result.abstain is False
+    assert len(calls) == 2
+    assert "Please try again" in calls[1].to_string()
 
 
 @pytest.mark.asyncio
