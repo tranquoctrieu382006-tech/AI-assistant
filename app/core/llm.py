@@ -80,6 +80,13 @@ def _parse_provider_and_model(model_str: str) -> tuple[str | None, str]:
     return None, model_str.strip()
 
 
+def get_model_provider(model_role: str = "default") -> str | None:
+    """Return the provider resolved for a role or configured model name."""
+    raw_model_name = _resolve_model_name(model_role)
+    provider, _ = _parse_provider_and_model(raw_model_name)
+    return provider
+
+
 def _make_hashable(val: Any) -> Any:
     """Chuyển đổi đệ quy các cấu trúc dữ liệu sang tuple có thể hash được."""
     if isinstance(val, dict):
@@ -87,6 +94,27 @@ def _make_hashable(val: Any) -> Any:
     elif isinstance(val, (list, set, tuple)):
         return tuple(_make_hashable(v) for v in val)
     return val
+
+
+def extract_message_text(message: Any) -> str:
+    """Extract visible text from LangChain message content without metadata."""
+    content = getattr(message, "content", message)
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict):
+                if block.get("type") in (None, "text") and block.get("text"):
+                    parts.append(str(block["text"]))
+            else:
+                text = getattr(block, "text", None)
+                if text:
+                    parts.append(str(text))
+        return "\n".join(parts).strip()
+    return str(content).strip()
 
 
 def get_llm(

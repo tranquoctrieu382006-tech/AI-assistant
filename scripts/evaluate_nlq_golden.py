@@ -42,7 +42,9 @@ def results_match(actual: list[dict], expected: list[dict]) -> bool:
 def evaluate() -> dict:
     cases = json.loads(Path("data/nlq_golden_set.json").read_text(encoding="utf-8"))
     passed = 0
-    with psycopg.connect(settings.database_url) as conn:
+    if not settings.nlq_database_url.strip():
+        raise RuntimeError("NLQ_DATABASE_URL is required; set it to the PostgreSQL read-only account.")
+    with psycopg.connect(settings.nlq_database_url, connect_timeout=3) as conn:
         with conn.cursor() as cursor:
             cursor.execute("SET TRANSACTION READ ONLY")
             for case in cases:

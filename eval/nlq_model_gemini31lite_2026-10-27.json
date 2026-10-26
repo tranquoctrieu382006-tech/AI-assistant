@@ -1,0 +1,1328 @@
+{
+  "model_role": "strong",
+  "model_name": "google_genai/gemini-3.1-flash-lite",
+  "cases": 30,
+  "execution_correct": 20,
+  "execution_accuracy": 0.6666666666666666,
+  "executed_cases": 30,
+  "executed_accuracy": 0.6666666666666666,
+  "counts": {
+    "pass": 20,
+    "fail": 10,
+    "rejected": 0,
+    "error": 0
+  },
+  "mean_generation_latency_seconds": 4.3612,
+  "total_generation_latency_seconds": 130.836,
+  "evaluation_wall_seconds": 178.921,
+  "token_totals": {
+    "input_tokens": 16391,
+    "output_tokens": 4802,
+    "total_tokens": 21193
+  },
+  "estimated_api_cost_usd": 0.01130075,
+  "pricing_basis": "Google Gemini paid-tier standard text rates",
+  "model_evaluated": true,
+  "trace_uploaded": false,
+  "results": [
+    {
+      "id": "nlq-001",
+      "question": "Có bao nhiêu sản phẩm?",
+      "generation_latency_seconds": 1.912,
+      "input_tokens": 540,
+      "output_tokens": 123,
+      "total_tokens": 663,
+      "generated_sql": "SELECT COUNT(*) FROM products;",
+      "status": "pass",
+      "expected": [
+        {
+          "product_count": 80
+        }
+      ],
+      "actual": [
+        {
+          "count": 80
+        }
+      ]
+    },
+    {
+      "id": "nlq-002",
+      "question": "Có bao nhiêu khách hàng?",
+      "generation_latency_seconds": 3.504,
+      "input_tokens": 540,
+      "output_tokens": 128,
+      "total_tokens": 668,
+      "generated_sql": "SELECT COUNT(*) FROM customers;",
+      "status": "pass",
+      "expected": [
+        {
+          "customer_count": 200
+        }
+      ],
+      "actual": [
+        {
+          "count": 200
+        }
+      ]
+    },
+    {
+      "id": "nlq-003",
+      "question": "Có bao nhiêu đơn hàng?",
+      "generation_latency_seconds": 1.311,
+      "input_tokens": 540,
+      "output_tokens": 121,
+      "total_tokens": 661,
+      "generated_sql": "SELECT COUNT(*) FROM orders;",
+      "status": "pass",
+      "expected": [
+        {
+          "order_count": 300
+        }
+      ],
+      "actual": [
+        {
+          "count": 300
+        }
+      ]
+    },
+    {
+      "id": "nlq-004",
+      "question": "Có bao nhiêu kho hàng?",
+      "generation_latency_seconds": 2.655,
+      "input_tokens": 540,
+      "output_tokens": 124,
+      "total_tokens": 664,
+      "generated_sql": "SELECT COUNT(*) FROM warehouses;",
+      "status": "pass",
+      "expected": [
+        {
+          "warehouse_count": 3
+        }
+      ],
+      "actual": [
+        {
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": "nlq-005",
+      "question": "Có bao nhiêu sản phẩm đang kinh doanh?",
+      "generation_latency_seconds": 1.927,
+      "input_tokens": 543,
+      "output_tokens": 134,
+      "total_tokens": 677,
+      "generated_sql": "SELECT COUNT(*) FROM products WHERE active = TRUE;",
+      "status": "pass",
+      "expected": [
+        {
+          "active_product_count": 80
+        }
+      ],
+      "actual": [
+        {
+          "count": 80
+        }
+      ]
+    },
+    {
+      "id": "nlq-006",
+      "question": "Mỗi danh mục hiện có bao nhiêu sản phẩm?",
+      "generation_latency_seconds": 1.642,
+      "input_tokens": 545,
+      "output_tokens": 163,
+      "total_tokens": 708,
+      "generated_sql": "SELECT c.name, COUNT(p.product_id)\nFROM categories c\nLEFT JOIN products p ON c.category_id = p.category_id\nGROUP BY c.name;",
+      "status": "pass",
+      "expected": [
+        {
+          "category": "Chăm sóc cá nhân",
+          "product_count": 10
+        },
+        {
+          "category": "Điện tử",
+          "product_count": 10
+        },
+        {
+          "category": "Đồ dùng du lịch",
+          "product_count": 10
+        },
+        {
+          "category": "Gia dụng",
+          "product_count": 10
+        },
+        {
+          "category": "Nhà bếp",
+          "product_count": 10
+        },
+        {
+          "category": "Phụ kiện",
+          "product_count": 10
+        },
+        {
+          "category": "Thể thao",
+          "product_count": 10
+        },
+        {
+          "category": "Văn phòng phẩm",
+          "product_count": 10
+        }
+      ],
+      "actual": [
+        {
+          "name": "Nhà bếp",
+          "count": 10
+        },
+        {
+          "name": "Gia dụng",
+          "count": 10
+        },
+        {
+          "name": "Điện tử",
+          "count": 10
+        },
+        {
+          "name": "Thể thao",
+          "count": 10
+        },
+        {
+          "name": "Chăm sóc cá nhân",
+          "count": 10
+        },
+        {
+          "name": "Đồ dùng du lịch",
+          "count": 10
+        },
+        {
+          "name": "Phụ kiện",
+          "count": 10
+        },
+        {
+          "name": "Văn phòng phẩm",
+          "count": 10
+        }
+      ]
+    },
+    {
+      "id": "nlq-007",
+      "question": "Có bao nhiêu khách hàng ở mỗi hạng thành viên?",
+      "generation_latency_seconds": 1.167,
+      "input_tokens": 545,
+      "output_tokens": 143,
+      "total_tokens": 688,
+      "generated_sql": "SELECT member_tier, COUNT(*) FROM customers GROUP BY member_tier;",
+      "status": "pass",
+      "expected": [
+        {
+          "member_tier": "Bạc",
+          "customer_count": 50
+        },
+        {
+          "member_tier": "Đồng",
+          "customer_count": 50
+        },
+        {
+          "member_tier": "Kim cương",
+          "customer_count": 50
+        },
+        {
+          "member_tier": "Vàng",
+          "customer_count": 50
+        }
+      ],
+      "actual": [
+        {
+          "member_tier": "Đồng",
+          "count": 50
+        },
+        {
+          "member_tier": "Bạc",
+          "count": 50
+        },
+        {
+          "member_tier": "Kim cương",
+          "count": 50
+        },
+        {
+          "member_tier": "Vàng",
+          "count": 50
+        }
+      ]
+    },
+    {
+      "id": "nlq-008",
+      "question": "Số đơn hàng theo từng trạng thái là bao nhiêu?",
+      "generation_latency_seconds": 3.987,
+      "input_tokens": 545,
+      "output_tokens": 136,
+      "total_tokens": 681,
+      "generated_sql": "SELECT status, COUNT(*) FROM orders GROUP BY status;",
+      "status": "pass",
+      "expected": [
+        {
+          "status": "đã giao",
+          "order_count": 60
+        },
+        {
+          "status": "đã hủy",
+          "order_count": 60
+        },
+        {
+          "status": "đã xác nhận",
+          "order_count": 60
+        },
+        {
+          "status": "đang giao",
+          "order_count": 60
+        },
+        {
+          "status": "mới",
+          "order_count": 60
+        }
+      ],
+      "actual": [
+        {
+          "status": "mới",
+          "count": 60
+        },
+        {
+          "status": "đã xác nhận",
+          "count": 60
+        },
+        {
+          "status": "đã hủy",
+          "count": 60
+        },
+        {
+          "status": "đang giao",
+          "count": 60
+        },
+        {
+          "status": "đã giao",
+          "count": 60
+        }
+      ]
+    },
+    {
+      "id": "nlq-009",
+      "question": "Mỗi thành phố có bao nhiêu nhà cung cấp?",
+      "generation_latency_seconds": 2.656,
+      "input_tokens": 545,
+      "output_tokens": 133,
+      "total_tokens": 678,
+      "generated_sql": "SELECT city, COUNT(*) FROM suppliers GROUP BY city;",
+      "status": "pass",
+      "expected": [
+        {
+          "city": "Biên Hòa",
+          "supplier_count": 2
+        },
+        {
+          "city": "Cần Thơ",
+          "supplier_count": 2
+        },
+        {
+          "city": "Đà Nẵng",
+          "supplier_count": 2
+        },
+        {
+          "city": "Hà Nội",
+          "supplier_count": 1
+        },
+        {
+          "city": "Hải Phòng",
+          "supplier_count": 2
+        },
+        {
+          "city": "Huế",
+          "supplier_count": 2
+        },
+        {
+          "city": "Nha Trang",
+          "supplier_count": 2
+        },
+        {
+          "city": "TP Hồ Chí Minh",
+          "supplier_count": 2
+        }
+      ],
+      "actual": [
+        {
+          "city": "Hải Phòng",
+          "count": 2
+        },
+        {
+          "city": "Đà Nẵng",
+          "count": 2
+        },
+        {
+          "city": "TP Hồ Chí Minh",
+          "count": 2
+        },
+        {
+          "city": "Cần Thơ",
+          "count": 2
+        },
+        {
+          "city": "Huế",
+          "count": 2
+        },
+        {
+          "city": "Hà Nội",
+          "count": 1
+        },
+        {
+          "city": "Biên Hòa",
+          "count": 2
+        },
+        {
+          "city": "Nha Trang",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "nlq-010",
+      "question": "Tổng số lượng tồn kho hiện tại của từng kho là bao nhiêu?",
+      "generation_latency_seconds": 1.01,
+      "input_tokens": 548,
+      "output_tokens": 164,
+      "total_tokens": 712,
+      "generated_sql": "SELECT w.name, SUM(i.on_hand) AS total_inventory\nFROM warehouses w\nJOIN inventory i ON w.warehouse_id = i.warehouse_id\nGROUP BY w.warehouse_id, w.name;",
+      "status": "pass",
+      "expected": [
+        {
+          "warehouse": "Kho Đà Nẵng",
+          "units_on_hand": 6079
+        },
+        {
+          "warehouse": "Kho Hà Nội",
+          "units_on_hand": 6897
+        },
+        {
+          "warehouse": "Kho TP Hồ Chí Minh",
+          "units_on_hand": 6973
+        }
+      ],
+      "actual": [
+        {
+          "name": "Kho Đà Nẵng",
+          "total_inventory": 6079
+        },
+        {
+          "name": "Kho Hà Nội",
+          "total_inventory": 6897
+        },
+        {
+          "name": "Kho TP Hồ Chí Minh",
+          "total_inventory": 6973
+        }
+      ]
+    },
+    {
+      "id": "nlq-011",
+      "question": "Có bao nhiêu dòng tồn kho dưới 10 sản phẩm?",
+      "generation_latency_seconds": 1.218,
+      "input_tokens": 547,
+      "output_tokens": 128,
+      "total_tokens": 675,
+      "generated_sql": "SELECT COUNT(*) FROM inventory WHERE on_hand < 10;",
+      "status": "pass",
+      "expected": [
+        {
+          "low_stock_rows": 16
+        }
+      ],
+      "actual": [
+        {
+          "count": 16
+        }
+      ]
+    },
+    {
+      "id": "nlq-012",
+      "question": "Có bao nhiêu sản phẩm chưa có bản ghi tồn kho?",
+      "generation_latency_seconds": 1.576,
+      "input_tokens": 546,
+      "output_tokens": 159,
+      "total_tokens": 705,
+      "generated_sql": "SELECT COUNT(*) FROM products WHERE product_id NOT IN (SELECT product_id FROM inventory);",
+      "status": "pass",
+      "expected": [
+        {
+          "products_without_inventory": 0
+        }
+      ],
+      "actual": [
+        {
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "nlq-013",
+      "question": "Giá bán trung bình theo danh mục sản phẩm là bao nhiêu?",
+      "generation_latency_seconds": 3.548,
+      "input_tokens": 547,
+      "output_tokens": 174,
+      "total_tokens": 721,
+      "generated_sql": "SELECT c.name, AVG(p.unit_price)\nFROM products p\nJOIN categories c ON p.category_id = c.category_id\nGROUP BY c.name;",
+      "status": "fail",
+      "expected": [
+        {
+          "category": "Chăm sóc cá nhân",
+          "avg_price": 1232293.79
+        },
+        {
+          "category": "Điện tử",
+          "avg_price": 1705926.4
+        },
+        {
+          "category": "Đồ dùng du lịch",
+          "avg_price": 1830337.38
+        },
+        {
+          "category": "Gia dụng",
+          "avg_price": 1175508.59
+        },
+        {
+          "category": "Nhà bếp",
+          "avg_price": 989814.33
+        },
+        {
+          "category": "Phụ kiện",
+          "avg_price": 1366556.66
+        },
+        {
+          "category": "Thể thao",
+          "avg_price": 1541212.13
+        },
+        {
+          "category": "Văn phòng phẩm",
+          "avg_price": 1198507.43
+        }
+      ],
+      "actual": [
+        {
+          "name": "Chăm sóc cá nhân",
+          "avg": "1232293.785000000000"
+        },
+        {
+          "name": "Thể thao",
+          "avg": "1541212.133000000000"
+        },
+        {
+          "name": "Gia dụng",
+          "avg": "1175508.585000000000"
+        },
+        {
+          "name": "Văn phòng phẩm",
+          "avg": "1198507.432000000000"
+        },
+        {
+          "name": "Điện tử",
+          "avg": "1705926.396000000000"
+        },
+        {
+          "name": "Đồ dùng du lịch",
+          "avg": "1830337.380000000000"
+        },
+        {
+          "name": "Phụ kiện",
+          "avg": "1366556.655000000000"
+        },
+        {
+          "name": "Nhà bếp",
+          "avg": "989814.326000000000"
+        }
+      ]
+    },
+    {
+      "id": "nlq-014",
+      "question": "Doanh thu hàng hóa theo danh mục là bao nhiêu?",
+      "generation_latency_seconds": 1.418,
+      "input_tokens": 546,
+      "output_tokens": 205,
+      "total_tokens": 751,
+      "generated_sql": "SELECT c.name AS category_name, SUM(oi.quantity * oi.unit_price) AS total_revenue\nFROM categories c\nJOIN products p ON c.category_id = p.category_id\nJOIN order_items oi ON p.product_id = oi.product_id\nGROUP BY c.name;",
+      "status": "pass",
+      "expected": [
+        {
+          "category": "Chăm sóc cá nhân",
+          "revenue": 185668810.0
+        },
+        {
+          "category": "Điện tử",
+          "revenue": 197082052.0
+        },
+        {
+          "category": "Đồ dùng du lịch",
+          "revenue": 264155648.0
+        },
+        {
+          "category": "Gia dụng",
+          "revenue": 236277416.0
+        },
+        {
+          "category": "Nhà bếp",
+          "revenue": 220947347.0
+        },
+        {
+          "category": "Phụ kiện",
+          "revenue": 234848980.0
+        },
+        {
+          "category": "Thể thao",
+          "revenue": 195143471.0
+        },
+        {
+          "category": "Văn phòng phẩm",
+          "revenue": 186517536.0
+        }
+      ],
+      "actual": [
+        {
+          "category_name": "Điện tử",
+          "total_revenue": "197082052.00"
+        },
+        {
+          "category_name": "Thể thao",
+          "total_revenue": "195143471.00"
+        },
+        {
+          "category_name": "Chăm sóc cá nhân",
+          "total_revenue": "185668810.00"
+        },
+        {
+          "category_name": "Nhà bếp",
+          "total_revenue": "220947347.00"
+        },
+        {
+          "category_name": "Gia dụng",
+          "total_revenue": "236277416.00"
+        },
+        {
+          "category_name": "Đồ dùng du lịch",
+          "total_revenue": "264155648.00"
+        },
+        {
+          "category_name": "Phụ kiện",
+          "total_revenue": "234848980.00"
+        },
+        {
+          "category_name": "Văn phòng phẩm",
+          "total_revenue": "186517536.00"
+        }
+      ]
+    },
+    {
+      "id": "nlq-015",
+      "question": "Năm sản phẩm bán ra nhiều nhất theo số lượng là những sản phẩm nào?",
+      "generation_latency_seconds": 1.318,
+      "input_tokens": 551,
+      "output_tokens": 197,
+      "total_tokens": 748,
+      "generated_sql": "SELECT p.name, SUM(oi.quantity) AS total_quantity\nFROM products p\nJOIN order_items oi ON p.product_id = oi.product_id\nGROUP BY p.product_id, p.name\nORDER BY total_quantity DESC\nLIMIT 5;",
+      "status": "fail",
+      "expected": [
+        {
+          "product_id": 34,
+          "units_sold": 54
+        },
+        {
+          "product_id": 76,
+          "units_sold": 48
+        },
+        {
+          "product_id": 26,
+          "units_sold": 47
+        },
+        {
+          "product_id": 31,
+          "units_sold": 46
+        },
+        {
+          "product_id": 24,
+          "units_sold": 43
+        }
+      ],
+      "actual": [
+        {
+          "name": "Chuột không dây mẫu 34",
+          "total_quantity": 54
+        },
+        {
+          "name": "Sạc nhanh USB-C mẫu 76",
+          "total_quantity": 48
+        },
+        {
+          "name": "Sạc nhanh USB-C mẫu 26",
+          "total_quantity": 47
+        },
+        {
+          "name": "Tai nghe Bluetooth mẫu 31",
+          "total_quantity": 46
+        },
+        {
+          "name": "Chuột không dây mẫu 24",
+          "total_quantity": 43
+        }
+      ]
+    },
+    {
+      "id": "nlq-016",
+      "question": "Năm khách hàng có tổng giá trị hàng đã đặt cao nhất là ai (theo mã khách)?",
+      "generation_latency_seconds": 28.873,
+      "input_tokens": 554,
+      "output_tokens": 217,
+      "total_tokens": 771,
+      "generated_sql": "SELECT c.customer_id\nFROM customers c\nJOIN orders o ON c.customer_id = o.customer_id\nJOIN order_items oi ON o.order_id = oi.order_id\nGROUP BY c.customer_id\nORDER BY SUM(oi.quantity * oi.unit_price) DESC\nLIMIT 5;",
+      "status": "fail",
+      "expected": [
+        {
+          "customer_id": 31,
+          "spend": 20749139.0
+        },
+        {
+          "customer_id": 97,
+          "spend": 20542274.0
+        },
+        {
+          "customer_id": 35,
+          "spend": 18087415.0
+        },
+        {
+          "customer_id": 16,
+          "spend": 17342762.0
+        },
+        {
+          "customer_id": 14,
+          "spend": 17322167.0
+        }
+      ],
+      "actual": [
+        {
+          "customer_id": 31
+        },
+        {
+          "customer_id": 97
+        },
+        {
+          "customer_id": 35
+        },
+        {
+          "customer_id": 16
+        },
+        {
+          "customer_id": 14
+        }
+      ]
+    },
+    {
+      "id": "nlq-017",
+      "question": "Số đơn theo tháng trong năm 2026 là bao nhiêu?",
+      "generation_latency_seconds": 1.836,
+      "input_tokens": 549,
+      "output_tokens": 182,
+      "total_tokens": 731,
+      "generated_sql": "SELECT EXTRACT(MONTH FROM order_date) AS month, COUNT(order_id) AS order_count\nFROM orders\nWHERE EXTRACT(YEAR FROM order_date) = 2026\nGROUP BY EXTRACT(MONTH FROM order_date)\nORDER BY month;",
+      "status": "fail",
+      "expected": [
+        {
+          "month": "2026-01",
+          "order_count": 10
+        },
+        {
+          "month": "2026-02",
+          "order_count": 10
+        },
+        {
+          "month": "2026-03",
+          "order_count": 10
+        },
+        {
+          "month": "2026-04",
+          "order_count": 10
+        },
+        {
+          "month": "2026-05",
+          "order_count": 10
+        },
+        {
+          "month": "2026-06",
+          "order_count": 10
+        },
+        {
+          "month": "2026-07",
+          "order_count": 11
+        },
+        {
+          "month": "2026-08",
+          "order_count": 7
+        }
+      ],
+      "actual": [
+        {
+          "month": "1",
+          "order_count": 10
+        },
+        {
+          "month": "2",
+          "order_count": 10
+        },
+        {
+          "month": "3",
+          "order_count": 10
+        },
+        {
+          "month": "4",
+          "order_count": 10
+        },
+        {
+          "month": "5",
+          "order_count": 10
+        },
+        {
+          "month": "6",
+          "order_count": 10
+        },
+        {
+          "month": "7",
+          "order_count": 11
+        },
+        {
+          "month": "8",
+          "order_count": 7
+        }
+      ]
+    },
+    {
+      "id": "nlq-018",
+      "question": "Có bao nhiêu đơn ở mỗi trạng thái chưa giao thành công?",
+      "generation_latency_seconds": 1.53,
+      "input_tokens": 547,
+      "output_tokens": 153,
+      "total_tokens": 700,
+      "generated_sql": "SELECT status, COUNT(*)\nFROM orders\nWHERE delivered_date IS NULL\nGROUP BY status;",
+      "status": "pass",
+      "expected": [
+        {
+          "status": "đã hủy",
+          "order_count": 60
+        },
+        {
+          "status": "đã xác nhận",
+          "order_count": 60
+        },
+        {
+          "status": "đang giao",
+          "order_count": 60
+        },
+        {
+          "status": "mới",
+          "order_count": 60
+        }
+      ],
+      "actual": [
+        {
+          "status": "mới",
+          "count": 60
+        },
+        {
+          "status": "đã xác nhận",
+          "count": 60
+        },
+        {
+          "status": "đã hủy",
+          "count": 60
+        },
+        {
+          "status": "đang giao",
+          "count": 60
+        }
+      ]
+    },
+    {
+      "id": "nlq-019",
+      "question": "Số đơn đã giao thành công theo tháng trong quý IV/2025 là bao nhiêu?",
+      "generation_latency_seconds": 1.682,
+      "input_tokens": 554,
+      "output_tokens": 235,
+      "total_tokens": 789,
+      "generated_sql": "SELECT EXTRACT(MONTH FROM delivered_date) AS month, COUNT(*) AS delivered_order_count\nFROM orders\nWHERE status = 'đã giao'\n  AND delivered_date >= '2025-10-01'\n  AND delivered_date <= '2025-12-31'\nGROUP BY EXTRACT(MONTH FROM delivered_date);",
+      "status": "fail",
+      "expected": [
+        {
+          "month": "2025-10",
+          "delivered_orders": 4
+        },
+        {
+          "month": "2025-11",
+          "delivered_orders": 2
+        },
+        {
+          "month": "2025-12",
+          "delivered_orders": 2
+        }
+      ],
+      "actual": [
+        {
+          "month": "10",
+          "delivered_order_count": 4
+        },
+        {
+          "month": "11",
+          "delivered_order_count": 2
+        },
+        {
+          "month": "12",
+          "delivered_order_count": 2
+        }
+      ]
+    },
+    {
+      "id": "nlq-020",
+      "question": "Phí giao hàng trung bình theo trạng thái đơn là bao nhiêu?",
+      "generation_latency_seconds": 6.818,
+      "input_tokens": 548,
+      "output_tokens": 133,
+      "total_tokens": 681,
+      "generated_sql": "SELECT status, AVG(shipping_fee) FROM orders GROUP BY status;",
+      "status": "pass",
+      "expected": [
+        {
+          "status": "đã giao",
+          "avg_shipping_fee": 0.0
+        },
+        {
+          "status": "đã hủy",
+          "avg_shipping_fee": 0.0
+        },
+        {
+          "status": "đã xác nhận",
+          "avg_shipping_fee": 0.0
+        },
+        {
+          "status": "đang giao",
+          "avg_shipping_fee": 0.0
+        },
+        {
+          "status": "mới",
+          "avg_shipping_fee": 0.0
+        }
+      ],
+      "actual": [
+        {
+          "status": "mới",
+          "avg": "0E-20"
+        },
+        {
+          "status": "đã xác nhận",
+          "avg": "0E-20"
+        },
+        {
+          "status": "đã hủy",
+          "avg": "0E-20"
+        },
+        {
+          "status": "đang giao",
+          "avg": "0E-20"
+        },
+        {
+          "status": "đã giao",
+          "avg": "0E-20"
+        }
+      ]
+    },
+    {
+      "id": "nlq-021",
+      "question": "Năm thành phố có nhiều khách hàng nhất là những thành phố nào?",
+      "generation_latency_seconds": 8.24,
+      "input_tokens": 549,
+      "output_tokens": 155,
+      "total_tokens": 704,
+      "generated_sql": "SELECT city, COUNT(*) AS customer_count\nFROM customers\nGROUP BY city\nORDER BY customer_count DESC\nLIMIT 5;",
+      "status": "fail",
+      "expected": [
+        {
+          "city": "Biên Hòa",
+          "customer_count": 25
+        },
+        {
+          "city": "Cần Thơ",
+          "customer_count": 25
+        },
+        {
+          "city": "Đà Nẵng",
+          "customer_count": 25
+        },
+        {
+          "city": "Hà Nội",
+          "customer_count": 25
+        },
+        {
+          "city": "Hải Phòng",
+          "customer_count": 25
+        }
+      ],
+      "actual": [
+        {
+          "city": "Nha Trang",
+          "customer_count": 25
+        },
+        {
+          "city": "TP Hồ Chí Minh",
+          "customer_count": 25
+        },
+        {
+          "city": "Cần Thơ",
+          "customer_count": 25
+        },
+        {
+          "city": "Huế",
+          "customer_count": 25
+        },
+        {
+          "city": "Hải Phòng",
+          "customer_count": 25
+        }
+      ]
+    },
+    {
+      "id": "nlq-022",
+      "question": "Giá trị hàng trung bình của một đơn hàng là bao nhiêu?",
+      "generation_latency_seconds": 2.249,
+      "input_tokens": 547,
+      "output_tokens": 171,
+      "total_tokens": 718,
+      "generated_sql": "SELECT AVG(total_order_value)\nFROM (\n    SELECT order_id, SUM(quantity * unit_price) AS total_order_value\n    FROM order_items\n    GROUP BY order_id\n) AS order_totals;",
+      "status": "fail",
+      "expected": [
+        {
+          "avg_order_value": 5735470.87
+        }
+      ],
+      "actual": [
+        {
+          "avg": "5735470.866666666667"
+        }
+      ]
+    },
+    {
+      "id": "nlq-023",
+      "question": "Có bao nhiêu đơn hàng gồm nhiều hơn một dòng sản phẩm?",
+      "generation_latency_seconds": 12.8,
+      "input_tokens": 547,
+      "output_tokens": 147,
+      "total_tokens": 694,
+      "generated_sql": "SELECT COUNT(*) FROM (SELECT order_id FROM order_items GROUP BY order_id HAVING COUNT(*) > 1) AS subquery;",
+      "status": "pass",
+      "expected": [
+        {
+          "multi_line_orders": 300
+        }
+      ],
+      "actual": [
+        {
+          "count": 300
+        }
+      ]
+    },
+    {
+      "id": "nlq-024",
+      "question": "Có bao nhiêu đơn chưa có ngày giao?",
+      "generation_latency_seconds": 1.384,
+      "input_tokens": 543,
+      "output_tokens": 143,
+      "total_tokens": 686,
+      "generated_sql": "SELECT COUNT(*) FROM orders WHERE delivered_date IS NULL;",
+      "status": "pass",
+      "expected": [
+        {
+          "undelivered_date_orders": 240
+        }
+      ],
+      "actual": [
+        {
+          "count": 240
+        }
+      ]
+    },
+    {
+      "id": "nlq-025",
+      "question": "Số lần biến động kho theo từng loại là bao nhiêu?",
+      "generation_latency_seconds": 4.646,
+      "input_tokens": 546,
+      "output_tokens": 140,
+      "total_tokens": 686,
+      "generated_sql": "SELECT movement_type, COUNT(*) FROM stock_movements GROUP BY movement_type;",
+      "status": "pass",
+      "expected": [
+        {
+          "movement_type": "điều chỉnh",
+          "movement_count": 200
+        },
+        {
+          "movement_type": "nhập",
+          "movement_count": 200
+        },
+        {
+          "movement_type": "xuất",
+          "movement_count": 200
+        }
+      ],
+      "actual": [
+        {
+          "movement_type": "xuất",
+          "count": 200
+        },
+        {
+          "movement_type": "nhập",
+          "count": 200
+        },
+        {
+          "movement_type": "điều chỉnh",
+          "count": 200
+        }
+      ]
+    },
+    {
+      "id": "nlq-026",
+      "question": "Tổng số lượng biến động theo kho và loại biến động là bao nhiêu?",
+      "generation_latency_seconds": 4.925,
+      "input_tokens": 549,
+      "output_tokens": 153,
+      "total_tokens": 702,
+      "generated_sql": "SELECT warehouse_id, movement_type, SUM(quantity) AS total_quantity\nFROM stock_movements\nGROUP BY warehouse_id, movement_type;",
+      "status": "fail",
+      "expected": [
+        {
+          "warehouse": "Kho Đà Nẵng",
+          "movement_type": "điều chỉnh",
+          "moved_units": 3066
+        },
+        {
+          "warehouse": "Kho Hà Nội",
+          "movement_type": "xuất",
+          "moved_units": 3188
+        },
+        {
+          "warehouse": "Kho TP Hồ Chí Minh",
+          "movement_type": "nhập",
+          "moved_units": 3194
+        }
+      ],
+      "actual": [
+        {
+          "warehouse_id": 3,
+          "movement_type": "nhập",
+          "total_quantity": 3194
+        },
+        {
+          "warehouse_id": 2,
+          "movement_type": "điều chỉnh",
+          "total_quantity": 3066
+        },
+        {
+          "warehouse_id": 1,
+          "movement_type": "xuất",
+          "total_quantity": 3188
+        }
+      ]
+    },
+    {
+      "id": "nlq-027",
+      "question": "Năm nhà cung cấp có nhiều sản phẩm nhất là những ai (theo mã)?",
+      "generation_latency_seconds": 16.937,
+      "input_tokens": 551,
+      "output_tokens": 161,
+      "total_tokens": 712,
+      "generated_sql": "SELECT supplier_id\nFROM products\nGROUP BY supplier_id\nORDER BY COUNT(*) DESC\nLIMIT 5;",
+      "status": "fail",
+      "expected": [
+        {
+          "supplier_id": 1,
+          "product_count": 6
+        },
+        {
+          "supplier_id": 2,
+          "product_count": 6
+        },
+        {
+          "supplier_id": 3,
+          "product_count": 6
+        },
+        {
+          "supplier_id": 4,
+          "product_count": 6
+        },
+        {
+          "supplier_id": 5,
+          "product_count": 6
+        }
+      ],
+      "actual": [
+        {
+          "supplier_id": 5
+        },
+        {
+          "supplier_id": 3
+        },
+        {
+          "supplier_id": 4
+        },
+        {
+          "supplier_id": 1
+        },
+        {
+          "supplier_id": 2
+        }
+      ]
+    },
+    {
+      "id": "nlq-028",
+      "question": "Danh mục nào có doanh thu hàng hóa cao nhất?",
+      "generation_latency_seconds": 1.891,
+      "input_tokens": 545,
+      "output_tokens": 188,
+      "total_tokens": 733,
+      "generated_sql": "SELECT c.name\nFROM categories c\nJOIN products p ON c.category_id = p.category_id\nJOIN order_items oi ON p.product_id = oi.product_id\nGROUP BY c.category_id, c.name\nORDER BY SUM(oi.quantity * oi.unit_price) DESC\nLIMIT 1;",
+      "status": "fail",
+      "expected": [
+        {
+          "category": "Đồ dùng du lịch",
+          "revenue": 264155648.0
+        }
+      ],
+      "actual": [
+        {
+          "name": "Đồ dùng du lịch"
+        }
+      ]
+    },
+    {
+      "id": "nlq-029",
+      "question": "Giá thấp nhất và cao nhất theo danh mục là bao nhiêu?",
+      "generation_latency_seconds": 3.371,
+      "input_tokens": 547,
+      "output_tokens": 182,
+      "total_tokens": 729,
+      "generated_sql": "SELECT c.name AS category_name, MIN(p.unit_price) AS min_price, MAX(p.unit_price) AS max_price\nFROM categories c\nJOIN products p ON c.category_id = p.category_id\nGROUP BY c.name;",
+      "status": "pass",
+      "expected": [
+        {
+          "category": "Chăm sóc cá nhân",
+          "min_price": 102956.88,
+          "max_price": 2715399.8
+        },
+        {
+          "category": "Điện tử",
+          "min_price": 445778.49,
+          "max_price": 3180970.76
+        },
+        {
+          "category": "Đồ dùng du lịch",
+          "min_price": 553149.94,
+          "max_price": 2963016.17
+        },
+        {
+          "category": "Gia dụng",
+          "min_price": 101616.69,
+          "max_price": 2157747.72
+        },
+        {
+          "category": "Nhà bếp",
+          "min_price": 94113.76,
+          "max_price": 2744090.34
+        },
+        {
+          "category": "Phụ kiện",
+          "min_price": 236126.68,
+          "max_price": 2755202.3
+        },
+        {
+          "category": "Thể thao",
+          "min_price": 128513.02,
+          "max_price": 2650545.18
+        },
+        {
+          "category": "Văn phòng phẩm",
+          "min_price": 100868.1,
+          "max_price": 2936696.79
+        }
+      ],
+      "actual": [
+        {
+          "category_name": "Chăm sóc cá nhân",
+          "min_price": "102956.88",
+          "max_price": "2715399.80"
+        },
+        {
+          "category_name": "Thể thao",
+          "min_price": "128513.02",
+          "max_price": "2650545.18"
+        },
+        {
+          "category_name": "Gia dụng",
+          "min_price": "101616.69",
+          "max_price": "2157747.72"
+        },
+        {
+          "category_name": "Văn phòng phẩm",
+          "min_price": "100868.10",
+          "max_price": "2936696.79"
+        },
+        {
+          "category_name": "Điện tử",
+          "min_price": "445778.49",
+          "max_price": "3180970.76"
+        },
+        {
+          "category_name": "Đồ dùng du lịch",
+          "min_price": "553149.94",
+          "max_price": "2963016.17"
+        },
+        {
+          "category_name": "Phụ kiện",
+          "min_price": "236126.68",
+          "max_price": "2755202.30"
+        },
+        {
+          "category_name": "Nhà bếp",
+          "min_price": "94113.76",
+          "max_price": "2744090.34"
+        }
+      ]
+    },
+    {
+      "id": "nlq-030",
+      "question": "Tổng doanh thu hàng hóa theo năm đặt hàng là bao nhiêu?",
+      "generation_latency_seconds": 2.805,
+      "input_tokens": 547,
+      "output_tokens": 210,
+      "total_tokens": 757,
+      "generated_sql": "SELECT EXTRACT(YEAR FROM o.order_date) AS year, SUM(oi.quantity * oi.unit_price) AS total_revenue\nFROM orders o\nJOIN order_items oi ON o.order_id = oi.order_id\nGROUP BY EXTRACT(YEAR FROM o.order_date)\nORDER BY year;",
+      "status": "pass",
+      "expected": [
+        {
+          "year": 2025,
+          "revenue": 1281097291.0
+        },
+        {
+          "year": 2026,
+          "revenue": 439543969.0
+        }
+      ],
+      "actual": [
+        {
+          "year": "2025",
+          "total_revenue": "1281097291.00"
+        },
+        {
+          "year": "2026",
+          "total_revenue": "439543969.00"
+        }
+      ]
+    }
+  ]
+}

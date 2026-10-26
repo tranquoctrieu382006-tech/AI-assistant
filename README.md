@@ -4,8 +4,8 @@ Mini AI Assistant – Hỏi đáp tài liệu (RAG) & truy vấn dữ liệu b�
 
 ## Tech Stack
 
-- **Python 3.11+**, **FastAPI**, **LangChain** (RAG API; NLQ is an offline evaluator)
-- **Langfuse** (optional tracing and RAG model experiments)
+- **Python 3.11+**, **FastAPI**, **LangChain** (RAG and NLQ APIs)
+- **Langfuse** (optional tracing and model experiments)
 - **PostgreSQL + pgvector** (vector store)
 - **Ollama** (local LLM)
 
@@ -38,12 +38,12 @@ Sửa biến trong `.env`, **không cần sửa code**:
 
 | Vai trò | Biến môi trường | Ví dụ |
 |---|---|---|
-| Mặc định | `DEFAULT_MODEL` | `openai/gpt-4o-mini` |
-| Mạnh (SQL phức tạp, tổng hợp) | `STRONG_MODEL` | `openai/gpt-4o` |
-| Nhanh/rẻ (router) | `FAST_MODEL` | `openai/gpt-4o-mini` |
-| Viết lại câu hỏi hội thoại | `QUESTION_REWRITER_MODEL` | `local` (có thể chọn `fast`) |
+| Mặc định | `DEFAULT_MODEL` | `google_genai/gemini-3.5-flash-lite` |
+| Mạnh (SQL phức tạp, tổng hợp) | `STRONG_MODEL` | `google_genai/gemini-3.6-flash` |
+| Nhanh/rẻ (router) | `FAST_MODEL` | `google_genai/gemini-3.5-flash-lite` |
+| Viết lại câu hỏi hội thoại | `QUESTION_REWRITER_MODEL` | `fast` (Gemini API) |
 | Local inference | `LOCAL_MODEL` | `ollama/gemma3:12b` |
-| Mô hình trả lời RAG | `RAG_MODEL` | `local` |
+| Mô hình trả lời RAG | `RAG_MODEL` | `fast` (Gemini API) |
 | Số chiều embedding | `EMBEDDING_DIMENSIONS` | `1024` (đổi chiều cần tạo lại bảng và nạp lại corpus) |
 | Context window Ollama cho RAG | `RAG_NUM_CTX` | `8192` |
 | Chế độ tìm kiếm | `SEARCH_MODE` | `vector` hoặc `hybrid` (BM25 + PGVector) |
@@ -54,14 +54,11 @@ Sửa biến trong `.env`, **không cần sửa code**:
 
 `rank-bm25` được cài trong bộ runtime mặc định cho chế độ hybrid. Reranker là tùy chọn nặng do phụ thuộc PyTorch; để bật `USE_RERANKER=true`, cài thêm `pip install -r requirements-reranker.txt`. Khi bật chế độ nhưng thiếu dependency, ứng dụng dừng ngay lúc startup và nêu lệnh cài đặt.
 
-Groq có thể dùng với `GROQ_API_KEY` trong `.env`, ví dụ `groq/openai/gpt-oss-120b` và `groq/openai/gpt-oss-20b`. Gemini vẫn được hỗ trợ bằng `GOOGLE_API_KEY` và model có tiền tố `google_genai/`.
+RAG, NLQ và question rewriter dùng Gemini API qua `GOOGLE_API_KEY` theo cấu hình mẫu. Gemini Free Tier vẫn có quota theo model và project; evaluator NLQ giới hạn nhịp gọi để tránh vượt mức RPM. Có thể chọn Ollama riêng bằng `LOCAL_MODEL` và role `local`.
 
-RAG dùng role local theo mặc định (`RAG_MODEL=local`); có thể đổi sang role hoặc tên model khác trong `.env`. Local inference không gửi prompt tới nhà cung cấp model cloud. Tuy nhiên, nếu Langfuse Cloud được cấu hình, callback tracing có thể gửi câu hỏi, ngữ cảnh được truy xuất và câu trả lời lên Langfuse; không bật tracing cloud nếu dữ liệu phải ở hoàn toàn trên máy.
+Câu hỏi, schema được chọn và kết quả truy vấn NLQ được gửi tới Gemini; nếu cấu hình Langfuse Cloud, trace cũng được gửi lên Langfuse. Chỉ dùng dữ liệu phù hợp với phạm vi chia sẻ này.
 
-Question rewriter cũng mặc định dùng local vì nhận lịch sử hội thoại. Chỉ đặt
-`QUESTION_REWRITER_MODEL=fast` khi chấp nhận gửi lịch sử đó tới nhà cung cấp
-cloud. LLM timeout mặc định là 300 giây để chứa các lượt local chậm; đặt
-`LLM_TIMEOUT_SECONDS` rõ ràng nếu deployment cần giới hạn độ trễ thấp hơn.
+NLQ API dùng tài khoản PostgreSQL riêng chỉ đọc qua `NLQ_DATABASE_URL`; không tự động dùng `DATABASE_URL`. Xem [hướng dẫn NLQ API](docs/nlq_api.md) để cấu hình quyền, bảo vệ truy vấn và gọi `POST /api/nlq/ask`. So sánh 3 model và kết quả benchmark nằm tại [eval/nlq_model_comparison_2026-10-27.md](eval/nlq_model_comparison_2026-10-27.md).
 
 ## Tại sao chọn `init_chat_model` thay vì LiteLLM?
 

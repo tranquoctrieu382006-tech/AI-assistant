@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import re
+import time
 import uuid
 
 from langfuse import Evaluation, get_client
@@ -11,7 +12,7 @@ import psycopg
 from sqlglot import exp, parse
 
 from app.core.config import settings
-from app.core.llm import get_llm
+from app.core.llm import MODEL_REGISTRY, extract_message_text, get_llm, get_model_provider
 from app.core.tracing import (
     flush_langfuse,
     get_langfuse_handler,
@@ -23,6 +24,12 @@ from app.core.tracing import (
 from scripts.evaluate_nlq_golden import is_read_only_query, results_match
 
 LANGFUSE_DATASET_NAME = "ai-assistant-nlq-golden-v1"
+MODEL_PRICING_USD_PER_MILLION = {
+    # Gemini standard text pricing effective through 2026-12-31.
+    "google_genai/gemini-3.1-flash-lite": {"input": 0.25, "output": 1.50},
+    "google_genai/gemini-3.5-flash-lite": {"input": 0.30, "output": 2.50},
+    "google_genai/gemini-3.6-flash": {"input": 0.75, "output": 3.75},
+}
 
 
 def _sql_features(sql: str) -> tuple[int, bool]:
@@ -45,6 +52,20 @@ def _extract_sql(text: str) -> str:
     if text[:4].casefold() == "sql\n":
         text = text[4:].strip()
     return text
+
+
+def _response_usage(response) -> dict:
+    usage = getattr(response, "usage_metadata", None) or {}
+    if not usage:
+        usage = getattr(response, "response_metadata", {}).get("token_usage", {})
+    fields = {
+        "input_tokens": usage.get("input_tokens", usage.get("prompt_tokens")),
+        "output_tokens": usage.get("output_tokens", usage.get("completion_tokens")),
+        "total_tokens": usage.get("total_tokens"),
+    }
+    if fields["total_tokens"] is None and fields["input_tokens"] is not None and fields["output_tokens"] is not None:
+        fields["total_tokens"] = fields["input_tokens"] + fields["output_tokens"]
+    return {key: value for key, value in fields.items() if isinstance(value, (int, float))}
 
 
 def _execution_results_match(
@@ -73,7 +94,10 @@ def evaluate(
     limit: int | None = None,
     *,
     trace_langfuse: bool = False,
+    request_interval_seconds: float | None = None,
 ) -> dict:
+    if not settings.nlq_database_url.strip():
+        raise RuntimeError("NLQ_DATABASE_URL is required; set it to the PostgreSQL read-only account.")
     if trace_langfuse and not is_langfuse_configured():
         raise RuntimeError("Langfuse Cloud tracing was requested but is not configured.")
     if trace_langfuse:
@@ -84,7 +108,19 @@ def evaluate(
             raise ValueError("--limit must be greater than zero.")
         cases = cases[:limit]
     schema = _load_schema_ddl()
-    llm = get_llm(model_role, temperature=0)
+    provider = get_model_provider(model_role)
+    llm_options = {"temperature": 0}
+    if provider == "google_genai":
+        llm_options.update(
+            timeout=settings.nlq_model_timeout_seconds,
+            max_retries=settings.nlq_model_max_retries,
+            thinking_config={"thinking_level": "low"},
+        )
+    llm = get_llm(model_role, **llm_options)
+    if provider == "google_genai" and request_interval_seconds is None:
+        request_interval_seconds = 4.2  # stay below Gemini Free Tier's 15 RPM ceiling
+    evaluation_started = time.perf_counter()
+    last_request_started = None
     results = []
     for case in cases:
         result = {"id": case["id"], "question": case["question"]}
@@ -95,6 +131,12 @@ def evaluate(
             "\nQUESTION:\n" + case["question"]
         )
         try:
+            if request_interval_seconds is not None and last_request_started is not None:
+                wait_seconds = request_interval_seconds - (time.perf_counter() - last_request_started)
+                if wait_seconds > 0:
+                    time.sleep(wait_seconds)
+            generation_started = time.perf_counter()
+            last_request_started = generation_started
             if trace_langfuse:
                 with langfuse_observation(
                     name="nlq-sql-generation",
@@ -103,16 +145,20 @@ def evaluate(
                     handler = get_langfuse_handler()
                     if handler is None:
                         raise RuntimeError("Langfuse callback handler could not be created.")
-                    sql = _extract_sql(str(llm.invoke(
+                    response = llm.invoke(
                         prompt,
                         config={"callbacks": [handler]},
-                    ).content))
+                    )
+                    sql = _extract_sql(extract_message_text(response))
                     update_langfuse_observation(
                         observation,
                         output={"generated_sql": sql},
                     )
             else:
-                sql = _extract_sql(str(llm.invoke(prompt).content))
+                response = llm.invoke(prompt)
+                sql = _extract_sql(extract_message_text(response))
+            result["generation_latency_seconds"] = round(time.perf_counter() - generation_started, 3)
+            result.update(_response_usage(response))
             result["generated_sql"] = sql
             statement_count, ordered = _sql_features(sql)
             if (not is_read_only_query(sql)
@@ -122,7 +168,7 @@ def evaluate(
                 results.append(result)
                 print(json.dumps(result, ensure_ascii=True))
                 continue
-            with psycopg.connect(settings.database_url, connect_timeout=3) as conn:
+            with psycopg.connect(settings.nlq_database_url, connect_timeout=3) as conn:
                 conn.execute("SET TRANSACTION READ ONLY")
                 conn.execute("SET LOCAL statement_timeout = '10s'")
                 cursor = conn.execute(sql)
@@ -140,7 +186,7 @@ def evaluate(
             result.update({
                 "status": "error",
                 "error_type": type(exc).__name__,
-                "error": str(exc),
+                "error": str(exc).replace("\n", " ")[:500],
             })
         results.append(result)
         print(json.dumps(result, ensure_ascii=True, default=str))
@@ -150,10 +196,34 @@ def evaluate(
         for status in ("pass", "fail", "rejected", "error")
     }
     total = len(cases)
+    generated = [result for result in results if "generation_latency_seconds" in result]
+    token_totals = {
+        key: sum(result.get(key, 0) for result in generated)
+        for key in ("input_tokens", "output_tokens", "total_tokens")
+    }
     if trace_langfuse:
         flush_langfuse()
+    model_name = MODEL_REGISTRY.get(
+        model_role,
+        settings.default_model if model_role == "default" else model_role,
+    )
+    pricing = MODEL_PRICING_USD_PER_MILLION.get(model_name)
+    if model_name.startswith("ollama/"):
+        estimated_api_cost = 0.0
+        pricing_basis = "local inference; excludes electricity and hardware"
+    elif pricing:
+        estimated_api_cost = (
+            token_totals["input_tokens"] * pricing["input"]
+            + token_totals["output_tokens"] * pricing["output"]
+        ) / 1_000_000
+        pricing_basis = "Google Gemini paid-tier standard text rates"
+    else:
+        estimated_api_cost = None
+        pricing_basis = "pricing not configured for this model"
+
     return {
         "model_role": model_role,
+        "model_name": model_name,
         "cases": total,
         "execution_correct": counts["pass"],
         "execution_accuracy": counts["pass"] / total if total else 0,
@@ -163,6 +233,17 @@ def evaluate(
             if counts["pass"] + counts["fail"] else 0
         ),
         "counts": counts,
+        "mean_generation_latency_seconds": (
+            sum(result["generation_latency_seconds"] for result in generated) / len(generated)
+            if generated else None
+        ),
+        "total_generation_latency_seconds": round(
+            sum(result["generation_latency_seconds"] for result in generated), 3
+        ),
+        "evaluation_wall_seconds": round(time.perf_counter() - evaluation_started, 3),
+        "token_totals": token_totals,
+        "estimated_api_cost_usd": round(estimated_api_cost, 8) if estimated_api_cost is not None else None,
+        "pricing_basis": pricing_basis,
         "model_evaluated": True,
         "trace_uploaded": trace_langfuse,
         "results": results,
@@ -320,6 +401,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-role", choices=("local", "fast", "strong", "default"), default="local")
     parser.add_argument("--limit", type=int)
+    parser.add_argument(
+        "--request-interval-seconds",
+        type=float,
+        default=4.2,
+        help="Minimum spacing between model calls; keeps Gemini Free Tier runs below 15 RPM.",
+    )
     parser.add_argument("--output", type=Path, help="Write the complete result JSON to this path.")
     parser.add_argument("--langfuse", action="store_true",
                         help="Upload this completed synthetic evaluation to Langfuse.")
@@ -343,6 +430,7 @@ if __name__ == "__main__":
             args.model_role,
             args.limit,
             trace_langfuse=args.trace_langfuse,
+            request_interval_seconds=args.request_interval_seconds,
         )
     if args.langfuse:
         result["langfuse"] = upload_langfuse_experiment(result, args.dataset_name)

@@ -9,7 +9,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health, rag
+from app.api import health, nlq, rag
 from app.core.config import settings
 from app.core.llm import MODEL_REGISTRY, check_ollama_status_async
 from app.core.tracing import init_tracing, flush_langfuse
@@ -87,6 +87,7 @@ app.add_middleware(
 # Routers
 app.include_router(health.router, prefix="/api", tags=["Health"])
 app.include_router(rag.router, prefix="/api", tags=["RAG"])
+app.include_router(nlq.router, prefix="/api", tags=["NLQ"])
 
 
 @app.get("/", include_in_schema=False)

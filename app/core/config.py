@@ -34,6 +34,15 @@ class Settings(BaseSettings):
     rag_num_ctx: int = Field(default=8192, ge=512)
     # Require an explicit local DATABASE_URL instead of silently guessing credentials.
     database_url: str = ""
+    # NLQ uses an isolated read-only credential and never falls back to DATABASE_URL.
+    nlq_database_url: str = ""
+    nlq_model: str = "fast"
+    nlq_model_timeout_seconds: float = Field(default=60.0, gt=0)
+    nlq_model_max_retries: int = Field(default=0, ge=0, le=2)
+    nlq_max_rows: int = Field(default=200, ge=1, le=1000)
+    nlq_statement_timeout_ms: int = Field(default=5000, ge=100, le=60000)
+    nlq_max_repairs: int = Field(default=2, ge=0, le=2)
+    nlq_schema_dictionary_path: str = "data/demo_sales_warehouse/data_dictionary.md"
     database_connection_timeout_seconds: float = Field(default=3.0, gt=0)
     rag_document_dir: str = "data/demo_sales_warehouse"
     rag_exclude_files: list[str] = ["README.md", "data_dictionary.md", "nguon_dataset.md"]
