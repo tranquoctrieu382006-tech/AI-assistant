@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     local_model: str = "ollama/gemma3:12b"
     ollama_base_url: str = "http://localhost:11434"
     embedding_model: str = "bge-m3"
+    embedding_timeout_seconds: float = Field(default=30.0, gt=0)
     embedding_dimensions: int = Field(default=1024, ge=1)
     rag_num_ctx: int = Field(default=8192, ge=512)
     # Require an explicit local DATABASE_URL instead of silently guessing credentials.
@@ -52,6 +53,15 @@ class Settings(BaseSettings):
     # Chat, RAG, NLQ, and question rewriting default to Gemini; embeddings stay local in Ollama.
     rag_model: str = "fast"
     question_rewriter_model: str = "fast"
+    rag_model_timeout_seconds: float = Field(default=30.0, gt=0)
+    rag_local_model_timeout_seconds: float = Field(default=90.0, gt=0)
+    rag_model_max_retries: int = Field(default=1, ge=0, le=1)
+    question_rewriter_timeout_seconds: float = Field(default=10.0, gt=0)
+    rag_stream_first_token_timeout_seconds: float = Field(default=35.0, gt=0)
+    rag_stream_idle_timeout_seconds: float = Field(default=15.0, gt=0)
+    rag_retrieval_timeout_seconds: float = Field(default=60.0, gt=0)
+    bm25_revision_ttl_seconds: float = Field(default=5.0, ge=0, le=60)
+    app_workers: int = Field(default=1, ge=1, le=32)
     search_mode: Literal["vector", "hybrid"] = "vector"
     use_reranker: bool = False
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
@@ -63,7 +73,7 @@ class Settings(BaseSettings):
     # false positives. Do not treat it as a validated production threshold.
     rag_min_relevance_score: float = 0.5
     rag_embedding_batch_size: int = Field(default=64, ge=1)
-    llm_timeout_seconds: float = Field(default=300.0, gt=0)
+    llm_timeout_seconds: float = Field(default=90.0, gt=0)
 
     # ── API Keys ────────────────────────────────────────────────
     openai_api_key: str = ""

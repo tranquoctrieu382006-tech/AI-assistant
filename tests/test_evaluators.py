@@ -9,6 +9,7 @@ from scripts.evaluate_rag_retrieval import source_matches
 from scripts.evaluate_nlq_model import (
     _aggregate_nlq_run,
     _execution_results_match,
+    _relaxed_execution_results_match,
     _load_schema_ddl,
     _seed_schema_allowlist,
     _sql_features,
@@ -92,6 +93,30 @@ def test_model_sql_comparison_preserves_order_for_order_by_queries():
     assert _execution_results_match(actual, expected, ordered=False)
 
 
+def test_nlq_relaxed_score_allows_extra_columns_aliases_rounding_and_month_formats():
+    actual = [
+        {"warehouse_id": 1, "warehouse_name": "Kho A", "movement": "nhập", "units": 3188.004},
+        {"warehouse_id": 2, "warehouse_name": "Kho B", "movement": "xuất", "units": 3188},
+    ]
+    expected = [
+        {"warehouse": "Kho B", "movement_type": "xuất", "moved_units": 3188},
+        {"warehouse": "Kho A", "movement_type": "nhập", "moved_units": 3188},
+    ]
+    assert not _execution_results_match(actual, expected)
+    assert _relaxed_execution_results_match(actual, expected)
+    assert _relaxed_execution_results_match(
+        [{"month": "1", "order_count": 8}],
+        [{"month": "2026-01", "count": 8}],
+    )
+
+
+def test_nlq_relaxed_score_does_not_hide_missing_requested_metrics():
+    assert not _relaxed_execution_results_match(
+        [{"customer_id": 1}],
+        [{"customer_id": 1, "spend": 200}],
+    )
+
+
 def test_sql_features_ignore_semicolons_in_literals_and_comments():
     count, ordered = _sql_features(
         "SELECT 'value; still literal' AS note /* ; */ ORDER BY note; -- trailing comment"
@@ -116,6 +141,19 @@ def test_model_evaluator_uses_seed_create_table_ddl():
     assert "CREATE TABLE products" in schema
     assert "CREATE TABLE stock_movements" in schema
     assert "INSERT INTO products" not in schema
+
+
+def test_revenue_goldens_exclude_canceled_orders():
+    import json
+    from pathlib import Path
+
+    cases = json.loads(Path("data/nlq_golden_set.json").read_text(encoding="utf-8"))
+    revenue_cases = [case for case in cases if case["id"] in {"nlq-014", "nlq-028", "nlq-030"}]
+    assert len(revenue_cases) == 3
+    for case in revenue_cases:
+        sql = case["sql"].casefold()
+        assert "status" in sql and "đã hủy" in sql
+        assert "shipping_fee" not in sql
 
 
 def test_rag_golden_set_new_cases_have_no_replacement_question_marks():
@@ -148,6 +186,7 @@ def test_nlq_langfuse_aggregate_reports_accuracy_and_status_denominators():
 
     assert scores == {
         "execution_accuracy": 0.25,
+        "execution_accuracy_relaxed": 0.25,
         "pass_cases": 1,
         "fail_cases": 1,
         "rejected_cases": 1,

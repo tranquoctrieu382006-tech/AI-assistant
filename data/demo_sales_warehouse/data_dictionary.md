@@ -65,3 +65,5 @@ erDiagram
 ## Ghi chú nghiệp vụ
 
 Dữ liệu là snapshot minh họa, không dùng để suy ra tổng tồn lịch sử từ stock_movements. Hạng thành viên được chia đều theo seed, không tính từ doanh số. Ngày đơn trong giai đoạn 2025–2026; dữ liệu giao hàng có thể vượt thời hạn đổi trả để tạo truy vấn kiểm thử.
+
+**Định nghĩa doanh thu:** doanh thu hàng hóa bằng tổng `order_items.quantity * order_items.unit_price` của các đơn có trạng thái khác `đã hủy`. Không cộng `shipping_fee`. Đơn mới, đã xác nhận, đang giao và đã giao đều được tính theo quy ước dữ liệu demo.

@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import re
 import unicodedata
+import asyncio
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
@@ -32,7 +33,12 @@ def build_rewriter_chain(model_role: str | None = None):
         ("system", REWRITE_SYSTEM_PROMPT),
         ("human", "LỊCH SỬ HỘI THOẠI:\n{history}\n\nCÂU HỎI MỚI: {question}\n\nCÂU HỎI ĐỘC LẬP:"),
     ])
-    llm = get_rag_llm(model_role, temperature=0.0)
+    llm = get_rag_llm(
+        model_role,
+        temperature=0.0,
+        timeout=settings.question_rewriter_timeout_seconds,
+        max_retries=0,
+    )
     return prompt | llm | StrOutputParser()
 
 
@@ -70,10 +76,11 @@ async def rewrite_question_if_needed(
         handler = get_langfuse_handler()
         callbacks = [handler] if handler else []
         with langfuse_context(tags=["rag", "question-rewrite"]):
-            rewritten = await chain.ainvoke(
-                {"history": history_text, "question": question},
-                config={"callbacks": callbacks},
-            )
+            async with asyncio.timeout(settings.question_rewriter_timeout_seconds):
+                rewritten = await chain.ainvoke(
+                    {"history": history_text, "question": question},
+                    config={"callbacks": callbacks},
+                )
         clean = rewritten.strip().strip('"').strip("'")
         max_length = min(2000, max(200, len(question) * 4))
         if not clean or len(clean) > max_length:

@@ -61,7 +61,10 @@ def test_rag_llm_sets_explicit_context_for_ollama(monkeypatch):
     monkeypatch.setattr(settings, "rag_num_ctx", 8192)
     with patch("app.core.llm.get_llm", return_value=object()) as builder:
         get_rag_llm()
-    builder.assert_called_once_with("local", temperature=0.0, num_ctx=8192)
+    builder.assert_called_once_with(
+        "local", temperature=0.0, timeout=settings.rag_local_model_timeout_seconds,
+        max_retries=0, num_ctx=8192,
+    )
 
 
 def test_rag_llm_does_not_pass_ollama_context_to_cloud_model(monkeypatch):
@@ -69,7 +72,10 @@ def test_rag_llm_does_not_pass_ollama_context_to_cloud_model(monkeypatch):
     monkeypatch.setattr(settings, "rag_model", "strong")
     with patch("app.core.llm.get_llm", return_value=object()) as builder:
         get_rag_llm()
-    builder.assert_called_once_with("strong", temperature=0.0)
+    builder.assert_called_once_with(
+        "strong", temperature=0.0, timeout=settings.rag_model_timeout_seconds,
+        max_retries=0,
+    )
 
 
 class TestLLMCacheAndError:

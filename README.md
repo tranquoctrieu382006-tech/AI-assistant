@@ -46,6 +46,14 @@ Sửa biến trong `.env`, **không cần sửa code**:
 | Mô hình trả lời RAG | `RAG_MODEL` | `fast` (Gemini API) |
 | Số chiều embedding | `EMBEDDING_DIMENSIONS` | `1024` (đổi chiều cần tạo lại bảng và nạp lại corpus) |
 | Context window Ollama cho RAG | `RAG_NUM_CTX` | `8192` |
+| Timeout embedding Ollama | `EMBEDDING_TIMEOUT_SECONDS` | `30` giây |
+| Timeout truy xuất RAG | `RAG_RETRIEVAL_TIMEOUT_SECONDS` | `60` giây tổng |
+| Timeout Gemini RAG | `RAG_MODEL_TIMEOUT_SECONDS` | `30` giây mỗi lần gọi |
+| Timeout Ollama RAG | `RAG_LOCAL_MODEL_TIMEOUT_SECONDS` | `90` giây mỗi lần gọi |
+| Retry RAG | `RAG_MODEL_MAX_RETRIES` | `1` lần, chỉ lỗi 429/503 |
+| Timeout viết lại câu hỏi | `QUESTION_REWRITER_TIMEOUT_SECONDS` | `10` giây; hết giờ dùng câu gốc |
+| Cache revision BM25 | `BM25_REVISION_TTL_SECONDS` | `5` giây |
+| Số worker | `APP_WORKERS` | `1` (bắt buộc với session/rate limit RAM) |
 | Chế độ tìm kiếm | `SEARCH_MODE` | `vector` hoặc `hybrid` (BM25 + PGVector) |
 | Bật Reranker | `USE_RERANKER` | `false` (mặc định) hoặc `true` (`bge-reranker-v2-m3`) |
 | Mô hình reranker | `RERANKER_MODEL` | `BAAI/bge-reranker-v2-m3` |
@@ -54,7 +62,13 @@ Sửa biến trong `.env`, **không cần sửa code**:
 
 `rank-bm25` được cài trong bộ runtime mặc định cho chế độ hybrid. Reranker là tùy chọn nặng do phụ thuộc PyTorch; để bật `USE_RERANKER=true`, cài thêm `pip install -r requirements-reranker.txt`. Khi bật chế độ nhưng thiếu dependency, ứng dụng dừng ngay lúc startup và nêu lệnh cài đặt.
 
+**Demo chạy một worker:** session chat và rate limit hiện lưu trong RAM, vì vậy chạy đúng một worker (`APP_WORKERS=1`; không dùng `uvicorn --workers N` hoặc `gunicorn -w N`). Startup từ chối các giá trị `APP_WORKERS`, `WEB_CONCURRENCY` hoặc `UVICORN_WORKERS` khác 1. Các lệnh runner truyền worker count trực tiếp vẫn phải được cấu hình bằng 1. Nếu chạy nhiều replica, session có thể không được chia sẻ và rate limit bị nhân theo replica. `session_id` cũng do client cung cấp, chưa được gắn với danh tính người dùng; không dùng làm ranh giới bảo mật.
+
+Ở chế độ `hybrid`, BM25 kiểm tra revision corpus theo TTL (mặc định 5 giây). Ingest cùng tiến trình xóa cache ngay; ingest từ tiến trình khác có thể mất tối đa TTL để hiện lên. Có thể đặt `BM25_REVISION_TTL_SECONDS=0` để luôn kiểm tra DB, đổi lại mỗi truy vấn hybrid thêm một lần đọc revision.
+
 RAG, NLQ và question rewriter dùng Gemini API qua `GOOGLE_API_KEY` theo cấu hình mẫu. Gemini Free Tier vẫn có quota theo model và project; evaluator NLQ giới hạn nhịp gọi để tránh vượt mức RPM. Có thể chọn Ollama riêng bằng `LOCAL_MODEL` và role `local`.
+
+Mỗi lượt RAG giới hạn truy xuất 60 giây, embedding Ollama 30 giây, sinh câu trả lời Gemini 30 giây, và viết lại câu hỏi 10 giây không retry. Endpoint JSON có thể thử lại tối đa một lần chỉ với HTTP 429/503; endpoint stream tắt retry vì không thể phát lại an toàn sau khi đã gửi token. Ollama sinh RAG có timeout 90 giây. Stream dừng nếu không có token đầu trong 35 giây hoặc im lặng giữa các token quá 15 giây. Khi sinh câu trả lời hoặc truy xuất hết hạn, API JSON trả HTTP 504; nếu rewrite hết hạn, hệ thống tiếp tục bằng câu hỏi gốc. NLQ vẫn dùng timeout 60 giây và retry riêng theo `NLQ_MODEL_MAX_RETRIES`.
 
 Câu hỏi, schema được chọn và kết quả truy vấn NLQ được gửi tới Gemini; nếu cấu hình Langfuse Cloud, trace cũng được gửi lên Langfuse. Chỉ dùng dữ liệu phù hợp với phạm vi chia sẻ này.
 

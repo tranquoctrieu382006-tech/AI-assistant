@@ -1,9 +1,11 @@
 """Unit tests for multi-turn chat history and question rewriter (TASK-AI11)."""
+import asyncio
 import pytest
 from unittest.mock import AsyncMock, patch
 
 from app.core import session_store
 from app.core.question_rewriter import rewrite_question_if_needed, trim_history
+from app.core import question_rewriter
 
 
 def test_session_store_crud():
@@ -163,3 +165,20 @@ async def test_rewrite_adds_question_mark_instead_of_discarding_valid_rewrite():
         rewritten = await rewrite_question_if_needed("Thế còn hàng lỗi?", history)
     assert rewritten.endswith("?")
     assert "đối với hàng lỗi" in rewritten
+
+
+def test_rewrite_timeout_falls_back_to_original_question(monkeypatch):
+    history = [
+        {"role": "user", "content": "Chính sách đổi trả thế nào?"},
+        {"role": "assistant", "content": "Trong 7 ngày."},
+    ]
+    async def slow_rewrite(*args, **kwargs):
+        import asyncio
+        await asyncio.sleep(0.1)
+
+    monkeypatch.setattr(question_rewriter.settings, "question_rewriter_timeout_seconds", 0.01)
+    mock_chain = AsyncMock()
+    mock_chain.ainvoke.side_effect = slow_rewrite
+    with patch("app.core.question_rewriter.build_rewriter_chain", return_value=mock_chain):
+        rewritten = asyncio.run(rewrite_question_if_needed("Thế còn hàng lỗi?", history))
+    assert rewritten == "Thế còn hàng lỗi?"

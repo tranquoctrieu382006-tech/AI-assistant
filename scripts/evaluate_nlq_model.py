@@ -113,6 +113,54 @@ def _execution_results_match(
     return results_match(sorted(actual_rows, key=key), sorted(expected_rows, key=key))
 
 
+def _relaxed_execution_results_match(
+    actual: list[dict], expected: list[dict], *, ordered: bool = False,
+) -> bool:
+    """Allow extra projected columns, but require every golden value to be present.
+
+    Column aliases/order are ignored. Numeric values use a small tolerance and
+    month labels such as ``1``/``2026-01`` are normalized. Missing golden values
+    still fail, so omitting a requested metric is not scored as correct.
+    """
+    from datetime import date, datetime
+    from decimal import Decimal, InvalidOperation
+
+    def equivalent(left, right):
+        if left == right:
+            return True
+        left_text, right_text = str(left), str(right)
+        if re.fullmatch(r"\d{1,2}", left_text) and re.fullmatch(r"\d{4}-\d{2}", right_text):
+            return int(left_text) == int(right_text[-2:])
+        if re.fullmatch(r"\d{4}-\d{2}", left_text) and re.fullmatch(r"\d{1,2}", right_text):
+            return int(left_text[-2:]) == int(right_text)
+        try:
+            a, b = Decimal(left_text), Decimal(right_text)
+            return abs(a - b) <= max(Decimal("0.01"), abs(b) * Decimal("1e-9"))
+        except (InvalidOperation, ValueError):
+            return False
+
+    def row_matches(actual_row, expected_row):
+        remaining = list(actual_row.values())
+        for expected_value in expected_row.values():
+            match = next((i for i, value in enumerate(remaining) if equivalent(value, expected_value)), None)
+            if match is None:
+                return False
+            remaining.pop(match)
+        return True
+
+    if len(actual) != len(expected):
+        return False
+    if ordered:
+        return all(row_matches(a, e) for a, e in zip(actual, expected))
+    unmatched = list(actual)
+    for expected_row in expected:
+        match = next((i for i, row in enumerate(unmatched) if row_matches(row, expected_row)), None)
+        if match is None:
+            return False
+        unmatched.pop(match)
+    return True
+
+
 def _load_schema_ddl() -> str:
     """Use seed DDL while omitting columns the production guard forbids."""
     seed = (PROJECT_ROOT / "data/demo_sales_warehouse/schema_seed.sql").read_text(encoding="utf-8-sig")
@@ -172,7 +220,10 @@ def evaluate(
         prompt = (
             "Generate one PostgreSQL SELECT query for the user's question. "
             "Return only SQL, no explanation. Use only tables and columns in the schema. "
-            "Do not modify data.\n\nSCHEMA:\n" + schema +
+            "Do not modify data. Return every requested answer dimension and metric, without unrelated columns. "
+            "Round currency and average-price outputs to 2 decimal places. For top-N results, add a deterministic "
+            "secondary ORDER BY on the displayed name or ID to break ties. For revenue, exclude orders whose "
+            "status is 'đã hủy'; calculate SUM(quantity * unit_price), never shipping_fee.\n\nSCHEMA:\n" + schema +
             "\nQUESTION:\n" + case["question"]
         )
         try:
@@ -224,8 +275,11 @@ def evaluate(
             expected_value = case["expected"]
             expected = expected_value if isinstance(expected_value, list) else [expected_value]
             ok = _execution_results_match(actual, expected, ordered=ordered)
+            relaxed_ok = _relaxed_execution_results_match(actual, expected, ordered=ordered)
             result.update({
                 "status": "pass" if ok else "fail",
+                "strict_status": "pass" if ok else "fail",
+                "relaxed_status": "pass" if relaxed_ok else "fail",
                 "expected": expected,
                 "actual": actual,
             })
@@ -242,6 +296,8 @@ def evaluate(
         status: sum(result["status"] == status for result in results)
         for status in ("pass", "fail", "rejected", "error")
     }
+    strict_correct = sum(result.get("strict_status") == "pass" for result in results)
+    relaxed_correct = sum(result.get("relaxed_status") == "pass" for result in results)
     total = len(cases)
     generated = [result for result in results if "generation_latency_seconds" in result]
     token_totals = {
@@ -274,6 +330,10 @@ def evaluate(
         "cases": total,
         "execution_correct": counts["pass"],
         "execution_accuracy": counts["pass"] / total if total else 0,
+        "strict_execution_correct": strict_correct,
+        "strict_execution_accuracy": strict_correct / total if total else 0,
+        "relaxed_execution_correct": relaxed_correct,
+        "relaxed_execution_accuracy": relaxed_correct / total if total else 0,
         "executed_cases": counts["pass"] + counts["fail"],
         "executed_accuracy": (
             counts["pass"] / (counts["pass"] + counts["fail"])
@@ -361,16 +421,25 @@ def _ensure_nlq_dataset(client, dataset_name: str, result: dict) -> list:
 
 def _aggregate_nlq_run(*, item_results, **kwargs):
     counts = {status: 0 for status in ("pass", "fail", "rejected", "error")}
+    relaxed_passes = 0
     for item_result in item_results:
         status = item_result.output.get("status")
         if status in counts:
             counts[status] += 1
+        if item_result.output.get("relaxed_status", status) == "pass":
+            relaxed_passes += 1
     total = sum(counts.values())
     return [
         Evaluation(
             name="execution_accuracy",
             value=counts["pass"] / total if total else 0,
-            comment=f"{counts['pass']} matching results out of {total} NLQ cases.",
+            comment=f"Strict: {counts['pass']} matching results out of {total} NLQ cases.",
+            data_type="NUMERIC",
+        ),
+        Evaluation(
+            name="execution_accuracy_relaxed",
+            value=relaxed_passes / total if total else 0,
+            comment=f"Relaxed diagnostic: {relaxed_passes} matching results out of {total} NLQ cases.",
             data_type="NUMERIC",
         ),
         *[

@@ -236,11 +236,16 @@ def _make_graph(llm):
         prompt = (
             "Bạn là bộ sinh SQL PostgreSQL. Hãy tạo đúng một câu SELECT để trả lời câu hỏi. "
             "Chỉ dùng bảng/cột trong schema; không lấy thông tin cá nhân/nhạy cảm; không giải thích. "
-            "Luôn đặt LIMIT phù hợp. Với doanh thu đơn hàng, dùng SUM(order_items.quantity * "
-            "order_items.unit_price) và JOIN orders với order_items; không dùng shipping_fee làm doanh thu. "
+            "Chỉ trả các chiều dữ liệu và chỉ số được câu hỏi yêu cầu; không thêm cột không liên quan. "
+            "Làm tròn tiền tệ và giá trung bình đến 2 chữ số thập phân. Với truy vấn top-N, "
+            "thêm tiêu chí ORDER BY phụ ổn định theo tên hoặc mã hiển thị để xử lý đồng hạng. "
+            "Luôn đặt LIMIT phù hợp. Với doanh thu đơn hàng, loại đơn có status='đã hủy'; "
+            "dùng SUM(order_items.quantity * order_items.unit_price), JOIN orders với order_items "
+            "và thêm điều kiện orders.status <> 'đã hủy'; không dùng shipping_fee làm doanh thu. "
             "Ví dụ khi schema có orders/order_items: SELECT date_trunc('month', orders.order_date) AS month, "
             "SUM(order_items.quantity * order_items.unit_price) AS revenue FROM orders "
-            "JOIN order_items ON order_items.order_id = orders.order_id GROUP BY month ORDER BY month LIMIT 100.\n"
+            "JOIN order_items ON order_items.order_id = orders.order_id "
+            "WHERE orders.status <> 'đã hủy' GROUP BY month ORDER BY month LIMIT 100.\n"
             "SCHEMA:\n" + state["schema_text"] +
             "\nQUESTION:\n" + state["question"]
         )

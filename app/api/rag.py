@@ -2,13 +2,14 @@ import asyncio
 import json
 import logging
 
+import httpx
 import psycopg
 from fastapi import APIRouter, HTTPException, Security
 from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
-from app.core.llm import extract_message_text, get_rag_llm
+from app.core.llm import extract_message_text, get_model_provider, get_rag_llm
 from app.core.tracing import (
     get_langfuse_handler,
     langfuse_context,
@@ -30,6 +31,98 @@ from app.core.rag_prompt import (
 
 router = APIRouter(dependencies=[Security(require_api_key)])
 logger = logging.getLogger(__name__)
+
+
+def _rag_timeout_seconds() -> float:
+    if get_model_provider(settings.rag_model) == "ollama":
+        return settings.rag_local_model_timeout_seconds
+    return settings.rag_model_timeout_seconds
+
+
+def _is_timeout_error(exc: BaseException) -> bool:
+    seen = set()
+    current = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, (TimeoutError, httpx.TimeoutException)) or "timeout" in type(current).__name__.casefold():
+            return True
+        current = current.__cause__ or current.__context__
+    return False
+
+
+def _is_retryable_provider_error(exc: Exception) -> bool:
+    current = exc
+    seen = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        status = getattr(current, "status_code", None)
+        if status is None:
+            status = getattr(getattr(current, "response", None), "status_code", None)
+        if status is None:
+            status = getattr(current, "code", None)
+            if callable(status):
+                try:
+                    status = status()
+                except Exception:
+                    status = None
+            status = getattr(status, "value", status)
+        if status in (429, 503):
+            return True
+        current = current.__cause__ or current.__context__
+    return False
+
+
+def _provider_error_code(exc: BaseException) -> int | None:
+    current = exc
+    seen = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        code = getattr(current, "status_code", None)
+        if code is None:
+            code = getattr(getattr(current, "response", None), "status_code", None)
+        if code is None:
+            code = getattr(current, "code", None)
+            if callable(code):
+                try:
+                    code = code()
+                except Exception:
+                    code = None
+            code = getattr(code, "value", code)
+        try:
+            if code is not None:
+                return int(code)
+        except (TypeError, ValueError):
+            pass
+        current = current.__cause__ or current.__context__
+    return None
+
+
+async def _invoke_rag_with_retry(chain, inputs: dict, config: dict):
+    """Bound each attempt; retry one transient quota/service error only."""
+    attempts = settings.rag_model_max_retries + 1
+    for attempt in range(attempts):
+        try:
+            async with asyncio.timeout(_rag_timeout_seconds()):
+                return await chain.ainvoke(inputs, config=config)
+        except Exception as exc:
+            if attempt + 1 >= attempts or not _is_retryable_provider_error(exc):
+                raise
+            logger.warning("Retrying transient RAG provider error (%s)", type(exc).__name__)
+            await asyncio.sleep(0.5)
+    raise RuntimeError("RAG model call did not return")
+
+
+async def _retrieve_with_timeout(question: str, request: RagAskRequest):
+    async with asyncio.timeout(settings.rag_retrieval_timeout_seconds):
+        return await run_in_threadpool(
+            retrieve_and_gate,
+            question,
+            request.top_k,
+            settings.search_mode,
+            settings.use_reranker,
+            request.top_k,
+            max(request.top_k, settings.reranker_pool_size),
+        )
 
 
 @router.post("/rag/ask", response_model=RagAskResponse, summary="Hỏi đáp dựa trên tài liệu đã nạp")
@@ -65,15 +158,7 @@ async def ask_rag_stream(request: RagAskRequest):
 
     try:
         with langfuse_observation(name="rag-stream-retrieval") as observation:
-            matches, is_refused = await run_in_threadpool(
-                retrieve_and_gate,
-                standalone_question,
-                request.top_k,
-                settings.search_mode,
-                settings.use_reranker,
-                request.top_k,
-                max(request.top_k, settings.reranker_pool_size),
-            )
+            matches, is_refused = await _retrieve_with_timeout(standalone_question, request)
             context = format_context(matches)
             update_langfuse_observation(
                 observation,
@@ -81,6 +166,8 @@ async def ask_rag_stream(request: RagAskRequest):
             )
     except Exception as exc:
         logger.exception("RAG retrieval failed in stream endpoint")
+        if _is_timeout_error(exc):
+            raise HTTPException(status_code=504, detail="RAG retrieval timed out") from exc
         if isinstance(exc, vector_store.VectorStoreNotReady):
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         raise HTTPException(status_code=503, detail="RAG retrieval unavailable") from exc
@@ -112,10 +199,23 @@ async def ask_rag_stream(request: RagAskRequest):
             handler = get_langfuse_handler()
             callbacks = [handler] if handler else []
             with langfuse_context(session_id=request.session_id, tags=["rag", "streaming"]):
-                async for chunk in chain.astream(
+                stream = chain.astream(
                     {"question": standalone_question, "context": context},
                     config={"callbacks": callbacks},
-                ):
+                )
+                iterator = aiter(stream)
+                first_token = True
+                while True:
+                    try:
+                        wait_seconds = (
+                            settings.rag_stream_first_token_timeout_seconds
+                            if first_token else settings.rag_stream_idle_timeout_seconds
+                        )
+                        async with asyncio.timeout(wait_seconds):
+                            chunk = await anext(iterator)
+                    except StopAsyncIteration:
+                        break
+                    first_token = False
                     token = extract_message_text(chunk, strip=False)
                     if not token:
                         continue
@@ -139,7 +239,8 @@ async def ask_rag_stream(request: RagAskRequest):
                         yield f"data: {json.dumps({'type': 'token', 'token': token}, ensure_ascii=False)}\n\n"
         except Exception as exc:
             logger.exception("Error during answer streaming")
-            yield f"data: {json.dumps({'type': 'error', 'detail': 'Answer generation failed'}, ensure_ascii=False)}\n\n"
+            detail = "Answer generation timed out" if _is_timeout_error(exc) else "Answer generation failed"
+            yield f"data: {json.dumps({'type': 'error', 'detail': detail}, ensure_ascii=False)}\n\n"
             yield "data: [DONE]\n\n"
             return
         except (asyncio.CancelledError, GeneratorExit):
@@ -193,15 +294,7 @@ async def _answer_rag(request: RagAskRequest) -> RagAskResponse:
                 "top_k": request.top_k,
             },
         ) as observation:
-            matches, is_refused = await run_in_threadpool(
-                retrieve_and_gate,
-                standalone_question,
-                request.top_k,
-                settings.search_mode,
-                settings.use_reranker,
-                request.top_k,
-                max(request.top_k, settings.reranker_pool_size),
-            )
+            matches, is_refused = await _retrieve_with_timeout(standalone_question, request)
             context = format_context(matches)
             update_langfuse_observation(
                 observation,
@@ -221,6 +314,8 @@ async def _answer_rag(request: RagAskRequest) -> RagAskResponse:
             )
     except Exception as exc:
         logger.exception("RAG retrieval failed")
+        if _is_timeout_error(exc):
+            raise HTTPException(status_code=504, detail="RAG retrieval timed out") from exc
         if isinstance(exc, vector_store.VectorStoreNotReady):
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         if isinstance(exc, psycopg.OperationalError):
@@ -240,13 +335,24 @@ async def _answer_rag(request: RagAskRequest) -> RagAskResponse:
                 build_rag_chain,
                 get_rag_llm(temperature=0),
             )
-            generated = await chain.ainvoke(
+            generated = await _invoke_rag_with_retry(
+                chain,
                 {"question": standalone_question, "context": context},
-                config={"callbacks": callbacks}
+                {"callbacks": callbacks},
             )
     except Exception as exc:
-        logger.exception("RAG answer generation failed")
-        raise HTTPException(status_code=502, detail="RAG answer generation failed") from exc
+        provider_code = _provider_error_code(exc)
+        logger.exception("RAG answer generation failed (type=%s, code=%s)", type(exc).__name__, provider_code)
+        if _is_timeout_error(exc):
+            raise HTTPException(status_code=504, detail="RAG answer generation timed out") from exc
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"RAG answer generation failed ({type(exc).__name__}, provider code {provider_code})"
+                if provider_code is not None
+                else f"RAG answer generation failed ({type(exc).__name__})"
+            ),
+        ) from exc
 
     answer = generated.answer.strip()
     if generated.abstain or not answer or answer == NO_ANSWER:

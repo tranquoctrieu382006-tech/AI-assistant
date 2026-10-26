@@ -244,39 +244,39 @@
   {
     "id": "nlq-014",
     "question": "Doanh thu hàng hóa theo danh mục là bao nhiêu?",
-    "sql": "SELECT c.name AS category, ROUND(SUM(oi.quantity * oi.unit_price), 2) AS revenue FROM categories c JOIN products p USING (category_id) JOIN order_items oi USING (product_id) GROUP BY c.name ORDER BY c.name;",
+    "sql": "SELECT c.name AS category, ROUND(SUM(oi.quantity * oi.unit_price), 2) AS revenue FROM categories c JOIN products p USING (category_id) JOIN order_items oi USING (product_id) JOIN orders o USING (order_id) WHERE o.status <> 'đã hủy' GROUP BY c.name ORDER BY c.name;",
     "expected": [
       {
         "category": "Chăm sóc cá nhân",
-        "revenue": 185668810.0
+        "revenue": 137522782.0
       },
       {
         "category": "Điện tử",
-        "revenue": 197082052.0
+        "revenue": 167926536.0
       },
       {
         "category": "Đồ dùng du lịch",
-        "revenue": 264155648.0
+        "revenue": 197535752.0
       },
       {
         "category": "Gia dụng",
-        "revenue": 236277416.0
+        "revenue": 191406110.0
       },
       {
         "category": "Nhà bếp",
-        "revenue": 220947347.0
+        "revenue": 186123669.0
       },
       {
         "category": "Phụ kiện",
-        "revenue": 234848980.0
+        "revenue": 192674516.0
       },
       {
         "category": "Thể thao",
-        "revenue": 195143471.0
+        "revenue": 149265910.0
       },
       {
         "category": "Văn phòng phẩm",
-        "revenue": 186517536.0
+        "revenue": 146873629.0
       }
     ]
   },
@@ -444,7 +444,7 @@
   },
   {
     "id": "nlq-021",
-    "question": "Năm thành phố có nhiều khách hàng nhất là những thành phố nào?",
+    "question": "Năm thành phố có nhiều khách hàng nhất là những thành phố nào? Nếu đồng hạng, sắp xếp tên thành phố tăng dần.",
     "sql": "SELECT city, COUNT(*) AS customer_count FROM customers WHERE city IS NOT NULL GROUP BY city ORDER BY customer_count DESC, city LIMIT 5;",
     "expected": [
       {
@@ -536,7 +536,7 @@
   },
   {
     "id": "nlq-027",
-    "question": "Năm nhà cung cấp có nhiều sản phẩm nhất là những ai (theo mã)?",
+    "question": "Năm nhà cung cấp có nhiều sản phẩm nhất là những ai (theo mã)? Nếu đồng hạng, sắp xếp mã nhà cung cấp tăng dần.",
     "sql": "SELECT s.supplier_id, COUNT(p.product_id) AS product_count FROM suppliers s LEFT JOIN products p USING (supplier_id) GROUP BY s.supplier_id ORDER BY product_count DESC, s.supplier_id LIMIT 5;",
     "expected": [
       {
@@ -564,11 +564,13 @@
   {
     "id": "nlq-028",
     "question": "Danh mục nào có doanh thu hàng hóa cao nhất?",
-    "sql": "SELECT c.name AS category, ROUND(SUM(oi.quantity * oi.unit_price), 2) AS revenue FROM categories c JOIN products p USING (category_id) JOIN order_items oi USING (product_id) GROUP BY c.name ORDER BY revenue DESC, c.name LIMIT 1;",
-    "expected": {
-      "category": "Đồ dùng du lịch",
-      "revenue": 264155648.0
-    }
+    "sql": "SELECT c.name AS category, ROUND(SUM(oi.quantity * oi.unit_price), 2) AS revenue FROM categories c JOIN products p USING (category_id) JOIN order_items oi USING (product_id) JOIN orders o USING (order_id) WHERE o.status <> 'đã hủy' GROUP BY c.name ORDER BY revenue DESC, c.name LIMIT 1;",
+    "expected": [
+      {
+        "category": "Đồ dùng du lịch",
+        "revenue": 197535752.0
+      }
+    ]
   },
   {
     "id": "nlq-029",
@@ -620,15 +622,15 @@
   {
     "id": "nlq-030",
     "question": "Tổng doanh thu hàng hóa theo năm đặt hàng là bao nhiêu?",
-    "sql": "SELECT EXTRACT(YEAR FROM o.order_date)::int AS year, ROUND(SUM(oi.quantity * oi.unit_price), 2) AS revenue FROM orders o JOIN order_items oi USING (order_id) GROUP BY EXTRACT(YEAR FROM o.order_date) ORDER BY year;",
+    "sql": "SELECT EXTRACT(YEAR FROM o.order_date)::int AS year, ROUND(SUM(oi.quantity * oi.unit_price), 2) AS revenue FROM orders o JOIN order_items oi USING (order_id) WHERE o.status <> 'đã hủy' GROUP BY EXTRACT(YEAR FROM o.order_date) ORDER BY year;",
     "expected": [
       {
         "year": 2025,
-        "revenue": 1281097291.0
+        "revenue": 1024512292.0
       },
       {
         "year": 2026,
-        "revenue": 439543969.0
+        "revenue": 344816612.0
       }
     ]
   }

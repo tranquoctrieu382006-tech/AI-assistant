@@ -5,6 +5,7 @@ FastAPI application entrypoint.
 from contextlib import asynccontextmanager
 from importlib.util import find_spec
 import logging
+import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,9 +42,32 @@ def validate_optional_dependencies() -> None:
         )
 
 
+def validate_single_worker_configuration() -> None:
+    """Fail fast when known worker settings conflict with in-memory state."""
+    configured = {"APP_WORKERS": str(settings.app_workers)}
+    for name in ("WEB_CONCURRENCY", "UVICORN_WORKERS"):
+        value = os.getenv(name)
+        if value:
+            configured[name] = value
+    invalid = []
+    for name, value in configured.items():
+        try:
+            workers = int(value)
+        except ValueError as exc:
+            raise RuntimeError(f"{name} must be an integer; got {value!r}.") from exc
+        if workers != 1:
+            invalid.append(f"{name}={workers}")
+    if invalid:
+        raise RuntimeError(
+            "This demo stores sessions and rate limits in process memory and requires one worker. "
+            "Set " + ", ".join(invalid) + " to 1; do not pass --workers > 1 or gunicorn -w > 1."
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle startup / shutdown hook."""
+    validate_single_worker_configuration()
     validate_optional_dependencies()
     logger.info("Starting %s v%s...", settings.app_name, settings.app_version)
 

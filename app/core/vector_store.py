@@ -72,7 +72,11 @@ def _connect():
 
 @lru_cache(maxsize=1)
 def get_embeddings() -> OllamaEmbeddings:
-    return OllamaEmbeddings(model=settings.embedding_model, base_url=settings.ollama_base_url)
+    return OllamaEmbeddings(
+        model=settings.embedding_model,
+        base_url=settings.ollama_base_url,
+        client_kwargs={"timeout": settings.embedding_timeout_seconds},
+    )
 
 
 def embed_query(query: str) -> list[float]:

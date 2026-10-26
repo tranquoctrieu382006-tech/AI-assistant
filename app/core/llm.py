@@ -219,13 +219,35 @@ def get_llm(
     return llm
 
 
-def get_rag_llm(model_role: str | None = None, temperature: float = 0.0) -> BaseChatModel:
-    """Build the configured RAG model with an explicit Ollama context window."""
+def get_rag_llm(
+    model_role: str | None = None,
+    temperature: float = 0.0,
+    *,
+    timeout: float | None = None,
+    max_retries: int | None = None,
+) -> BaseChatModel:
+    """Build the configured RAG model with bounded provider-specific retries."""
     model_role = model_role or settings.rag_model
     raw_model_name = _resolve_model_name(model_role)
     provider, _ = _parse_provider_and_model(raw_model_name)
     kwargs = {"num_ctx": settings.rag_num_ctx} if provider == "ollama" else {}
-    return get_llm(model_role, temperature=temperature, **kwargs)
+    if timeout is None:
+        timeout = (
+            settings.rag_local_model_timeout_seconds
+            if provider == "ollama"
+            else settings.rag_model_timeout_seconds
+        )
+    if max_retries is None:
+        # Disable hidden SDK retries; the non-stream RAG route owns the single
+        # explicit 429/503 retry and the stream has no safe replay point.
+        max_retries = 0
+    return get_llm(
+        model_role,
+        temperature=temperature,
+        timeout=timeout,
+        max_retries=max_retries,
+        **kwargs,
+    )
 
 
 def clear_llm_cache():

@@ -14,6 +14,7 @@ from app.api import rag
 from app.schemas.rag import RagAskRequest
 from fastapi import HTTPException
 from app.main import app
+from app.main import validate_single_worker_configuration
 
 
 class FakeModel(RunnableLambda):
@@ -31,6 +32,60 @@ class FakeModel(RunnableLambda):
             }, ensure_ascii=False))
 
         super().__init__(invoke)
+
+
+def test_rag_model_timeout_is_bounded(monkeypatch):
+    monkeypatch.setattr(rag.settings, "rag_model_timeout_seconds", 0.01)
+    monkeypatch.setattr(rag.settings, "rag_model_max_retries", 1)
+
+    class SlowChain:
+        async def ainvoke(self, inputs, config):
+            await asyncio.sleep(0.1)
+
+    with pytest.raises(TimeoutError):
+        run_inline(rag._invoke_rag_with_retry(SlowChain(), {}, {}))
+
+
+def test_rag_retries_only_transient_provider_errors(monkeypatch):
+    monkeypatch.setattr(rag.settings, "rag_model_timeout_seconds", 1)
+    monkeypatch.setattr(rag.settings, "rag_model_max_retries", 1)
+
+    class ServiceUnavailable(Exception):
+        status_code = 503
+
+    class RetryOnce:
+        calls = 0
+
+        async def ainvoke(self, inputs, config):
+            self.calls += 1
+            if self.calls == 1:
+                raise ServiceUnavailable()
+            return "answer"
+
+    chain = RetryOnce()
+    assert run_inline(rag._invoke_rag_with_retry(chain, {}, {})) == "answer"
+    assert chain.calls == 2
+
+
+def test_demo_rejects_multiple_worker_configuration(monkeypatch):
+    monkeypatch.setattr("app.main.settings.app_workers", 1)
+    monkeypatch.setenv("WEB_CONCURRENCY", "2")
+    with pytest.raises(RuntimeError, match="requires one worker"):
+        validate_single_worker_configuration()
+
+
+def test_demo_accepts_single_worker_configuration(monkeypatch):
+    monkeypatch.setattr("app.main.settings.app_workers", 1)
+    monkeypatch.delenv("WEB_CONCURRENCY", raising=False)
+    monkeypatch.delenv("UVICORN_WORKERS", raising=False)
+    validate_single_worker_configuration()
+
+
+def test_rag_retries_google_api_service_unavailable_but_not_timeouts():
+    from google.api_core.exceptions import ServiceUnavailable
+
+    assert rag._is_retryable_provider_error(ServiceUnavailable("temporary"))
+    assert not rag._is_retryable_provider_error(TimeoutError())
 
 
 def run_inline(coroutine):
@@ -157,7 +212,7 @@ def test_rag_rejects_invalid_structured_generation():
                 run_inline(rag.ask_rag(RagAskRequest(question="Question?")))
             except HTTPException as exc:
                 assert exc.status_code == 502
-                assert exc.detail == "RAG answer generation failed"
+                assert exc.detail.startswith("RAG answer generation failed (")
             else:
                 raise AssertionError("Expected invalid structured output to fail")
 
@@ -301,7 +356,7 @@ def test_rag_reports_generation_failure_separately():
                 run_inline(rag.ask_rag(RagAskRequest(question="Chính sách nghỉ phép?")))
         except HTTPException as exc:
             assert exc.status_code == 502
-            assert exc.detail == "RAG answer generation failed"
+            assert exc.detail == "RAG answer generation failed (RuntimeError)"
         else:
             raise AssertionError("Expected generation failure")
 
