@@ -382,6 +382,8 @@ def ingest_directory(
     root = Path(directory or settings.rag_document_dir)
     records, sources = build_corpus_chunks(root, strategy=strategy)
     stored = replace_corpus_chunks(records)
+    from app.core.retriever import clear_bm25_cache
+    clear_bm25_cache()
     return {
         "files": len(sources),
         "chunks": stored,

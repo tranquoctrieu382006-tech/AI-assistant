@@ -6,7 +6,7 @@ Sử dụng init_chat_model (LangChain native) để tự nhận provider từ p
 
 Cải tiến:
 - Cache instance theo (model_name, temperature, timeout, max_retries, kwargs)
-- Xử lý timeout chuẩn xác cho từng provider (Ollama dùng client_kwargs, OpenAI dùng timeout trực tiếp)
+- Xử lý timeout theo provider (Ollama dùng client_kwargs, cloud dùng timeout trực tiếp)
 - verify_model bắt mọi Exception để tránh HTTP 500
 - Async check cho Ollama status
 """
@@ -96,11 +96,11 @@ def _make_hashable(val: Any) -> Any:
     return val
 
 
-def extract_message_text(message: Any) -> str:
+def extract_message_text(message: Any, *, strip: bool = True) -> str:
     """Extract visible text from LangChain message content without metadata."""
     content = getattr(message, "content", message)
     if isinstance(content, str):
-        return content.strip()
+        return content.strip() if strip else content
     if isinstance(content, list):
         parts: list[str] = []
         for block in content:
@@ -113,8 +113,10 @@ def extract_message_text(message: Any) -> str:
                 text = getattr(block, "text", None)
                 if text:
                     parts.append(str(text))
-        return "\n".join(parts).strip()
-    return str(content).strip()
+        text = "\n".join(parts)
+        return text.strip() if strip else text
+    text = str(content)
+    return text.strip() if strip else text
 
 
 def get_llm(
@@ -131,8 +133,8 @@ def get_llm(
     Args:
         model_role: "strong" | "fast" | "local" | "default" | model string trực tiếp
         temperature: 0.0 – 1.0
-        timeout: Thời gian timeout (giây). Mặc định 120s cho Ollama
-        max_retries: Số lần thử lại khi gặp lỗi mạng/rate limit (OpenAI/Cloud)
+        timeout: Thời gian timeout (giây). Mặc định lấy từ LLM_TIMEOUT_SECONDS.
+        max_retries: Số lần thử lại khi gặp lỗi mạng/rate limit của provider cloud.
         use_cache: Bật/tắt tái sử dụng instance đã tạo
         **kwargs: Các tham số bổ sung truyền cho LLM (vd: num_predict, stop, ...)
 

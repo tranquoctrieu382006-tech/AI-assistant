@@ -2,10 +2,13 @@
 Application settings – đọc từ .env, đổi model chỉ bằng biến môi trường.
 """
 
+from pathlib import Path
 from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+from pydantic import Field, field_validator
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
@@ -24,9 +27,9 @@ class Settings(BaseSettings):
     ]
 
     # ── LLM Models ──────────────────────────────────────────────
-    default_model: str = "ollama/gemma3:12b"
-    strong_model: str = "openai/gpt-4o"
-    fast_model: str = "openai/gpt-4o-mini"
+    default_model: str = "google_genai/gemini-3.5-flash-lite"
+    strong_model: str = "google_genai/gemini-3.6-flash"
+    fast_model: str = "google_genai/gemini-3.5-flash-lite"
     local_model: str = "ollama/gemma3:12b"
     ollama_base_url: str = "http://localhost:11434"
     embedding_model: str = "bge-m3"
@@ -38,7 +41,7 @@ class Settings(BaseSettings):
     nlq_database_url: str = ""
     nlq_model: str = "fast"
     nlq_model_timeout_seconds: float = Field(default=60.0, gt=0)
-    nlq_model_max_retries: int = Field(default=0, ge=0, le=2)
+    nlq_model_max_retries: int = Field(default=1, ge=0, le=2)
     nlq_max_rows: int = Field(default=200, ge=1, le=1000)
     nlq_statement_timeout_ms: int = Field(default=5000, ge=100, le=60000)
     nlq_max_repairs: int = Field(default=2, ge=0, le=2)
@@ -46,10 +49,9 @@ class Settings(BaseSettings):
     database_connection_timeout_seconds: float = Field(default=3.0, gt=0)
     rag_document_dir: str = "data/demo_sales_warehouse"
     rag_exclude_files: list[str] = ["README.md", "data_dictionary.md", "nguon_dataset.md"]
-    # RAG defaults to a local model; cloud use must be an explicit choice.
-    rag_model: str = "local"
-    # Rewriting receives recent conversation text; keep local unless cloud use is configured explicitly.
-    question_rewriter_model: str = "local"
+    # Chat, RAG, NLQ, and question rewriting default to Gemini; embeddings stay local in Ollama.
+    rag_model: str = "fast"
+    question_rewriter_model: str = "fast"
     search_mode: Literal["vector", "hybrid"] = "vector"
     use_reranker: bool = False
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
@@ -80,8 +82,14 @@ class Settings(BaseSettings):
     api_rate_limit_per_minute: int = Field(default=60, ge=1)
     trusted_proxy_ips: list[str] = []
 
+    @field_validator("rag_document_dir", "nlq_schema_dictionary_path", mode="before")
+    @classmethod
+    def resolve_project_paths(cls, value):
+        path = Path(value)
+        return str(path if path.is_absolute() else PROJECT_ROOT / path)
+
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )

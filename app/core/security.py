@@ -4,11 +4,10 @@ import ipaddress
 from secrets import compare_digest
 from threading import Lock
 from time import monotonic
+from typing import Any, Awaitable, Callable
 
 from fastapi import HTTPException, Security
 from fastapi.security import APIKeyHeader
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from app.core.config import settings
@@ -33,24 +32,32 @@ def require_api_key(api_key: str | None = Security(_api_key_header)) -> None:
         )
 
 
-class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Apply a process-local sliding-window limit to API requests by client IP."""
+class RateLimitMiddleware:
+    """Pure ASGI process-local sliding-window limit, safe for streaming responses."""
 
     _MAX_TRACKED_CLIENTS = 10_000
 
     def __init__(self, app):
-        super().__init__(app)
+        self.app = app
         self._requests: OrderedDict[str, list[float]] = OrderedDict()
         self._lock = Lock()
 
-    async def dispatch(self, request: Request, call_next):
-        path = request.url.path
-        if not path.startswith("/api/") or path == "/api/health/live" or request.method == "OPTIONS":
-            return await call_next(request)
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-        client_ip = request.client.host if request.client else "unknown"
+        path = scope.get("path", "")
+        method = scope.get("method", "GET")
+        if not path.startswith("/api/") or path == "/api/health/live" or method == "OPTIONS":
+            await self.app(scope, receive, send)
+            return
+
+        client = scope.get("client")
+        client_ip = client[0] if client else "unknown"
+        request_headers = {key.lower(): value for key, value in scope.get("headers", [])}
         if client_ip in settings.trusted_proxy_ips:
-            forwarded = request.headers.get("x-forwarded-for", "")
+            forwarded = request_headers.get(b"x-forwarded-for", b"").decode("latin-1")
             # Only honor the proxy header when the immediate peer is trusted.
             # Trusted proxies must overwrite this header or append the actual
             # client address as its final value.
@@ -62,6 +69,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         now = monotonic()
         window_start = now - 60
         limit = settings.api_rate_limit_per_minute
+        limited_response = None
         with self._lock:
             recent = [
                 timestamp
@@ -71,7 +79,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             if len(recent) >= limit:
                 self._requests[client_ip] = recent
                 retry_after = max(1, int(60 - (now - recent[0])))
-                return JSONResponse(
+                limited_response = JSONResponse(
                     status_code=429,
                     content={"detail": "Rate limit exceeded; try again later."},
                     headers={
@@ -80,13 +88,29 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                         "X-RateLimit-Remaining": "0",
                     },
                 )
-            recent.append(now)
-            self._requests[client_ip] = recent
-            if len(self._requests) > self._MAX_TRACKED_CLIENTS:
-                self._requests.popitem(last=False)
-            remaining = limit - len(recent)
+            else:
+                recent.append(now)
+                self._requests[client_ip] = recent
+                if len(self._requests) > self._MAX_TRACKED_CLIENTS:
+                    self._requests.popitem(last=False)
+                remaining = limit - len(recent)
 
-        response = await call_next(request)
-        response.headers["X-RateLimit-Limit"] = str(limit)
-        response.headers["X-RateLimit-Remaining"] = str(remaining)
-        return response
+        if limited_response is not None:
+            await limited_response(scope, receive, send)
+            return
+
+        async def send_with_rate_headers(message: dict[str, Any]) -> None:
+            if message["type"] == "http.response.start":
+                headers = [
+                    (key, value)
+                    for key, value in message.get("headers", [])
+                    if key.lower() not in {b"x-ratelimit-limit", b"x-ratelimit-remaining"}
+                ]
+                headers.extend([
+                    (b"x-ratelimit-limit", str(limit).encode("ascii")),
+                    (b"x-ratelimit-remaining", str(remaining).encode("ascii")),
+                ])
+                message = {**message, "headers": headers}
+            await send(message)
+
+        await self.app(scope, receive, send_with_rate_headers)

@@ -15,6 +15,7 @@ from app.core.llm import MODEL_REGISTRY, check_ollama_status_async
 from app.core.tracing import init_tracing, flush_langfuse
 from app.core.vector_store import close_pool
 from app.core.security import RateLimitMiddleware
+from app.core.nlq_schema import close_nlq_pool
 
 logging.basicConfig(
     level=logging.INFO,
@@ -63,6 +64,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down %s... Flushing remaining traces.", settings.app_name)
     flush_langfuse()
     close_pool()
+    close_nlq_pool()
 
 
 app = FastAPI(

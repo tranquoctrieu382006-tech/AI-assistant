@@ -139,6 +139,19 @@ async def test_rewrite_skips_long_self_contained_question_even_with_history():
 
 
 @pytest.mark.asyncio
+async def test_rewrite_skips_medium_self_contained_question_without_followup_cue():
+    history = [
+        {"role": "user", "content": "Tồn kho của sản phẩm A còn bao nhiêu?"},
+        {"role": "assistant", "content": "Còn 12 sản phẩm."},
+    ]
+    question = "Doanh thu năm 2025 là bao nhiêu?"
+    with patch("app.core.question_rewriter.build_rewriter_chain") as build_chain:
+        rewritten = await rewrite_question_if_needed(question, history)
+    assert rewritten == question
+    build_chain.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_rewrite_adds_question_mark_instead_of_discarding_valid_rewrite():
     history = [
         {"role": "user", "content": "Chính sách đổi trả thế nào?"},

@@ -60,7 +60,7 @@ def test_rag_abstains_when_top_match_is_below_configured_threshold():
     }]
     with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
           patch.object(rag, "run_in_threadpool", inline_threadpool),
-          patch.object(rag, "get_llm", side_effect=AssertionError("LLM must not run without evidence"))):
+          patch.object(rag, "get_rag_llm", side_effect=AssertionError("LLM must not run without evidence"))):
         with patch.object(rag.vector_store, "similarity_search", fake_store.similarity_search):
             response = run_inline(rag.ask_rag(RagAskRequest(question="Thông tin ngoài tài liệu?")))
     assert response.answer == rag.NO_ANSWER
@@ -73,7 +73,7 @@ def test_rag_returns_answer_and_retrieved_source():
         "content": "12 ngày nghỉ phép mỗi năm", "source": "policy.md", "chunk_index": 0, "score": 0.8
     }]
     with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
-          patch.object(rag, "get_llm", return_value=FakeModel()),
+          patch.object(rag, "get_rag_llm", return_value=FakeModel()),
           patch.object(rag, "run_in_threadpool", inline_threadpool),
           patch.object(rag, "get_langfuse_handler", return_value=None)):
         with patch.object(rag.vector_store, "similarity_search", fake_store.similarity_search):
@@ -91,7 +91,7 @@ def test_rag_filters_each_low_score_chunk_and_uses_separate_messages():
     ]
     model = FakeModel()
     with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
-          patch.object(rag, "get_llm", return_value=model),
+          patch.object(rag, "get_rag_llm", return_value=model),
           patch.object(rag, "run_in_threadpool", inline_threadpool),
           patch.object(rag, "get_langfuse_handler", return_value=None)):
         with patch.object(rag.vector_store, "similarity_search", fake_store.similarity_search):
@@ -108,7 +108,7 @@ def test_rag_clears_sources_when_model_abstains():
     }]
     model = FakeModel(rag.NO_ANSWER)
     with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
-          patch.object(rag, "get_llm", return_value=model),
+          patch.object(rag, "get_rag_llm", return_value=model),
           patch.object(rag, "run_in_threadpool", inline_threadpool),
           patch.object(rag, "get_langfuse_handler", return_value=None)):
         with patch.object(rag.vector_store, "similarity_search", fake_store.similarity_search):
@@ -124,7 +124,7 @@ def test_rag_returns_pydantic_parsed_answer_and_honors_abstain_flag():
     }]
     model = FakeModel("The generated field is valid.")
     with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
-          patch.object(rag, "get_llm", return_value=model),
+          patch.object(rag, "get_rag_llm", return_value=model),
           patch.object(rag, "run_in_threadpool", inline_threadpool),
           patch.object(rag, "get_langfuse_handler", return_value=None)):
         with patch.object(rag.vector_store, "similarity_search", fake_store.similarity_search):
@@ -149,7 +149,7 @@ def test_rag_rejects_invalid_structured_generation():
             super().__init__(invoke)
 
     with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
-          patch.object(rag, "get_llm", return_value=InvalidModel()),
+          patch.object(rag, "get_rag_llm", return_value=InvalidModel()),
           patch.object(rag, "run_in_threadpool", inline_threadpool),
           patch.object(rag, "get_langfuse_handler", return_value=None)):
         with patch.object(rag.vector_store, "similarity_search", fake_store.similarity_search):
@@ -294,7 +294,7 @@ def test_rag_reports_generation_failure_separately():
     }]
     with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
           patch.object(rag, "run_in_threadpool", inline_threadpool),
-          patch.object(rag, "get_llm", side_effect=RuntimeError("private provider detail")),
+          patch.object(rag, "get_rag_llm", side_effect=RuntimeError("private provider detail")),
           patch.object(rag, "get_langfuse_handler", return_value=None)):
         try:
             with patch.object(rag.vector_store, "similarity_search", fake_store.similarity_search):
@@ -347,7 +347,7 @@ async def test_rag_http_request_records_request_and_retrieval_spans():
         "score": 0.9,
     }]
     with (patch.object(rag.vector_store, "similarity_search", return_value=matches),
-          patch.object(rag, "get_llm", return_value=model),
+          patch.object(rag, "get_rag_llm", return_value=model),
           patch.object(rag, "get_langfuse_handler", return_value=handler),
           patch.object(rag, "langfuse_observation", observation),
           patch.object(rag, "langfuse_context", trace_context),

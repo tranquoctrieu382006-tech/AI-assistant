@@ -1,6 +1,8 @@
-# NLQ model comparison — 2026-10-27
+# NLQ model comparison — task date 2026-10-27 (benchmark run 2026-10-26)
 
-Compared the 30 synthetic cases in `data/nlq_golden_set.json` against the sample PostgreSQL database using the `ai_nlq_reader` role. Each generated query ran in a read-only transaction with a 10-second statement timeout. Accuracy is exact result matching with row-order ignored unless SQL specifies `ORDER BY`.
+This is a seed-DDL SQL-generation benchmark, not an evaluation of the production LangGraph/schema-linking API. The artifacts use the planned task date (2026-10-27); benchmark runs were performed on 2026-10-26.
+
+Compared the 30 synthetic cases in `data/nlq_golden_set.json` against the sample PostgreSQL database using the `ai_nlq_reader` role. Each generated query ran in a read-only transaction with a 10-second statement timeout. Historical results below used that 10-second setting; production defaults to 5 seconds, so latency and completion rates are not directly comparable. Accuracy is exact result matching with row-order ignored unless SQL specifies `ORDER BY`.
 
 | Model | Exact execution accuracy | Mean SQL generation latency | Input / output tokens | Estimated paid-tier cost per 30 cases |
 |---|---:|---:|---:|---:|

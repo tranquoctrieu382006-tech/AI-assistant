@@ -1,5 +1,8 @@
 from datetime import date
 from decimal import Decimal
+from unittest.mock import patch
+
+import pytest
 
 from scripts.evaluate_nlq_golden import is_read_only_query, results_match
 from scripts.evaluate_rag_retrieval import source_matches
@@ -7,6 +10,7 @@ from scripts.evaluate_nlq_model import (
     _aggregate_nlq_run,
     _execution_results_match,
     _load_schema_ddl,
+    _seed_schema_allowlist,
     _sql_features,
     upload_langfuse_experiment,
 )
@@ -22,12 +26,44 @@ from langfuse import Evaluation
 from types import SimpleNamespace
 from langchain_core.exceptions import OutputParserException
 from app.core.rag_prompt import NO_ANSWER
+from app.core.nlq_graph import _extract_sql, _is_retryable_provider_error, validate_sql
+import app.core.nlq_schema as nlq_schema
 
 
 def test_nlq_accepts_select_and_with_queries_in_read_only_transaction():
     assert is_read_only_query("SELECT 1")
     assert is_read_only_query("-- note\n WITH rows AS (SELECT 1) SELECT * FROM rows")
     assert not is_read_only_query("DELETE FROM products")
+
+
+def test_nlq_evaluator_uses_the_production_sql_guard_and_shared_extractor():
+    assert _extract_sql("```sql\nSELECT product_id FROM products\n```") == "SELECT product_id FROM products"
+    assert _extract_sql("```") == ""
+    tables, columns = _seed_schema_allowlist(_load_schema_ddl())
+    assert "products" in tables
+    assert "email" not in columns["customers"]
+    assert "full_name" not in columns["customers"]
+    with pytest.raises(ValueError):
+        validate_sql("SELECT query_to_xml('SELECT 1', true, false, '') FROM products", tables, columns)
+
+
+def test_nlq_retry_only_retries_transient_statuses_not_timeouts():
+    assert _is_retryable_provider_error(type("ServiceUnavailable", (Exception,), {"status_code": 503})())
+    assert _is_retryable_provider_error(type("RateLimitError", (Exception,), {"status_code": 429})())
+    assert not _is_retryable_provider_error(TimeoutError())
+    assert not _is_retryable_provider_error(type("BadRequest", (Exception,), {"status_code": 400})())
+
+
+def test_nlq_schema_cache_uses_ttl_and_returns_defensive_copies():
+    nlq_schema.clear_schema_cache()
+    original = [{"name": "orders", "columns": [{"name": "order_id"}], "relations": []}]
+    with patch("app.core.nlq_schema._load_schema_uncached", return_value=original) as loader:
+        first = nlq_schema.load_schema()
+        first[0]["columns"].clear()
+        second = nlq_schema.load_schema()
+    assert second[0]["columns"] == [{"name": "order_id"}]
+    assert loader.call_count == 1
+    nlq_schema.clear_schema_cache()
 
 
 def test_nlq_compares_decimal_and_date_values_with_json_values():

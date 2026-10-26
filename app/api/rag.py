@@ -2,12 +2,13 @@ import asyncio
 import json
 import logging
 
+import psycopg
 from fastapi import APIRouter, HTTPException, Security
 from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
-from app.core.llm import get_rag_llm
+from app.core.llm import extract_message_text, get_rag_llm
 from app.core.tracing import (
     get_langfuse_handler,
     langfuse_context,
@@ -73,6 +74,7 @@ async def ask_rag_stream(request: RagAskRequest):
                 request.top_k,
                 max(request.top_k, settings.reranker_pool_size),
             )
+            context = format_context(matches)
             update_langfuse_observation(
                 observation,
                 output={"match_count": len(matches), "refused_by_retrieval": is_refused},
@@ -104,7 +106,6 @@ async def ask_rag_stream(request: RagAskRequest):
         pending = ""
         sources_sent = False
         try:
-            context = format_context(matches)
             prompt_template = build_rag_text_prompt()
             llm = get_rag_llm(temperature=0)
             chain = prompt_template | llm
@@ -115,7 +116,9 @@ async def ask_rag_stream(request: RagAskRequest):
                     {"question": standalone_question, "context": context},
                     config={"callbacks": callbacks},
                 ):
-                    token = chunk.content if hasattr(chunk, "content") else str(chunk)
+                    token = extract_message_text(chunk, strip=False)
+                    if not token:
+                        continue
                     full_answer.append(token)
                     if not sources_sent:
                         pending += token
@@ -137,6 +140,7 @@ async def ask_rag_stream(request: RagAskRequest):
         except Exception as exc:
             logger.exception("Error during answer streaming")
             yield f"data: {json.dumps({'type': 'error', 'detail': 'Answer generation failed'}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
             return
         except (asyncio.CancelledError, GeneratorExit):
             # Preserve already generated context if the client drops the stream.
@@ -198,6 +202,7 @@ async def _answer_rag(request: RagAskRequest) -> RagAskResponse:
                 request.top_k,
                 max(request.top_k, settings.reranker_pool_size),
             )
+            context = format_context(matches)
             update_langfuse_observation(
                 observation,
                 output={
@@ -211,13 +216,15 @@ async def _answer_rag(request: RagAskRequest) -> RagAskResponse:
                         }
                         for match in matches
                     ],
-                    "context": format_context(matches),
+                    "context": context,
                 },
             )
     except Exception as exc:
         logger.exception("RAG retrieval failed")
         if isinstance(exc, vector_store.VectorStoreNotReady):
             raise HTTPException(status_code=503, detail=str(exc)) from exc
+        if isinstance(exc, psycopg.OperationalError):
+            raise HTTPException(status_code=503, detail="PostgreSQL retrieval service unavailable") from exc
         raise HTTPException(status_code=503, detail="RAG retrieval unavailable") from exc
 
     if is_refused or not matches:
@@ -225,7 +232,6 @@ async def _answer_rag(request: RagAskRequest) -> RagAskResponse:
         return RagAskResponse(answer=NO_ANSWER, sources=[])
 
     # 3. LLM Answer Generation
-    context = format_context(matches)
     try:
         handler = get_langfuse_handler()
         callbacks = [handler] if handler else []

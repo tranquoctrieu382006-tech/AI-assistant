@@ -2,6 +2,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
+import psycopg
 import pytest
 
 from app.core.config import settings
@@ -44,8 +45,9 @@ async def test_liveness_endpoint():
 
 @pytest.mark.asyncio
 @patch("app.api.health.check_ollama_status_async", new_callable=AsyncMock)
-async def test_health_check_healthy(mock_ollama):
+async def test_health_check_healthy(mock_ollama, monkeypatch):
     mock_ollama.return_value = {"status": "ok", "models": ["gemma3:12b"]}
+    monkeypatch.setattr(settings, "database_url", "postgresql://health-test")
     connection = MagicMock()
     connection.__enter__.return_value = connection
     connection.execute.side_effect = [
@@ -53,7 +55,8 @@ async def test_health_check_healthy(mock_ollama):
         MagicMock(fetchone=MagicMock(return_value=("0.8.7",))),
     ]
     with patch("app.api.health.vector_store._connect") as connect, \
-         patch("app.api.health.vector_store._register_vector_if_needed"):
+         patch("app.api.health.vector_store._register_vector_if_needed"), \
+         patch("app.api.health._nlq_database_readiness", return_value={"status": "ok"}):
         connect.return_value.__enter__.return_value = connection
         response = await request("GET", "/api/health")
     assert response.status_code == 200
@@ -71,6 +74,7 @@ async def test_health_check_healthy(mock_ollama):
 @patch("app.api.health.check_ollama_status_async", new_callable=AsyncMock)
 async def test_health_degraded_when_required_local_model_is_offline(mock_ollama, monkeypatch):
     mock_ollama.return_value = {"status": "offline", "detail": "offline"}
+    monkeypatch.setattr(settings, "database_url", "postgresql://health-test")
     connection = MagicMock()
     connection.__enter__.return_value = connection
     connection.execute.side_effect = [
@@ -79,7 +83,8 @@ async def test_health_degraded_when_required_local_model_is_offline(mock_ollama,
     ]
     monkeypatch.setattr(settings, "rag_model", "local")
     with patch("app.api.health.vector_store._connect") as connect, \
-         patch("app.api.health.vector_store._register_vector_if_needed"):
+         patch("app.api.health.vector_store._register_vector_if_needed"), \
+         patch("app.api.health._nlq_database_readiness", return_value={"status": "ok"}):
         connect.return_value.__enter__.return_value = connection
         data = (await request("GET", "/api/health")).json()
     assert data["status"] == "degraded"
@@ -88,8 +93,9 @@ async def test_health_degraded_when_required_local_model_is_offline(mock_ollama,
 
 @pytest.mark.asyncio
 @patch("app.api.health.check_ollama_status_async", new_callable=AsyncMock)
-async def test_health_does_not_require_ollama_for_cloud_rag(mock_ollama, monkeypatch):
+async def test_health_requires_ollama_for_cloud_rag_embeddings(mock_ollama, monkeypatch):
     mock_ollama.return_value = {"status": "offline", "detail": "offline"}
+    monkeypatch.setattr(settings, "database_url", "postgresql://health-test")
     connection = MagicMock()
     connection.__enter__.return_value = connection
     connection.execute.side_effect = [
@@ -98,10 +104,45 @@ async def test_health_does_not_require_ollama_for_cloud_rag(mock_ollama, monkeyp
     ]
     monkeypatch.setattr(settings, "rag_model", "strong")
     with patch("app.api.health.vector_store._connect") as connect, \
-         patch("app.api.health.vector_store._register_vector_if_needed"):
+         patch("app.api.health.vector_store._register_vector_if_needed"), \
+         patch("app.api.health._nlq_database_readiness", return_value={"status": "ok"}):
         connect.return_value.__enter__.return_value = connection
         data = (await request("GET", "/api/health")).json()
-    assert data["status"] == "ok"
+    assert data["status"] == "degraded"
+
+
+@pytest.mark.asyncio
+async def test_health_degraded_when_nlq_database_is_not_configured(monkeypatch):
+    mock_ollama = AsyncMock(return_value={"status": "ok"})
+    monkeypatch.setattr("app.api.health.check_ollama_status_async", mock_ollama)
+    monkeypatch.setattr(settings, "database_url", "postgresql://health-test")
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.side_effect = [
+        MagicMock(fetchone=MagicMock(return_value=("vector", "rag_chunks"))),
+        MagicMock(fetchone=MagicMock(return_value=("0.8.7",))),
+    ]
+    with patch("app.api.health.vector_store._connect") as connect, \
+         patch("app.api.health.vector_store._register_vector_if_needed"), \
+         patch("app.api.health._nlq_database_readiness", return_value={"status": "not_configured"}):
+        connect.return_value.__enter__.return_value = connection
+        response = await request("GET", "/api/health")
+    assert response.json()["status"] == "degraded"
+    assert response.json()["nlq_database_status"]["status"] == "not_configured"
+
+
+@pytest.mark.asyncio
+async def test_nlq_schema_database_connection_error_returns_503(monkeypatch):
+    monkeypatch.setattr(settings, "nlq_database_url", "postgresql://nlq-test")
+    transport = httpx.ASGITransport(app=app)
+    with patch("app.api.nlq.ask_nlq", side_effect=psycopg.OperationalError("database unavailable")):
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/api/nlq/ask",
+                headers={"X-API-Key": settings.app_api_key},
+                json={"question": "Có bao nhiêu đơn hàng?"},
+            )
+    assert response.status_code == 503
 
 
 @pytest.mark.asyncio

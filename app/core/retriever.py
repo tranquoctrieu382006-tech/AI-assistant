@@ -5,6 +5,7 @@ import copy
 import logging
 import re
 import threading
+import time
 import unicodedata
 from collections import defaultdict
 
@@ -18,6 +19,10 @@ logger = logging.getLogger(__name__)
 _BM25_INSTANCE = None
 _BM25_REVISION: tuple[int, int] | None = None
 _BM25_LOCK = threading.RLock()
+_REVISION_LOCK = threading.Lock()
+_REVISION_CACHE_TTL_SECONDS = 5.0
+_REVISION_CACHE: tuple[int, int] | None = None
+_REVISION_CHECKED_AT = 0.0
 _RRF_CONSTANT = 60
 _RRF_WEIGHTS = (0.5, 0.5)  # BM25, vector
 
@@ -33,13 +38,13 @@ def get_bm25_retriever(k: int = 5):
     global _BM25_INSTANCE, _BM25_REVISION
     # A DB revision check is needed for each hybrid query, but it must not hold
     # the process-wide cache lock on the warm path.
-    revision = vector_store.get_corpus_revision()
+    revision = _get_corpus_revision()
     instance = _BM25_INSTANCE
     if instance is None or _BM25_REVISION != revision:
         with _BM25_LOCK:
             # Recheck after acquiring the lock; another request may have built
             # the current revision while this request waited.
-            revision = vector_store.get_corpus_revision()
+            revision = _get_corpus_revision()
             if _BM25_INSTANCE is None or _BM25_REVISION != revision:
                 from langchain_community.retrievers import BM25Retriever
 
@@ -79,10 +84,27 @@ def get_bm25_retriever(k: int = 5):
 
 def clear_bm25_cache() -> None:
     """Clear cached BM25 state, for tests and explicit in-process reindexing."""
-    global _BM25_INSTANCE, _BM25_REVISION
+    global _BM25_INSTANCE, _BM25_REVISION, _REVISION_CACHE, _REVISION_CHECKED_AT
     with _BM25_LOCK:
         _BM25_INSTANCE = None
         _BM25_REVISION = None
+    with _REVISION_LOCK:
+        _REVISION_CACHE = None
+        _REVISION_CHECKED_AT = 0.0
+
+
+def _get_corpus_revision() -> tuple[int, int]:
+    """Cache DB revision checks briefly; external ingestion appears within 5 seconds."""
+    global _REVISION_CACHE, _REVISION_CHECKED_AT
+    now = time.monotonic()
+    if _REVISION_CACHE is not None and now - _REVISION_CHECKED_AT < _REVISION_CACHE_TTL_SECONDS:
+        return _REVISION_CACHE
+    with _REVISION_LOCK:
+        now = time.monotonic()
+        if _REVISION_CACHE is None or now - _REVISION_CHECKED_AT >= _REVISION_CACHE_TTL_SECONDS:
+            _REVISION_CACHE = vector_store.get_corpus_revision()
+            _REVISION_CHECKED_AT = time.monotonic()
+        return _REVISION_CACHE
 
 
 def _hybrid_fusion(bm25_docs: list[Document], vector_matches: list[dict], top_k: int) -> list[Document]:

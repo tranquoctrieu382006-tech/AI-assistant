@@ -1,7 +1,7 @@
 # Kiến trúc hệ thống Mini AI Assistant
 
 > **Phiên bản**: 0.2.0
-> **Cập nhật**: 2026-10-24
+> **Cập nhật**: 2026-10-26
 > **Tác giả**: Trần Quốc Triệu – Intern AI, IOC
 
 ## 1. Tổng quan
@@ -11,7 +11,7 @@ Mini AI Assistant hiện có API hỏi đáp RAG và các script đánh giá NLQ
 - **RAG (Retrieval-Augmented Generation)**: Tìm kiếm và trả lời câu hỏi từ tài liệu nội bộ tiếng Việt (PDF/DOCX/MD/TXT).
 - **NLQ (Natural Language Query)**: Chuyển câu hỏi tự nhiên thành truy vấn SQL trên cơ sở dữ liệu PostgreSQL.
 
-API được xây dựng trên FastAPI + LangChain, hỗ trợ đa mô hình (local & cloud), và tích hợp Langfuse tracing tùy cấu hình. NLQ hiện là evaluator offline; chưa có endpoint NLQ trong API. LangGraph chưa được dùng trong luồng runtime hiện tại.
+API được xây dựng trên FastAPI + LangChain, hỗ trợ đa mô hình (local & cloud), và tích hợp Langfuse tracing tùy cấu hình. NLQ có endpoint runtime dựa trên LangGraph; script evaluator offline vẫn được dùng để so sánh khả năng sinh SQL trên golden set.
 
 ## 2. Sơ đồ kiến trúc tổng thể
 
@@ -22,7 +22,7 @@ flowchart TB
     end
 
     subgraph API["FastAPI Backend"]
-        GW["API Gateway\n/api/rag/ask\n/api/health"]
+        GW["API Gateway\n/api/rag/ask\n/api/nlq/ask\n/api/health"]
         MW["Middleware\nCORS · Auth · Logging"]
     end
 
@@ -32,20 +32,20 @@ flowchart TB
         EM["Embedding\nbge-m3"]
         VS["Vector Store\nPGVector"]
         RET["Retriever\ncosine similarity"]
-        SYN["LCEL answer chain\n(local by default)"]
+        SYN["LCEL answer chain\n(Gemini by default)"]
     end
 
     subgraph NLQ_Pipeline["NLQ Pipeline"]
-        SC["Schema Loader\nseed DDL"]
-        SG["SQL Generator\nevaluation script"]
-        EX["SQL Executor\nPostgreSQL"]
+        SC["Cached schema loader\nPostgreSQL catalog"]
+        SG["LangGraph\nlexical scope + SQL generation"]
+        EX["SQL guard + read-only executor\nPostgreSQL"]
     end
 
     subgraph LLM_Layer["Multi-Model LLM Layer"]
         LM["get_llm(role)\nProvider Routing"]
         OL["Ollama\ngemma3:12b\n(local)"]
-        OA["OpenAI\ngpt-4o / gpt-4o-mini\n(cloud)"]
-        GG["Google GenAI\ngemini-2.0-flash\n(cloud)"]
+        OA["OpenAI\n(optional provider)"]
+        GG["Google GenAI\nGemini 3.5 Flash-Lite / 3.6 Flash\n(default cloud models)"]
     end
 
     subgraph Observability["Observability"]
@@ -77,6 +77,7 @@ flowchart TB
 
     GW -.->|"callbacks"| LF
     LM -.->|"traces"| LF
+    GW --> SC
 
     style Client fill:#e3f2fd,stroke:#1565c0
     style API fill:#fff3e0,stroke:#ef6c00
@@ -93,11 +94,12 @@ flowchart TB
 
 | Endpoint | Mô tả | Trạng thái |
 |----------|--------|:----------:|
-| `GET /api/health` | Readiness check (Ollama, Langfuse) | ✅ |
+| `GET /api/health` | Readiness check (PostgreSQL, NLQ DB, Ollama; Langfuse status) | ✅ |
 | `GET /api/health/live` | Liveness probe | ✅ |
 | `GET /api/health/verify-model` | Kiểm tra model (debug only, cần API key) | ✅ |
 | `POST /api/rag/ask` | Hỏi đáp từ tài liệu (JSON response) | ✅ |
 | `POST /api/rag/ask/stream` | Hỏi đáp tài liệu dạng streaming Server-Sent Events (SSE) | ✅ |
+| `POST /api/nlq/ask` | Hỏi dữ liệu PostgreSQL bằng ngôn ngữ tự nhiên, chỉ đọc | ✅ |
 
 **Lifespan**: Khởi tạo tracing → kiểm tra Ollama async → flush traces khi shutdown.
 
@@ -110,14 +112,14 @@ Các endpoint RAG và kiểm tra model yêu cầu `X-API-Key`; `/api/health` và
 │  get_llm(role, temperature, timeout, **kwargs)  │
 ├─────────────────────────────────────────────────┤
 │  1. _resolve_model_name(role)                   │
-│     "strong" → "openai/gpt-4o"                  │
-│     "fast"   → "openai/gpt-4o-mini"             │
+│     "strong" → Gemini 3.6 Flash                  │
+│     "fast"   → Gemini 3.5 Flash-Lite             │
 │     "local"  → "ollama/gemma3:12b"              │
 │  2. _parse_provider_and_model(model_str)        │
 │     "ollama/gemma3:12b" → ("ollama","gemma3:12b")│
 │  3. Provider-specific kwargs:                    │
 │     Ollama  → client_kwargs.timeout              │
-│     OpenAI  → timeout, max_retries              │
+│     Cloud   → timeout, max_retries              │
 │  4. init_chat_model(provider, model)            │
 │  5. Cache theo (model, temp, timeout, kwargs)   │
 └─────────────────────────────────────────────────┘
@@ -128,8 +130,8 @@ Các endpoint RAG và kiểm tra model yêu cầu `X-API-Key`; `/api/health` và
 | Role | Mục đích | Model mặc định | Ghi chú |
 |------|----------|-----------------|---------|
 | `local` | Dữ liệu nhạy cảm, offline | `ollama/gemma3:12b` | ~6 tok/s trên CPU |
-| `fast` | Router, rewrite, format | `openai/gpt-4o-mini` | Phản hồi nhanh, chi phí thấp |
-| `strong` | SQL phức tạp, synthesize | `openai/gpt-4o` | Chất lượng cao nhất |
+| `fast` | RAG, NLQ, rewrite | `google_genai/gemini-3.5-flash-lite` | Cần `GOOGLE_API_KEY` |
+| `strong` | SQL phức tạp, synthesize | `google_genai/gemini-3.6-flash` | Cần `GOOGLE_API_KEY` |
 
 ### 3.3 Request flow, Tracing & Streaming
 
@@ -152,7 +154,7 @@ flowchart TD
 Pipeline retrieval có một đường thực thi tại `app/core/retriever.py`:
 
 1. **Vector**: truy vấn cosine trên PGVector bằng `bge-m3`.
-2. **Hybrid**: trộn danh sách BM25 và vector bằng weighted Reciprocal Rank Fusion (hiện dùng trọng số đều 0.5/0.5). Token BM25 chuẩn hóa Unicode/chữ hoa-thường và tách bỏ dấu câu; mỗi chunk được định danh bằng cặp `(source, chunk_index)` để không gộp các đoạn trùng chữ từ hai file.
+2. **Hybrid**: trộn danh sách BM25 và vector bằng weighted Reciprocal Rank Fusion (hiện dùng trọng số đều 0.5/0.5). Token BM25 chuẩn hóa Unicode/chữ hoa-thường và tách bỏ dấu câu; mỗi chunk được định danh bằng cặp `(source, chunk_index)` để không gộp các đoạn trùng chữ từ hai file. Chỉ mục BM25 kiểm tra revision DB tối đa mỗi 5 giây; ingest trong cùng tiến trình chủ động xóa cache ngay.
 3. **Cosine gate**: chấm cosine cho từng chunk sau fusion và chỉ đưa chunk vượt `RAG_MIN_RELEVANCE_SCORE` vào context. Truy vấn hybrid tái sử dụng cùng một embedding câu hỏi cho cả truy vấn vector và chấm các chunk BM25-only.
 4. **Reranker**: khi bật, lấy tối đa 20 ứng viên (hoặc `top_k` nếu lớn hơn), cosine-gate rồi xếp hạng lại và trả `top_k`. Hàm `rerank_documents` dùng `sentence-transformers` với model lấy từ `RERANKER_MODEL`; khởi tạo model có lock để tránh tải trùng đồng thời. Cài tùy chọn nặng bằng `pip install -r requirements-reranker.txt`; startup kiểm tra dependency khi tính năng được bật.
 5. **Langfuse Prompt Management**: tải prompt dạng chat, chuyển danh sách message thành `ChatPromptTemplate`, dùng client SDK dùng chung để tái sử dụng prompt cache và truyền fallback hardcoded cho lần tải đầu. Các script đánh giá dùng prompt đã chốt trong repo và ghi nguồn prompt trong artifact.
@@ -160,18 +162,19 @@ Pipeline retrieval có một đường thực thi tại `app/core/retriever.py`:
 Lịch sử hội thoại hiện lưu trong bộ nhớ của một tiến trình, giữ tối đa 20 lượt gần nhất mỗi phiên, xóa phiên không hoạt động 30 phút và giới hạn 1.000 phiên theo LRU. Dùng một worker; nhiều worker hoặc khởi động lại sẽ không chia sẻ/giữ lịch sử, nên cần PostgreSQL/Redis store nếu triển khai nhiều tiến trình.
 
 
-### 3.5 NLQ model evaluator (offline)
+### 3.5 NLQ API và evaluator
 
 ```mermaid
 flowchart LR
-    A["Câu hỏi golden\n(tiếng Việt)"] --> B["Schema Context\nseed DDL"]
-    B --> C["SQL Generator\n(configured model)"]
-    C --> D["SQLGlot + read-only guard"]
-    D --> E["PostgreSQL\nExecutor"]
-    E --> F["Compare with expected rows"]
+    A["POST /api/nlq/ask"] --> B["LangGraph\nlexical scope check"]
+    B --> C["Generate and validate SQL"]
+    C --> D["Read-only PostgreSQL\nstatement timeout + row cap"]
+    D --> E["Interpret rows\n+ truncation flag"]
+    G["Offline golden-set evaluator"] --> H["Seed DDL + configured model"]
+    H --> I["Compare SQL result rows"]
 ```
 
-This is an offline evaluation script, not an API pipeline. It accepts one SELECT/WITH statement, executes it in a read-only transaction with a timeout, and compares rows with the golden set. There is no NLQ endpoint or answer formatter in the current app.
+`POST /api/nlq/ask` runs the production LangGraph pipeline with lexical scope detection, the cached full schema catalog (10-minute TTL), SQL validation, pooled read-only execution, and Vietnamese answer interpretation. Scope detection is local and does not call an LLM. An in-scope request uses one SQL-generation call and one interpretation call, plus at most two repairs; interpretation receives at most 25 result rows. The offline evaluator uses the same SQL extraction and validation functions, but supplies schema from seed DDL, so its scores still do not measure the production schema-loading path.
 
 ### 3.6 Langfuse Observability (`app/core/tracing.py`)
 
@@ -234,7 +237,7 @@ erDiagram
 | Backend | FastAPI + Uvicorn | 0.115+ |
 | Orchestration | Direct FastAPI flow + LangChain LCEL & retrievers | 1.4.7+ |
 | LLM Local | Ollama (gemma3:12b) | latest |
-| LLM Cloud | OpenAI API, Google GenAI | gpt-4o, gemini-2.0-flash |
+| LLM Cloud | Google GenAI (default), OpenAI (optional) | Gemini 3.5 Flash-Lite, Gemini 3.6 Flash |
 | Embedding | bge-m3 (BAAI) | 1024-dim |
 | Hybrid Retrieval | rank-bm25 + PGVector (EnsembleRetriever RRF) | 0.2.2 |
 | Reranker | BAAI/bge-reranker-v2-m3 (sentence-transformers) | 6.2.0 |
@@ -318,8 +321,7 @@ sequenceDiagram
 
 1. **Workflow hiện tại**
    - RAG là luồng trực tiếp trong FastAPI; LCEL chain kết hợp `ChatPromptTemplate`, chat model và Pydantic output parser.
-   - NLQ model evaluation là script offline dùng seed DDL và read-only SQL.
-   - LangGraph và NLQ API chưa được triển khai.
+   - NLQ runtime API dùng LangGraph, lexical scope check và read-only SQL; evaluator dùng seed DDL để so sánh model.
 
 2. **Tại sao multi-model?**
    - Local model cho dữ liệu nhạy cảm và offline

@@ -17,3 +17,4 @@ class HealthResponse(BaseModel):
     langfuse_enabled: bool = Field(..., description="Langfuse tracing có được kích hoạt hay không")
     ollama_status: dict[str, Any] = Field(default_factory=dict, description="Trạng thái kết nối tới Ollama")
     database_status: dict[str, Any] = Field(default_factory=dict, description="Trạng thái PostgreSQL và pgvector")
+    nlq_database_status: dict[str, Any] = Field(default_factory=dict, description="Tài khoản NLQ đã được cấu hình hay chưa")

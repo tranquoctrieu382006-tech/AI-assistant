@@ -16,6 +16,7 @@ from app.core.llm import (
 from app.core.tracing import is_langfuse_configured
 from app.core.security import require_api_key
 from app.core import vector_store
+from app.core.nlq_schema import _connect as _connect_nlq
 
 router = APIRouter()
 
@@ -42,6 +43,17 @@ def _database_readiness() -> dict:
         return {"status": "error", "detail": type(exc).__name__}
 
 
+def _nlq_database_readiness() -> dict:
+    if not settings.nlq_database_url.strip():
+        return {"status": "not_configured"}
+    try:
+        with _connect_nlq() as conn:
+            conn.execute("SELECT 1")
+        return {"status": "ok"}
+    except Exception as exc:
+        return {"status": "unavailable", "detail": type(exc).__name__}
+
+
 @router.get("/health/live", summary="Liveness probe (kiểm tra tiến trình còn sống)")
 async def liveness():
     """Liveness probe: Trả lời 200 OK ngay lập tức, không kiểm tra dependency ngoài."""
@@ -60,9 +72,15 @@ async def health_check() -> HealthResponse:
 
     # Xác định status theo tình trạng thành phần phụ thuộc
     database_info = await run_in_threadpool(_database_readiness)
-    active_model = settings.rag_model
-    requires_ollama = active_model == "local" or active_model.startswith("ollama/")
-    is_healthy = database_info["status"] == "ok" and (not requires_ollama or ollama_info.get("status") == "ok")
+    nlq_database_info = await run_in_threadpool(_nlq_database_readiness)
+    # RAG retrieval always embeds with Ollama bge-m3, regardless of the
+    # generation model selected by RAG_MODEL.
+    requires_ollama = True
+    is_healthy = (
+        database_info["status"] == "ok"
+        and nlq_database_info["status"] == "ok"
+        and (not requires_ollama or ollama_info.get("status") == "ok")
+    )
     system_status = "ok" if is_healthy else "degraded"
 
     # Public health stays useful without disclosing installed Ollama model names.
@@ -74,7 +92,12 @@ async def health_check() -> HealthResponse:
         available_roles=list(MODEL_REGISTRY.keys()),
         langfuse_enabled=langfuse_on,
         ollama_status=ollama_summary,
-        database_status=database_info,
+        database_status={
+            key: value
+            for key, value in database_info.items()
+            if key in {"status", "pgvector_version"}
+        },
+        nlq_database_status=nlq_database_info,
     )
 
 

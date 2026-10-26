@@ -10,9 +10,12 @@ import uuid
 from langfuse import Evaluation, get_client
 import psycopg
 from sqlglot import exp, parse
+from sqlglot.errors import ParseError
 
-from app.core.config import settings
+from app.core.config import PROJECT_ROOT, settings
 from app.core.llm import MODEL_REGISTRY, extract_message_text, get_llm, get_model_provider
+from app.core.nlq_graph import _extract_sql, _invoke_model_response, validate_sql
+from app.core.nlq_schema import _SENSITIVE
 from app.core.tracing import (
     flush_langfuse,
     get_langfuse_handler,
@@ -21,7 +24,7 @@ from app.core.tracing import (
     langfuse_observation,
     update_langfuse_observation,
 )
-from scripts.evaluate_nlq_golden import is_read_only_query, results_match
+from scripts.evaluate_nlq_golden import results_match
 
 LANGFUSE_DATASET_NAME = "ai-assistant-nlq-golden-v1"
 MODEL_PRICING_USD_PER_MILLION = {
@@ -42,16 +45,46 @@ def _sql_features(sql: str) -> tuple[int, bool]:
     return len(statements), has_order_by
 
 
-def _extract_sql(text: str) -> str:
-    text = text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1]
-        if text.endswith("```"):
-            text = text[:-3]
-    text = text.strip()
-    if text[:4].casefold() == "sql\n":
-        text = text[4:].strip()
-    return text
+def _split_ddl_definitions(body: str) -> list[str]:
+    definitions = []
+    start = depth = 0
+    quote = None
+    for index, char in enumerate(body):
+        if quote:
+            if char == quote:
+                quote = None
+            continue
+        if char in "'\"":
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        elif char == "," and depth == 0:
+            definitions.append(body[start:index])
+            start = index + 1
+    definitions.append(body[start:])
+    return definitions
+
+
+def _seed_schema_allowlist(schema: str) -> tuple[set[str], dict[str, set[str]]]:
+    """Extract table/column names from seed DDL for the production SQL guard."""
+    tables: set[str] = set()
+    columns: dict[str, set[str]] = {}
+    for match in re.finditer(r"CREATE\s+TABLE\s+([\w\"]+)\s*\((.*?)\)\s*;", schema, re.I | re.S):
+        table = match.group(1).strip('"')
+        tables.add(table)
+        columns[table] = set()
+        for definition in _split_ddl_definitions(match.group(2)):
+            tokens = definition.strip().split(None, 1)
+            if not tokens:
+                continue
+            name = tokens[0].strip('"')
+            if name.casefold() in {"constraint", "primary", "foreign", "unique", "check", "exclude"}:
+                continue
+            if not _SENSITIVE.search(name):
+                columns[table].add(name)
+    return tables, columns
 
 
 def _response_usage(response) -> dict:
@@ -81,9 +114,20 @@ def _execution_results_match(
 
 
 def _load_schema_ddl() -> str:
-    """Use the seed's CREATE TABLE statements as the SQL-generation schema."""
-    seed = Path("data/demo_sales_warehouse/schema_seed.sql").read_text(encoding="utf-8-sig")
-    statements = re.findall(r"\bCREATE\s+TABLE\b.*?;", seed, flags=re.IGNORECASE | re.DOTALL)
+    """Use seed DDL while omitting columns the production guard forbids."""
+    seed = (PROJECT_ROOT / "data/demo_sales_warehouse/schema_seed.sql").read_text(encoding="utf-8-sig")
+    statements = []
+    for match in re.finditer(r"CREATE\s+TABLE\s+([\w\"]+)\s*\((.*?)\)\s*;", seed, re.I | re.S):
+        definitions = _split_ddl_definitions(match.group(2))
+        safe_definitions = []
+        for definition in definitions:
+            name = definition.strip().split(None, 1)[0].strip('"')
+            is_constraint = name.casefold() in {"constraint", "primary", "foreign", "unique", "check", "exclude"}
+            if (is_constraint and not _SENSITIVE.search(definition)) or (
+                not is_constraint and not _SENSITIVE.search(name)
+            ):
+                safe_definitions.append(definition.strip())
+        statements.append(f"CREATE TABLE {match.group(1)} ({', '.join(safe_definitions)});")
     if not statements:
         raise ValueError("No CREATE TABLE statements found in data/demo_sales_warehouse/schema_seed.sql")
     return "\n".join(statements)
@@ -102,18 +146,19 @@ def evaluate(
         raise RuntimeError("Langfuse Cloud tracing was requested but is not configured.")
     if trace_langfuse:
         init_tracing()
-    cases = json.loads(Path("data/nlq_golden_set.json").read_text(encoding="utf-8"))
+    cases = json.loads((PROJECT_ROOT / "data/nlq_golden_set.json").read_text(encoding="utf-8"))
     if limit is not None:
         if limit < 1:
             raise ValueError("--limit must be greater than zero.")
         cases = cases[:limit]
     schema = _load_schema_ddl()
+    allowed_tables, allowed_columns = _seed_schema_allowlist(schema)
     provider = get_model_provider(model_role)
     llm_options = {"temperature": 0}
     if provider == "google_genai":
         llm_options.update(
             timeout=settings.nlq_model_timeout_seconds,
-            max_retries=settings.nlq_model_max_retries,
+            max_retries=0,
             thinking_config={"thinking_level": "low"},
         )
     llm = get_llm(model_role, **llm_options)
@@ -145,33 +190,35 @@ def evaluate(
                     handler = get_langfuse_handler()
                     if handler is None:
                         raise RuntimeError("Langfuse callback handler could not be created.")
-                    response = llm.invoke(
-                        prompt,
-                        config={"callbacks": [handler]},
-                    )
+                    response = _invoke_model_response(llm, prompt, [handler])
                     sql = _extract_sql(extract_message_text(response))
                     update_langfuse_observation(
                         observation,
                         output={"generated_sql": sql},
                     )
             else:
-                response = llm.invoke(prompt)
+                response = _invoke_model_response(llm, prompt, [])
                 sql = _extract_sql(extract_message_text(response))
             result["generation_latency_seconds"] = round(time.perf_counter() - generation_started, 3)
             result.update(_response_usage(response))
             result["generated_sql"] = sql
-            statement_count, ordered = _sql_features(sql)
-            if (not is_read_only_query(sql)
-                    or statement_count != 1):
+            try:
+                safe_sql = validate_sql(sql, allowed_tables, allowed_columns)
+            except (ValueError, ParseError) as exc:
                 result["status"] = "rejected"
-                result["reason"] = "non-single-read-only SQL"
+                result["reason"] = str(exc)
                 results.append(result)
                 print(json.dumps(result, ensure_ascii=True))
                 continue
+            _, ordered = _sql_features(safe_sql)
+            result["validated_sql"] = safe_sql
             with psycopg.connect(settings.nlq_database_url, connect_timeout=3) as conn:
                 conn.execute("SET TRANSACTION READ ONLY")
-                conn.execute("SET LOCAL statement_timeout = '10s'")
-                cursor = conn.execute(sql)
+                conn.execute(
+                    "SELECT set_config('statement_timeout', %s, true)",
+                    (f"{settings.nlq_statement_timeout_ms}ms",),
+                )
+                cursor = conn.execute(safe_sql)
                 actual = [dict(zip((col.name for col in cursor.description), row))
                           for row in cursor.fetchall()]
             expected_value = case["expected"]
@@ -245,6 +292,7 @@ def evaluate(
         "estimated_api_cost_usd": round(estimated_api_cost, 8) if estimated_api_cost is not None else None,
         "pricing_basis": pricing_basis,
         "model_evaluated": True,
+        "evaluation_scope": "SQL generation with seed DDL; not the production LangGraph/schema-linking path",
         "trace_uploaded": trace_langfuse,
         "results": results,
     }

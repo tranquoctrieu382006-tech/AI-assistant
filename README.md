@@ -7,7 +7,7 @@ Mini AI Assistant – Hỏi đáp tài liệu (RAG) & truy vấn dữ liệu b�
 - **Python 3.11+**, **FastAPI**, **LangChain** (RAG and NLQ APIs)
 - **Langfuse** (optional tracing and model experiments)
 - **PostgreSQL + pgvector** (vector store)
-- **Ollama** (local LLM)
+- **Google Gemini** (default cloud LLM), with **Ollama** for local inference and embeddings
 
 ## Quick Start
 
@@ -40,7 +40,7 @@ Sửa biến trong `.env`, **không cần sửa code**:
 |---|---|---|
 | Mặc định | `DEFAULT_MODEL` | `google_genai/gemini-3.5-flash-lite` |
 | Mạnh (SQL phức tạp, tổng hợp) | `STRONG_MODEL` | `google_genai/gemini-3.6-flash` |
-| Nhanh/rẻ (router) | `FAST_MODEL` | `google_genai/gemini-3.5-flash-lite` |
+| Nhanh/rẻ (RAG, NLQ, rewrite) | `FAST_MODEL` | `google_genai/gemini-3.5-flash-lite` |
 | Viết lại câu hỏi hội thoại | `QUESTION_REWRITER_MODEL` | `fast` (Gemini API) |
 | Local inference | `LOCAL_MODEL` | `ollama/gemma3:12b` |
 | Mô hình trả lời RAG | `RAG_MODEL` | `fast` (Gemini API) |

@@ -118,7 +118,9 @@ jsonpointer==3.4
 langchain==1.4.7
     # via -r requirements.txt
 langchain-classic==1.0.8
-    # via langchain-community
+    # via
+    #   -r requirements.txt
+    #   langchain-community
 langchain-community==0.4.2
     # via -r requirements.txt
 langchain-core==1.7.0
@@ -153,7 +155,9 @@ langchain-text-splitters==1.1.3
 langfuse==5.0.4
     # via -r requirements.txt
 langgraph==1.2.16
-    # via langchain
+    # via
+    #   -r requirements.txt
+    #   langchain
 langgraph-checkpoint==4.3.0
     # via
     #   langgraph
@@ -244,7 +248,9 @@ psycopg==3.3.6
 psycopg-binary==3.3.6 ; implementation_name != 'pypy'
     # via psycopg
 psycopg-pool==3.3.3
-    # via psycopg
+    # via
+    #   -r requirements.txt
+    #   psycopg
 pyasn1==0.6.4
     # via pyasn1-modules
 pyasn1-modules==0.4.2

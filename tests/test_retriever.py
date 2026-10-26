@@ -118,8 +118,9 @@ def test_hybrid_gate_can_keep_bm25_candidate_when_vector_top_k_is_empty(monkeypa
     assert matches[0]["score"] == 0.8
 
 
-def test_bm25_cache_refreshes_when_database_corpus_revision_changes():
+def test_bm25_cache_refreshes_when_database_corpus_revision_changes(monkeypatch):
     clear_bm25_cache()
+    monkeypatch.setattr(retriever_module, "_REVISION_CACHE_TTL_SECONDS", 0)
     revisions = iter([(2, 10), (3, 13), (4, 16), (4, 16)])
     chunks = [
         {"content": "first indexed chunk", "source": "a.md", "chunk_index": 0},
@@ -157,6 +158,15 @@ def test_bm25_cache_refreshes_when_database_corpus_revision_changes():
     assert second.k == 4
     assert created[0].k == 3
     assert get_chunks.call_count == 2
+    clear_bm25_cache()
+
+
+def test_corpus_revision_probe_is_cached_for_short_ttl():
+    clear_bm25_cache()
+    with patch("app.core.vector_store.get_corpus_revision", return_value=(9, 12)) as revision:
+        assert retriever_module._get_corpus_revision() == (9, 12)
+        assert retriever_module._get_corpus_revision() == (9, 12)
+    assert revision.call_count == 1
     clear_bm25_cache()
 
 
@@ -250,7 +260,7 @@ def test_warm_bm25_cache_path_does_not_acquire_global_lock():
         patch.object(retriever_module, "_BM25_LOCK", lock),
         patch.object(retriever_module, "_BM25_INSTANCE", CachedIndex()),
         patch.object(retriever_module, "_BM25_REVISION", (1, 1)),
-        patch("app.core.vector_store.get_corpus_revision", return_value=(1, 1)),
+        patch("app.core.retriever._get_corpus_revision", return_value=(1, 1)),
     ):
         per_call = get_bm25_retriever(k=7)
 

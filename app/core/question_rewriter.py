@@ -49,7 +49,7 @@ async def rewrite_question_if_needed(
         return question
     # Long, self-contained questions rarely need conversational coreference.
     # Keep short follow-ups ("Ai ký?", "Còn điều đó?") on the rewrite path.
-    if len(question.split()) >= 8 and not _FOLLOWUP_CUES.search(question):
+    if len(question.split()) >= 4 and not _FOLLOWUP_CUES.search(question):
         return question
 
     trimmed = trim_history(history, max_turns=5)

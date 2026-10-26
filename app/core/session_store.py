@@ -15,11 +15,13 @@ _SESSION_TTL_SECONDS = 30 * 60
 
 
 def _expire_sessions(now: float) -> None:
-    expired = [
-        session_id for session_id, last_active in _SESSION_LAST_ACTIVITY.items()
-        if now - last_active >= _SESSION_TTL_SECONDS
-    ]
-    for session_id in expired:
+    # Session order is maintained from least to most recently active, so only
+    # inspect entries that can actually expire instead of scanning all sessions.
+    while _SESSIONS:
+        session_id = next(iter(_SESSIONS))
+        last_active = _SESSION_LAST_ACTIVITY.get(session_id, 0.0)
+        if now - last_active < _SESSION_TTL_SECONDS:
+            break
         _SESSIONS.pop(session_id, None)
         _SESSION_LAST_ACTIVITY.pop(session_id, None)
 
@@ -91,17 +93,27 @@ def trim_history(
     if not history:
         return []
 
-    # Keep at most max_turns * 2 messages
+    if max_turns <= 0 or max_chars <= 0:
+        return []
+
+    # Keep at most max_turns * 2 messages, then consume the budget from newest
+    # to oldest so an oversized old answer cannot evict the latest user prompt.
     trimmed = history[-(max_turns * 2):]
-
-    # Enforce character budget from newest to oldest
-    total_len = 0
-    kept_from_idx = 0
-    for idx in range(len(trimmed) - 1, -1, -1):
-        msg_len = len(trimmed[idx].get("content", ""))
-        if total_len + msg_len > max_chars:
-            kept_from_idx = idx + 1
-            break
-        total_len += msg_len
-
-    return trimmed[kept_from_idx:]
+    kept: list[dict] = []
+    used = 0
+    for message in reversed(trimmed):
+        content = str(message.get("content", ""))
+        remaining = max_chars - used
+        if len(content) <= remaining:
+            kept.append(message)
+            used += len(content)
+            continue
+        if not kept and remaining:
+            marker = "[...nội dung trước đã được lược bớt...]\n"
+            if remaining > len(marker):
+                content = marker + content[-(remaining - len(marker)):]
+            else:
+                content = content[-remaining:]
+            kept.append({**message, "content": content})
+        break
+    return list(reversed(kept))
