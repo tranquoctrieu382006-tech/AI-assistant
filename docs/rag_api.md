@@ -60,7 +60,7 @@ Hỏi đáp và nhận toàn bộ câu trả lời kèm danh sách nguồn tríc
       "section": "Điều kiện đổi trả"
     }
   ],
-  "trace_id": "rag-134758ef1a7e"
+  "trace_id": "1bc12f0391e0773c3458cc76c295d8c6"
 }
 ```
 
@@ -86,7 +86,7 @@ Mỗi gói tin tuân thủ chuẩn SSE: `data: <JSON>\n\n`. Luồng stream bao g
 1. **Sự kiện `sources` (Nguồn trích dẫn):**  
    Được phát ra đầu tiên ngay khi các đoạn trích vượt qua ngưỡng lọc tương đồng (`score >= RAG_MIN_RELEVANCE_SCORE`):
    ```sse
-   data: {"type": "sources", "sources": [{"source": "02_chinh_sach_bao_hanh.md", "chunk_index": 1, "score": 0.825, "section": "Màn hình", "page_number": null}], "trace_id": "rag-a1b2c3d4e5f6"}
+   data: {"type": "sources", "sources": [{"source": "02_chinh_sach_bao_hanh.md", "chunk_index": 1, "score": 0.825, "section": "Màn hình", "page_number": null}], "trace_id": "1bc12f0391e0773c3458cc76c295d8c6"}
    ```
 
 2. **Sự kiện `token` (Từng mảnh từ câu trả lời):**  
@@ -102,7 +102,7 @@ Mỗi gói tin tuân thủ chuẩn SSE: `data: <JSON>\n\n`. Luồng stream bao g
 3. **Sự kiện `no_answer` (Từ chối trả lời khi thiếu căn cứ):**  
    Được phát khi không tìm thấy đoạn trích nào đạt ngưỡng tin cậy, hoặc mô hình từ chối:
    ```sse
-   data: {"type": "no_answer", "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.", "trace_id": "rag-a1b2c3d4e5f6"}
+   data: {"type": "no_answer", "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.", "trace_id": "1bc12f0391e0773c3458cc76c295d8c6"}
    ```
 
 4. **Sự kiện `error` (Lỗi xử lý):**  

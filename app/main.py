@@ -15,7 +15,7 @@ from app.core.config import settings
 from app.core.llm import MODEL_REGISTRY, check_ollama_status_async
 from app.core.tracing import init_tracing, flush_langfuse
 from app.core.vector_store import close_pool
-from app.core.security import RateLimitMiddleware
+from app.core.security import RateLimitMiddleware, MaxBodySizeMiddleware
 
 logging.basicConfig(
     level=logging.INFO,
@@ -101,6 +101,7 @@ app = FastAPI(
 
 # CORS Middleware – sử dụng danh sách origin tường minh, an toàn khi có credentials
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(MaxBodySizeMiddleware, max_upload_bytes=5 * 1024 * 1024)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

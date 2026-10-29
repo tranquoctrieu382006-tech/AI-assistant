@@ -114,3 +114,66 @@ class RateLimitMiddleware:
             await send(message)
 
         await self.app(scope, receive, send_with_rate_headers)
+
+
+class MaxBodySizeMiddleware:
+    """
+    ASGI middleware bảo vệ chống request body quá lớn (OOM/DoS).
+    1. Kiểm tra header Content-Length sớm nếu có.
+    2. Bọc receive() để đếm chính xác từng byte nhận được đối với luồng upload (/api/rag/upload),
+       ngắt ngay lập tức với HTTP 413 nếu vượt quá giới hạn (kể cả Transfer-Encoding: chunked).
+    """
+
+    def __init__(self, app, max_upload_bytes: int = 5 * 1024 * 1024):
+        self.app = app
+        self.max_upload_bytes = max_upload_bytes
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        path = scope.get("path", "")
+        if path.startswith("/api/rag/upload"):
+            headers = dict(scope.get("headers", []))
+            content_length = headers.get(b"content-length")
+            # Starlette compatible HTTP 413 status
+            http_413 = 413
+            if content_length:
+                try:
+                    if int(content_length) > self.max_upload_bytes:
+                        response = JSONResponse(
+                            status_code=http_413,
+                            content={"detail": "Kích thước tệp vượt quá giới hạn cho phép (tối đa 5MB)"},
+                        )
+                        await response(scope, receive, send)
+                        return
+                except ValueError:
+                    pass
+
+            received_bytes = 0
+
+            async def limited_receive():
+                nonlocal received_bytes
+                message = await receive()
+                if message["type"] == "http.request":
+                    body = message.get("body", b"")
+                    received_bytes += len(body)
+                    if received_bytes > self.max_upload_bytes:
+                        raise HTTPException(
+                            status_code=http_413,
+                            detail="Kích thước tệp vượt quá giới hạn cho phép (tối đa 5MB)",
+                        )
+                return message
+
+            try:
+                await self.app(scope, limited_receive, send)
+            except HTTPException as exc:
+                response = JSONResponse(
+                    status_code=exc.status_code,
+                    content={"detail": exc.detail},
+                )
+                await response(scope, receive, send)
+            return
+
+        await self.app(scope, receive, send)

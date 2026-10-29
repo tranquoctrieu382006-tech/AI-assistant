@@ -71,6 +71,17 @@ def test_nlq_ask_response_with_tabular_data():
     assert dumped["repaired"] is False
 
 
+def test_rag_ask_response_with_trace_id():
+    """Kiểm tra RagAskResponse chấp nhận trường trace_id (hợp lệ khi Langfuse bật hoặc None khi tắt)."""
+    res1 = RagAskResponse(answer="Trả lời", sources=[], trace_id="1bc12f0391e0773c3458cc76c295d8c6")
+    assert res1.trace_id == "1bc12f0391e0773c3458cc76c295d8c6"
+    assert res1.model_dump()["trace_id"] == "1bc12f0391e0773c3458cc76c295d8c6"
+
+    res2 = RagAskResponse(answer="Trả lời", sources=[], trace_id=None)
+    assert res2.trace_id is None
+    assert res2.model_dump()["trace_id"] is None
+
+
 def test_route_decision_schema():
     """Kiểm tra schema RouteDecision."""
     decision = RouteDecision(category=RouteCategory.RAG, reasoning="Hỏi chính sách")

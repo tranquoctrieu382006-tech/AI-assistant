@@ -228,12 +228,19 @@ def similarity_search(
     k: int | None = None,
     *,
     embedding: list[float] | None = None,
-    corpus: str | None = None,
+    corpus: str | list[str] | tuple[str, ...] | None = None,
 ) -> list[dict]:
     vector = embedding if embedding is not None else embed_query(query)
     with _connect() as conn:
         _require_store_ready(conn)
-        if corpus is not None:
+        if isinstance(corpus, (list, tuple)):
+            rows = conn.execute(
+                """SELECT content, source, chunk_index, page_number, section,
+                          1 - (embedding <=> %s) AS score, corpus, display_name
+                   FROM rag_chunks WHERE corpus = ANY(%s) ORDER BY embedding <=> %s LIMIT %s""",
+                (Vector(vector), list(corpus), Vector(vector), k or settings.rag_top_k),
+            ).fetchall()
+        elif corpus is not None:
             rows = conn.execute(
                 """SELECT content, source, chunk_index, page_number, section,
                           1 - (embedding <=> %s) AS score, corpus, display_name
@@ -293,11 +300,16 @@ def score_chunks(
     return {(source, chunk_index): float(score) for source, chunk_index, score in rows}
 
 
-def get_corpus_revision(*, corpus: str | None = None) -> tuple[int, int]:
+def get_corpus_revision(*, corpus: str | list[str] | tuple[str, ...] | None = None) -> tuple[int, int]:
     """Return a cheap revision token that changes after replace_corpus_chunks()."""
     with _connect() as conn:
         _require_store_ready(conn)
-        if corpus is not None:
+        if isinstance(corpus, (list, tuple)):
+            count, max_id = conn.execute(
+                "SELECT COUNT(*), COALESCE(MAX(id), 0) FROM rag_chunks WHERE corpus = ANY(%s)",
+                (list(corpus),),
+            ).fetchone()
+        elif corpus is not None:
             count, max_id = conn.execute(
                 "SELECT COUNT(*), COALESCE(MAX(id), 0) FROM rag_chunks WHERE corpus = %s",
                 (corpus,),
@@ -309,10 +321,16 @@ def get_corpus_revision(*, corpus: str | None = None) -> tuple[int, int]:
     return int(count), int(max_id)
 
 
-def get_all_chunks(*, corpus: str | None = None) -> list[dict]:
+def get_all_chunks(*, corpus: str | list[str] | tuple[str, ...] | None = None) -> list[dict]:
     with _connect() as conn:
         _require_store_ready(conn)
-        if corpus is not None:
+        if isinstance(corpus, (list, tuple)):
+            rows = conn.execute(
+                """SELECT content, source, chunk_index, page_number, section, corpus, display_name
+                   FROM rag_chunks WHERE corpus = ANY(%s) ORDER BY source, chunk_index""",
+                (list(corpus),),
+            ).fetchall()
+        elif corpus is not None:
             rows = conn.execute(
                 """SELECT content, source, chunk_index, page_number, section, corpus, display_name
                    FROM rag_chunks WHERE corpus = %s ORDER BY source, chunk_index""",

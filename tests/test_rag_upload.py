@@ -45,7 +45,7 @@ def test_upload_valid_text_file(client):
     mock_upsert.assert_called_once()
     call_kwargs = mock_upsert.call_args.kwargs
     assert call_kwargs["corpus"] == "user"
-    assert "Chính sách công tác phí 2026" in call_kwargs["display_name"]
+    assert "Chính sách công tác phí 2026" in call_kwargs["chunks"][0]["display_name"]
 
 
 def test_upload_file_exceeding_5mb_rejected_with_413(client):
@@ -165,3 +165,62 @@ def test_upload_prompt_injection_document_resistance(client):
     ask_data = ask_resp.json()
     assert "secret" not in ask_data["answer"].lower()
     assert "hacker" not in ask_data["answer"].lower()
+
+
+def test_upload_with_session_id_isolates_corpus(client):
+    """Kiểm tra khi client gửi kèm session_id, corpus được cô lập thành session_{session_id}."""
+    text_content = "# Báo cáo riêng của phiên A\nDữ liệu nội bộ phiên."
+    files = {
+        "file": ("bao_cao_phien_a.txt", text_content.encode("utf-8"), "text/plain")
+    }
+    data = {"session_id": "test_session_123"}
+
+    mock_upsert = MagicMock(return_value=1)
+    with patch("app.core.vector_store.upsert_document_chunks", mock_upsert), \
+         patch("app.core.vector_store.ensure_vector_schema"):
+        resp = client.post("/api/rag/upload", files=files, data=data)
+
+    assert resp.status_code == 200, resp.text
+    res_data = resp.json()
+    assert res_data["corpus"] == "session_test_session_123"
+    mock_upsert.assert_called_once()
+    call_kwargs = mock_upsert.call_args.kwargs
+    assert call_kwargs.get("corpus") == "session_test_session_123"
+
+
+def test_session_corpus_isolation_logic():
+    """Kiểm tra logic phân vùng corpus: session A không tìm thấy tài liệu session B."""
+    from app.schemas.rag import RagAskRequest
+    from app.api.rag import _retrieve_with_timeout
+    from unittest.mock import patch
+    import asyncio
+
+    req_a = RagAskRequest(question="Chính sách bảo hành?", session_id="session_A")
+    req_b = RagAskRequest(question="Chính sách bảo hành?", session_id="session_B")
+
+    captured_corpora = []
+    def fake_retrieve(*args, **kwargs):
+        # args: (question, top_k, mode, use_reranker, reranker_top_n, pool_size, corpus)
+        # hoặc vị trí cuối cùng
+        corpus_arg = args[-1] if len(args) >= 7 else kwargs.get("corpus")
+        captured_corpora.append(corpus_arg)
+        return ([], False)
+
+    with patch("app.api.rag.retrieve_and_gate", side_effect=fake_retrieve):
+        asyncio.run(_retrieve_with_timeout("Chính sách bảo hành?", req_a))
+        asyncio.run(_retrieve_with_timeout("Chính sách bảo hành?", req_b))
+
+    assert captured_corpora[0] == ["demo", "session_session_A"]
+    assert captured_corpora[1] == ["demo", "session_session_B"]
+    assert "session_session_A" not in captured_corpora[1]
+
+
+def test_upload_content_length_middleware_blocks_large_request(client):
+    """Kiểm tra MaxBodySizeMiddleware từ chối sớm request có Content-Length > 5MB."""
+    headers = {
+        "X-API-Key": settings.app_api_key,
+        "Content-Length": "6000000",
+    }
+    resp = client.post("/api/rag/upload", content=b"dummy", headers=headers)
+    assert resp.status_code == 413
+    assert "tối đa 5MB" in resp.json()["detail"]

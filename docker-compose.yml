@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Vui lòng cấu hình POSTGRES_PASSWORD trong file .env}
       POSTGRES_DB: ${POSTGRES_DB:-ai_assistant_demo}
-      NLQ_READER_PASSWORD: ${NLQ_READER_PASSWORD:-secret_nlq_reader}
+      NLQ_READER_PASSWORD: ${NLQ_READER_PASSWORD:?Vui lòng cấu hình NLQ_READER_PASSWORD trong file .env}
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./docker/init-db/01_init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
@@ -38,13 +38,14 @@ services:
       dockerfile: Dockerfile
     container_name: ai-assistant-backend
     restart: unless-stopped
+    env_file: .env
     ports:
       - "127.0.0.1:8000:8000"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ai_assistant_demo}
-      NLQ_DATABASE_URL: postgresql://ai_nlq_reader:${NLQ_READER_PASSWORD:-secret_nlq_reader}@postgres:5432/${POSTGRES_DB:-ai_assistant_demo}
+      NLQ_DATABASE_URL: postgresql://ai_nlq_reader:${NLQ_READER_PASSWORD}@postgres:5432/${POSTGRES_DB:-ai_assistant_demo}
       OLLAMA_BASE_URL: http://ollama:11434
-      APP_API_KEY: ${APP_API_KEY:-dev-api-key}
+      APP_API_KEY: ${APP_API_KEY:?Vui lòng cấu hình APP_API_KEY tối thiểu 32 ký tự trong file .env}
     depends_on:
       postgres:
         condition: service_healthy
@@ -65,9 +66,15 @@ services:
       - "127.0.0.1:8501:8501"
     environment:
       BACKEND_URL: http://app:8000
-      APP_API_KEY: ${APP_API_KEY:-dev-api-key}
+      APP_API_KEY: ${APP_API_KEY:?Vui lòng cấu hình APP_API_KEY tối thiểu 32 ký tự trong file .env}
     depends_on:
-      - app
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
 volumes:
   pgdata:

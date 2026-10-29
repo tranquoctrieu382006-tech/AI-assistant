@@ -32,4 +32,27 @@ Content-Type: application/json
 {"question":"Doanh thu theo tháng trong năm 2025 là bao nhiêu?","session_id":"demo-27-10"}
 ```
 
+Response (`HTTP 200 OK`):
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+X-Trace-Id: 2cf23a0491e0773c3458cc76c295e8d7
+
+{
+  "sql": "SELECT DATE_TRUNC('month', order_date) AS month, SUM(total_amount) AS revenue FROM orders WHERE EXTRACT(year FROM order_date) = 2025 GROUP BY 1 ORDER BY 1;",
+  "columns": ["month", "revenue"],
+  "rows": [
+    {"month": "2025-01-01", "revenue": 125000000},
+    {"month": "2025-02-01", "revenue": 98000000}
+  ],
+  "answer": "Tổng doanh thu năm 2025 theo từng tháng được liệt kê trong bảng kết quả.",
+  "repaired": false,
+  "truncated": false,
+  "trace_id": "2cf23a0491e0773c3458cc76c295e8d7"
+}
+```
+
+- `trace_id` *(string | null)*: Mã trace 32 ký tự hex trên Langfuse (hoặc `null` nếu hệ thống chưa bật cấu hình Langfuse). Header `X-Trace-Id` được trả kèm khi `trace_id` khả dụng.
+
+
 The endpoint is unavailable until the separate read-only database URL is configured. The `scripts/evaluate_nlq_model.py` evaluator remains the offline model comparison path; it can evaluate `local`, `fast`, and `strong` roles against the checked-in synthetic golden set.

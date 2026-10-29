@@ -29,7 +29,6 @@ if str(ROOT_DIR) not in sys.path:
 
 from app.core.config import settings
 from app.core.router import route_question, RouteCategory
-from app.core.tracing import get_langfuse_client, flush_langfuse
 
 
 # ---------------------------------------------------------
@@ -70,7 +69,7 @@ def reset_session():
 # HÀM GỬI FEEDBACK VỀ BACKEND / LANGFUSE
 # ---------------------------------------------------------
 def submit_feedback(msg_idx: int, score: float, trace_id: str | None = None, comment: str = ""):
-    """Gửi đánh giá người dùng qua API /api/feedback (gắn trace_id) hoặc SDK Langfuse."""
+    """Gửi đánh giá người dùng qua API duy nhất /api/feedback (gắn trace_id)."""
     headers = {
         "Content-Type": "application/json",
         "X-API-Key": API_KEY,
@@ -83,33 +82,21 @@ def submit_feedback(msg_idx: int, score: float, trace_id: str | None = None, com
     }
 
     recorded = False
-    # 1. Gọi API backend /api/feedback
     try:
         resp = httpx.post(f"{BACKEND_URL}/api/feedback", json=payload, headers=headers, timeout=5.0)
         if resp.status_code == 200:
-            recorded = True
-    except Exception:
-        pass
-
-    # 2. Fallback trực tiếp qua SDK nếu backend chưa bật
-    if not recorded:
-        try:
-            client = get_langfuse_client()
-            if client:
-                if trace_id:
-                    client.create_score(name="user_feedback", value=score, trace_id=trace_id, comment=comment)
-                else:
-                    client.create_score(name="user_feedback", value=score, session_id=st.session_state.session_id, comment=comment)
-                flush_langfuse()
-                recorded = True
-        except Exception as e:
-            st.error(f"Lỗi ghi nhận phản hồi: {e}")
+            data = resp.json()
+            recorded = data.get("recorded", False)
+        elif resp.status_code == 422:
+            st.error(f"Lỗi xác thực dữ liệu feedback: {resp.text}")
+    except Exception as exc:
+        st.warning(f"Không thể kết nối đến máy chủ backend để gửi phản hồi: {exc}")
 
     st.session_state.feedback_given[msg_idx] = score
     if recorded:
-        st.toast(f"✅ Đã ghi nhận phản hồi {'👍 Hài lòng' if score == 1.0 else '👎 Chưa đúng'}!", icon="🎉")
+        st.toast(f"✅ Đã ghi nhận phản hồi {'👍 Hài lòng' if score == 1.0 else '👎 Chưa đúng'} về Langfuse!", icon="🎉")
     else:
-        st.toast("Đã ghi nhận phản hồi cục bộ.", icon="ℹ️")
+        st.toast("ℹ️ Phản hồi chưa được lưu (Langfuse chưa được cấu hình trên máy chủ).", icon="⚠️")
 
 
 # ---------------------------------------------------------
@@ -183,6 +170,7 @@ with st.sidebar:
                         f"{BACKEND_URL}/api/rag/upload",
                         headers={"X-API-Key": API_KEY},
                         files={"file": (uploaded_file.name, file_bytes, uploaded_file.type or "application/octet-stream")},
+                        data={"session_id": st.session_state.session_id},
                         timeout=120.0,
                     )
                     if upload_resp.status_code == 200:

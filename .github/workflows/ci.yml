@@ -58,19 +58,41 @@ jobs:
           PGPASSWORD=test_password_123 psql -h localhost -U postgres -d ai_assistant_test -f docker/init-db/01_init.sql
           PGPASSWORD=test_password_123 psql -h localhost -U postgres -d ai_assistant_test -f data/demo_sales_warehouse/schema_seed.sql
           POSTGRES_USER=postgres POSTGRES_DB=ai_assistant_test NLQ_READER_PASSWORD=secret_nlq_reader PGPASSWORD=test_password_123 bash docker/init-db/03_create_reader_role.sh
-      - name: Run test suite
-        run: python -m pytest -v
+      - name: Run test suite with JUnit XML report
+        run: python -m pytest -v --junitxml=test-results.xml
 
   docker:
-    name: Docker Build & Health Probe
+    name: Docker Build & Compose Health Probe
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build Docker Image
-        run: docker build -t ai-assistant:ci .
-      - name: Test Container Startup & Health Probe
+      - name: Validate Docker Compose Configuration
+        run: docker compose config
+        env:
+          POSTGRES_PASSWORD: test_password_123
+          NLQ_READER_PASSWORD: secret_nlq_reader
+          APP_API_KEY: ci-test-key-with-more-than-32-characters
+      - name: Create temporary .env for Compose services
         run: |
-          docker run -d --name app-smoke -p 8000:8000 -e APP_API_KEY=ci-test-key-with-more-than-32-characters ai-assistant:ci
-          sleep 6
-          curl --fail http://localhost:8000/api/health/live || (docker logs app-smoke && exit 1)
-          docker stop app-smoke
+          echo "POSTGRES_PASSWORD=test_password_123" >> .env
+          echo "NLQ_READER_PASSWORD=secret_nlq_reader" >> .env
+          echo "APP_API_KEY=ci-test-key-with-more-than-32-characters" >> .env
+      - name: Test Docker Compose Multi-Service Health
+        run: |
+          docker compose up -d
+          for i in {1..40}; do
+            APP_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' ai-assistant-backend 2>/dev/null || echo "starting")
+            UI_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' ai-assistant-ui 2>/dev/null || echo "starting")
+            if [ "$APP_HEALTH" = "healthy" ] && [ "$UI_HEALTH" = "healthy" ]; then
+              echo "Both backend and UI services are healthy!"
+              break
+            fi
+            sleep 2
+          done
+          curl --fail http://localhost:8000/api/health/live
+          curl --fail http://localhost:8501/_stcore/health
+          docker compose down -v
+        env:
+          POSTGRES_PASSWORD: test_password_123
+          NLQ_READER_PASSWORD: secret_nlq_reader
+          APP_API_KEY: ci-test-key-with-more-than-32-characters

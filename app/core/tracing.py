@@ -21,6 +21,7 @@ def langfuse_observation(
     *,
     as_type: str = "span",
     input: Any | None = None,
+    trace_id: str | None = None,
 ):
     """Create a Langfuse observation when configured without blocking local use."""
     if not is_langfuse_configured():
@@ -28,11 +29,14 @@ def langfuse_observation(
         return
     try:
         import langfuse
-        observation = langfuse.get_client().start_as_current_observation(
-            as_type=as_type,
-            name=name,
-            input=input,
-        )
+        obs_kwargs = {
+            "as_type": as_type,
+            "name": name,
+            "input": input,
+        }
+        if trace_id:
+            obs_kwargs["trace_context"] = {"trace_id": trace_id}
+        observation = langfuse.get_client().start_as_current_observation(**obs_kwargs)
         span = observation.__enter__()
     except Exception as exc:
         logger.warning("Không thể khởi tạo Langfuse observation '%s': %s", name, exc)
@@ -52,6 +56,19 @@ def langfuse_observation(
             observation.__exit__(None, None, None)
         except Exception as exc:
             logger.warning("Không thể kết thúc Langfuse observation '%s': %s", name, exc)
+
+
+def create_trace_id() -> str | None:
+    """Tạo trước một trace_id hợp lệ (32 ký tự hex) khi Langfuse được cấu hình."""
+    if not is_langfuse_configured():
+        return None
+    try:
+        client = get_langfuse_client()
+        if client:
+            return client.create_trace_id()
+    except Exception as exc:
+        logger.warning("Không thể sinh trace_id từ Langfuse: %s", exc)
+    return None
 
 
 def update_langfuse_observation(observation, **kwargs) -> None:

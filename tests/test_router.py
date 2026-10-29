@@ -6,7 +6,7 @@ and evaluation against the frozen 70-query test set (data/router_test_set.json).
 import json
 from pathlib import Path
 import pytest
-from langchain_community.chat_models import FakeListChatModel
+from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 from app.core.router import (
     RouteCategory,

@@ -262,6 +262,8 @@ async def test_stream_disconnect_before_first_token_does_not_record_a_turn():
     ):
         response = await rag.ask_rag_stream(request)
         stream = response.body_iterator
+        start_event = await anext(stream)
+        assert '"type": "start"' in start_event
         pending_event = asyncio.create_task(anext(stream))
         await asyncio.wait_for(generation_started.wait(), timeout=2)
         pending_event.cancel()
@@ -315,8 +317,10 @@ async def test_stream_disconnect_persists_partial_turn_for_followup():
     ):
         response = await rag.ask_rag_stream(request)
         stream = response.body_iterator
-        first_event = await anext(stream)
-        assert '"type": "sources"' in first_event
+        start_event = await anext(stream)
+        assert '"type": "start"' in start_event
+        sources_event = await anext(stream)
+        assert '"type": "sources"' in sources_event
         await stream.aclose()
 
     history = session_store.get_history("disconnected-stream")
@@ -422,3 +426,47 @@ async def test_rag_http_request_records_request_and_retrieval_spans():
     assert model.prompt is not None
     assert "Đổi trả" in model.prompt[1].content
     assert model.config["callbacks"].handlers == [handler]
+
+
+def test_rag_chain_with_fake_chat_model_valid_json():
+    """Kiểm tra RAG chain tích hợp FakeListChatModel của LangChain xử lý JSON hợp lệ."""
+    from langchain_core.language_models.fake_chat_models import FakeListChatModel
+    from app.core.rag_prompt import build_rag_chain
+    from app.schemas.rag import RagGeneratedAnswer
+
+    valid_json = '{"answer": "Thời hạn bảo hành là 24 tháng.", "abstain": false}'
+    fake_llm = FakeListChatModel(responses=[valid_json])
+    chain = build_rag_chain(fake_llm)
+    res = chain.invoke({"question": "Bảo hành mấy tháng?", "context": "Bảo hành 24 tháng."})
+    assert isinstance(res, RagGeneratedAnswer)
+    assert res.answer == "Thời hạn bảo hành là 24 tháng."
+    assert res.abstain is False
+
+
+def test_rag_chain_with_fake_chat_model_abstain():
+    """Kiểm tra RAG chain tích hợp FakeListChatModel khi model từ chối trả lời (abstain=true)."""
+    from langchain_core.language_models.fake_chat_models import FakeListChatModel
+    from app.core.rag_prompt import build_rag_chain, NO_ANSWER
+    from app.schemas.rag import RagGeneratedAnswer
+
+    abstain_json = f'{{"answer": "{NO_ANSWER}", "abstain": true}}'
+    fake_llm = FakeListChatModel(responses=[abstain_json])
+    chain = build_rag_chain(fake_llm)
+    res = chain.invoke({"question": "Mấy giờ mở cửa?", "context": "Chỉ có thông tin giá."})
+    assert isinstance(res, RagGeneratedAnswer)
+    assert res.abstain is True
+    assert res.answer == NO_ANSWER
+
+
+def test_rag_chain_with_fake_chat_model_output_fixing():
+    """Kiểm tra RAG chain sửa lỗi JSON hỏng bằng OutputFixingParser và FakeListChatModel."""
+    from langchain_core.language_models.fake_chat_models import FakeListChatModel
+    from app.core.rag_prompt import build_rag_chain
+
+    malformed_json = 'Completion không chuẩn: {"answer": "Chính sách đổi trả 7 ngày", "abstain": false'
+    repaired_json = '{"answer": "Chính sách đổi trả 7 ngày", "abstain": false}'
+    fake_llm = FakeListChatModel(responses=[malformed_json, repaired_json])
+    chain = build_rag_chain(fake_llm)
+    res = chain.invoke({"question": "Đổi trả mấy ngày?", "context": "Đổi trả trong 7 ngày."})
+    assert res.answer == "Chính sách đổi trả 7 ngày"
+    assert res.abstain is False

@@ -21,6 +21,7 @@ class RagSource(BaseModel):
 class RagAskResponse(BaseModel):
     answer: str
     sources: list[RagSource]
+    trace_id: str | None = Field(default=None, description="Mã trace_id của lượt hỏi trên Langfuse (nếu bật tracing)")
 
 
 class RagUploadResponse(BaseModel):

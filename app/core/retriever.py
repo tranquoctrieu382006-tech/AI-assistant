@@ -148,7 +148,7 @@ def retrieve_and_gate(
     use_reranker: bool = False,
     reranker_top_n: int = 5,
     reranker_pool_size: int | None = None,
-    corpus: str | None = None,
+    corpus: str | list[str] | tuple[str, ...] | None = None,
 ) -> tuple[list[dict], bool]:
     """Retrieve evidence, enforce per-chunk cosine gating, and optionally rerank."""
     if mode not in {"vector", "hybrid"}:
@@ -159,12 +159,18 @@ def retrieve_and_gate(
     search_kwargs = {"corpus": corpus} if corpus is not None else {}
     if mode == "hybrid":
         query_vector = vector_store.embed_query(query)
-        vector_matches = vector_store.similarity_search(
-            query, k=candidate_k, embedding=query_vector, **search_kwargs
-        )
+        try:
+            vector_matches = vector_store.similarity_search(
+                query, k=candidate_k, embedding=query_vector, **search_kwargs
+            )
+        except TypeError:
+            vector_matches = vector_store.similarity_search(query, k=candidate_k)
     else:
         query_vector = None
-        vector_matches = vector_store.similarity_search(query, k=candidate_k, **search_kwargs)
+        try:
+            vector_matches = vector_store.similarity_search(query, k=candidate_k, **search_kwargs)
+        except TypeError:
+            vector_matches = vector_store.similarity_search(query, k=candidate_k)
     gated_vector_matches = [
         match for match in vector_matches
         if match["score"] >= settings.rag_min_relevance_score
@@ -175,7 +181,7 @@ def retrieve_and_gate(
     if mode == "vector":
         candidates = gated_vector_matches
     else:
-        bm25_docs = get_bm25_retriever(k=candidate_k).invoke(query)
+        bm25_docs = get_bm25_retriever(k=candidate_k, corpus=corpus).invoke(query)
         # Gate after fusion, so keep both lists' candidates until each has a
         # real cosine score; otherwise low-score BM25 hits can consume top-k.
         fused_docs = _hybrid_fusion(bm25_docs, vector_matches, candidate_k * 2)

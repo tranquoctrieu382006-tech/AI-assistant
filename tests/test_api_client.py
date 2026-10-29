@@ -141,14 +141,14 @@ async def test_feedback_endpoint_success():
         res = await api_request(
             "POST",
             "/api/feedback",
-            json={"score": 1.0, "trace_id": "test-trace-123", "comment": "Tốt"},
+            json={"score": 1.0, "trace_id": "1bc12f0391e0773c3458cc76c295d8c6", "comment": "Tốt"},
             headers={"X-API-Key": settings.app_api_key},
         )
         assert res.status_code == 200
         data = res.json()
         assert data["status"] == "ok"
         assert data["score"] == 1.0
-        assert data["trace_id"] == "test-trace-123"
+        assert data["trace_id"] == "1bc12f0391e0773c3458cc76c295d8c6"
 
 
 @pytest.mark.asyncio
@@ -163,6 +163,19 @@ async def test_feedback_endpoint_missing_identifiers_returns_422():
     )
     assert res.status_code == 422
     assert "trace_id hoặc session_id" in res.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_feedback_endpoint_invalid_trace_id_format_returns_422():
+    """Kiểm tra POST /api/feedback trả về HTTP 422 khi trace_id không phải 32 ký tự hex."""
+    res = await api_request(
+        "POST",
+        "/api/feedback",
+        json={"score": 1.0, "trace_id": "invalid-non-hex-id"},
+        headers={"X-API-Key": settings.app_api_key},
+    )
+    assert res.status_code == 422
+    assert "32 ký tự" in res.json()["detail"]
 
 
 @pytest.mark.asyncio

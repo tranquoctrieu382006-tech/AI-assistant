@@ -290,3 +290,31 @@ def test_validate_sql_accepts_status_whitelist_for_revenue():
     )
     validated = validate_sql(sql, ALL_TABLES, question="Doanh thu hàng hóa tháng này?")
     assert "revenue" in validated
+
+
+def test_nlq_graph_with_langchain_fake_list_chat_model(monkeypatch):
+    """Kiểm tra đồ thị NLQ thực thi chuẩn xác với FakeListChatModel chính thức của LangChain (TASK-AI23)."""
+    from langchain_core.language_models.fake_chat_models import FakeListChatModel
+
+    monkeypatch.setattr(nlq_graph, "load_schema", _schema)
+    monkeypatch.setattr(
+        nlq_graph, "_run_readonly",
+        lambda sql: (["product_count"], [{"product_count": 150}], False),
+    )
+    # FakeListChatModel cung cấp chuỗi responses cho các node: link_schema -> generate_sql -> interpret
+    fake_llm = FakeListChatModel(responses=[
+        "orders, products",
+        "```sql\nSELECT COUNT(*) FROM products;\n```",
+        "Hiện tại hệ thống có 150 sản phẩm.",
+    ])
+
+    result = _make_graph(fake_llm).invoke({
+        "question": "Có bao nhiêu sản phẩm?",
+        "repair_count": 0,
+        "repaired": False,
+        "callbacks": [],
+    })
+    assert result["rows"] == [{"product_count": 150}]
+    assert result["answer"] == "Hiện tại hệ thống có 150 sản phẩm."
+    assert "products" in result["sql"]
+    assert result["repaired"] is False
