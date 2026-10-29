@@ -112,10 +112,9 @@ def test_report_matches_rerank_and_hybrid_metrics(repo_root: Path, report_text: 
 
 def test_report_matches_actual_test_files_count(repo_root: Path, report_text: str):
     """
-    Kiểm tra Mục 7 của báo cáo khớp 100% với pytest thu thập thực tế:
-    - Đúng toàn bộ 23 file test vật lý (không thiếu, không thừa).
-    - Không tồn tại file phantom test_limits.py.
-    - Khớp chính xác số lượng test từng file và tổng số 252 tests.
+    Kiểm tra Mục 7 của báo cáo khớp với pytest thu thập thực tế:
+    - Đúng toàn bộ file test vật lý (không thiếu, không thừa), không hardcode 23/252.
+    - Khớp chính xác số lượng test từng file được thu thập.
     """
     # 1. Kiểm tra không có test_limits.py trong repo và báo cáo
     assert not (repo_root / "tests" / "test_limits.py").exists(), "test_limits.py không được tồn tại trên đĩa."
@@ -123,7 +122,6 @@ def test_report_matches_actual_test_files_count(repo_root: Path, report_text: st
 
     # 2. Lấy danh sách file test thực tế trên đĩa
     test_files_on_disk = sorted(f.name for f in (repo_root / "tests").glob("test_*.py"))
-    assert len(test_files_on_disk) == 23
 
     # 3. Thu thập số test thực tế từ pytest --collect-only
     cmd = [sys.executable, "-m", "pytest", "--collect-only", "-q"]
@@ -139,8 +137,7 @@ def test_report_matches_actual_test_files_count(repo_root: Path, report_text: st
             actual_counts[fname] = actual_counts.get(fname, 0) + 1
 
     total_collected = sum(actual_counts.values())
-    assert total_collected == 252
-    assert len(actual_counts) == 23
+    total_files = len(actual_counts)
 
     # 4. Parse bảng Markdown Mục 7 từ report_v2.md
     # Định dạng mỗi dòng: | STT | `tests/test_xxx.py` | **N** | Status | Desc |
@@ -148,7 +145,9 @@ def test_report_matches_actual_test_files_count(repo_root: Path, report_text: st
     matches = table_pattern.findall(report_text)
 
     reported_files = {m[0]: int(m[1]) for m in matches}
-    assert len(reported_files) == 23, f"Bảng Mục 7 có {len(reported_files)} file, kỳ vọng 23 file."
+    assert len(reported_files) == total_files, (
+        f"Bảng Mục 7 có {len(reported_files)} file, kỳ vọng {total_files} file."
+    )
 
     for fname in test_files_on_disk:
         assert fname in reported_files, f"File {fname} thiếu trong bảng Mục 7."
@@ -156,11 +155,19 @@ def test_report_matches_actual_test_files_count(repo_root: Path, report_text: st
             f"Số test cho {fname} không khớp: báo cáo={reported_files[fname]}, thực tế={actual_counts[fname]}"
         )
 
-    # 5. Kiểm tra tổng số trích dẫn trong văn bản
-    assert "252 tests" in report_text or "252 / 252" in report_text
-    assert "23 file test" in report_text
+    # 5. Kiểm tra tổng số trích dẫn trong văn bản (động theo lần thu thập)
+    assert f"{total_collected} tests" in report_text
+    assert f"{total_files} file test" in report_text
+
+
+def test_report_does_not_claim_unverified_pass_or_human_audit(report_text: str):
+    """Không được tuyên bố pass 100% hoặc Human Audit khi chưa có bằng chứng."""
+    assert "100% Pass" not in report_text
+    assert "100% consensus" not in report_text
+    assert "Human Audit" not in report_text
+    assert "chưa có thẩm định độc lập từ con người" in report_text
+    assert "artifact JUnit" in report_text
 
     # 6. Kiểm tra các mục kiến trúc bổ sung
     assert "Soft Session Isolation" in report_text or "Phân vùng Corpus người dùng" in report_text
-    assert "Human Audit" in report_text or "kiểm định thủ công" in report_text
     assert "LLM-as-judge" in report_text

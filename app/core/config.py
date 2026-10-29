@@ -4,11 +4,20 @@ Application settings – đọc từ .env, đổi model chỉ bằng biến môi
 
 from pathlib import Path
 from typing import Literal
+from urllib.parse import quote
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _postgres_url(host: str, port: int, user: str, password: str, database: str) -> str:
+    """Build a DSN while escaping credentials that contain URL metacharacters."""
+    return (
+        f"postgresql://{quote(user, safe='')}:{quote(password, safe='')}"
+        f"@{host}:{port}/{quote(database, safe='')}"
+    )
 
 
 class Settings(BaseSettings):
@@ -36,9 +45,17 @@ class Settings(BaseSettings):
     embedding_timeout_seconds: float = Field(default=30.0, gt=0)
     embedding_dimensions: int = Field(default=1024, ge=1)
     rag_num_ctx: int = Field(default=8192, ge=512)
-    # Require an explicit local DATABASE_URL instead of silently guessing credentials.
-    database_url: str = ""
+    # Explicit URLs win; when absent they are derived from POSTGRES_*/NLQ_READER_*
+    # to avoid duplicating the password in .env.
+    postgres_user: str = "postgres"
+    postgres_password: str = ""
+    postgres_host: str = "127.0.0.1"
+    postgres_port: int = Field(default=5432, ge=1, le=65535)
+    postgres_db: str = "ai_assistant_demo"
     # NLQ uses an isolated read-only credential and never falls back to DATABASE_URL.
+    nlq_reader_user: str = "ai_nlq_reader"
+    nlq_reader_password: str = ""
+    database_url: str = ""
     nlq_database_url: str = ""
     nlq_model: str = "fast"
     nlq_model_timeout_seconds: float = Field(default=60.0, gt=0)
@@ -98,6 +115,26 @@ class Settings(BaseSettings):
     def resolve_project_paths(cls, value):
         path = Path(value)
         return str(path if path.is_absolute() else PROJECT_ROOT / path)
+
+    @model_validator(mode="after")
+    def derive_database_urls(self):
+        if not self.database_url and self.postgres_password:
+            self.database_url = _postgres_url(
+                self.postgres_host,
+                self.postgres_port,
+                self.postgres_user,
+                self.postgres_password,
+                self.postgres_db,
+            )
+        if not self.nlq_database_url and self.nlq_reader_password:
+            self.nlq_database_url = _postgres_url(
+                self.postgres_host,
+                self.postgres_port,
+                self.nlq_reader_user,
+                self.nlq_reader_password,
+                self.postgres_db,
+            )
+        return self
 
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",

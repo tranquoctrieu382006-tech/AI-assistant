@@ -58,11 +58,15 @@ def generate_markdown_test_table() -> str:
 
     for idx, (fp, count) in enumerate(sorted(file_counts.items()), 1):
         desc = descriptions.get(fp, "Kiểm thử tự động các thành phần hệ thống.")
-        status_str = "Pass (CI/Live DB)" if "integration_postgres" in fp else "100% Pass"
+        status_str = "Chờ artifact JUnit trên CI"
         lines.append(f"| {idx} | `{fp}` | **{count}** | {status_str} | {desc} |")
 
     lines.append("")
-    lines.append(f"👉 **Tổng số kiểm thử thu thập:** **{total_tests} tests** trên toàn bộ **{total_files} file test**.")
+    lines.append(
+        f"👉 **Tổng số kiểm thử thu thập:** **{total_tests} tests** "
+        f"trên toàn bộ **{total_files} file test** "
+        "(số lượng thu thập, không phải số lượng đã chạy/đạt)."
+    )
     return "\n".join(lines)
 
 

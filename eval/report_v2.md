@@ -10,7 +10,7 @@ Báo cáo này tổng hợp kết quả đánh giá hệ thống trợ lý ảo 
 - **Embedding Model:** `BAAI/bge-m3` (vector 1024 chiều) chạy qua Ollama cục bộ (`http://localhost:11434`).
 - **Tập dữ liệu kiểm thử (Golden Sets & Held-out Sets):**
   - **RAG Development Set:** 65 ca kiểm thử (`data/rag_golden_set.json`), gồm 41 ca có đáp án trong tài liệu (`answerable`), 19 ca cùng miền nhưng thiếu thông tin cần từ chối (`in_scope_missing`), và 5 ca hoàn toàn ngoài phạm vi (`out_of_scope_far`).
-  - **RAG Held-out Set M2:** 50 ca kiểm thử (`eval/heldout_manifest_m2.json`), gồm 30 ca có đáp án, 10 ca `in_scope_missing`, và 10 ca `out_of_scope_far`. Bộ câu hỏi này do AI (Codex) biên soạn dựa trên corpus đóng băng. Đã thực hiện kiểm định thủ công (Human Audit) trên mẫu phân tầng $\ge 20\%$ (12/50 ca: 4 `answerable`, 4 `in_scope_missing`, 4 `out_of_scope_far`), ghi nhận tỷ lệ đồng thuận (consensus rate) 100% về tính rõ ràng của câu hỏi và nhãn phân loại.
+  - **RAG Held-out Set M2:** 50 ca kiểm thử (`eval/heldout_manifest_m2.json`), gồm 30 ca có đáp án, 10 ca `in_scope_missing`, và 10 ca `out_of_scope_far`. Bộ câu hỏi này do AI (Codex) biên soạn dựa trên corpus đóng băng và **chưa có thẩm định độc lập từ con người**; nhãn phân loại chỉ mang tính tham khảo, không phải ground truth đã kiểm định. Báo cáo không ghi nhận kiểm định thủ công hay tỷ lệ đồng thuận nào.
   - **Kho tài liệu (Corpus):** 12 tài liệu nghiệp vụ tổng hợp, chia thành 30 chunks (chiến lược heading-bounded, kích thước 900 ký tự, overlap 150 ký tự). Quy mô corpus còn nhỏ, mang tính chất thăm dò ban đầu.
   - **NLQ Golden Set:** 30 ca truy vấn tự nhiên sang SQL (`data/nlq_golden_set.json`), bao gồm các câu hỏi tính toán doanh thu (loại trừ đơn hủy), thống kê đơn hàng, tồn kho và khách hàng.
 - **Quan sát & Tracing:** Langfuse Python SDK v5 ghi nhận trace ID, latency, token và observation nodes.
@@ -137,7 +137,7 @@ Quá trình chạy thử nghiệm thực tế trên Router (`app/core/router.py`
 2. **Xác thực API tập trung:** Hệ thống sử dụng một API key tĩnh (`X-API-Key`) dùng chung cho toàn bộ ứng dụng; chưa hỗ trợ xác thực người dùng cá nhân (RBAC).
 3. **Quy mô Corpus RAG:** Corpus hiện tại gồm 12 tài liệu tổng hợp (30 chunks). Kết quả top-k và cosine threshold trên tập này mang tính chất thăm dò, cần tiếp tục đánh giá khi nạp kho tài liệu quy mô lớn hơn.
 4. **Phản hồi người dùng (Feedback):** Khi chưa cấu hình khóa kết nối Langfuse Cloud, endpoint `/api/feedback` chỉ ghi log cục bộ mà chưa lưu trữ vào bảng cơ sở dữ liệu riêng.
-5. **Phân vùng Corpus người dùng (Soft Session Isolation):** Tài liệu upload của người dùng được phân vùng theo `corpus=session_{session_id}` trong cơ sở dữ liệu pgvector. Khi người dùng đặt câu hỏi, cơ chế trích xuất RAG tự động tìm kiếm đa phân vùng (`corpus = ANY(%s)`) kết hợp giữa corpus mặc định `demo` và phân vùng tài liệu riêng của phiên. Tài liệu tải lên được đọc qua bộ đệm tạm thời (`NamedTemporaryFile`) và được lập tức giải phóng (`unlink`) sau khi phân đoạn và embedding; hệ thống không duy trì file thô vĩnh viễn trên ổ cứng của container.
+5. **Phân vùng Corpus người dùng (Soft Session Isolation):** Tài liệu upload của người dùng được phân vùng theo `corpus=session_{session_id}` trong cơ sở dữ liệu pgvector (hoặc `user` khi không có session). Khi người dùng đặt câu hỏi, cơ chế trích xuất RAG tự động tìm kiếm đa phân vùng (`corpus = ANY(%s)`) trên corpus mặc định `demo`, corpus dùng chung `user`, và phân vùng tài liệu riêng của phiên hiện tại; client chỉ được chỉ định `demo`, `user` hoặc đúng session của mình. Khi session hết TTL hoặc bị đẩy khỏi LRU, corpus `session_{session_id}` được dọn khỏi PostgreSQL. Tài liệu tải lên được đọc qua bộ đệm tạm thời (`NamedTemporaryFile`) và được lập tức giải phóng (`unlink`) sau khi phân đoạn và embedding; hệ thống không duy trì file thô vĩnh viễn trên ổ cứng của container.
 6. **Đánh giá tự động Langfuse LLM-as-judge:** Hiện tại tính năng đánh giá tự động sau mỗi lượt hội thoại (online auto-eval) bằng LLM-as-judge ở trạng thái hoàn thành một phần (partially completed) / đang chờ kết nối hạ tầng Langfuse Cloud thực tế. Các bộ prompt đánh giá (`tests/test_evaluators.py`) đã được hoàn thiện và kiểm thử thành công bằng unit test, sẵn sàng tích hợp khi triển khai production.
 
 ---
@@ -148,31 +148,31 @@ Toàn bộ các module cốt lõi, bảo mật, định tuyến, upload và hợ
 
 | STT | File Kiểm Thử | Thu thập (Collected) | Trạng thái Chạy | Mô Tả & Phạm Vi Kiểm Thử |
 | :---: | :--- | :---: | :---: | :--- |
-| 1 | `tests/test_api_client.py` | **11** | 100% Pass | Xác thực `X-API-Key`, mã lỗi 401, 422, mock RAG/NLQ/Router/Feedback. |
-| 2 | `tests/test_chat_history.py` | **13** | 100% Pass | Quản lý session LRU, cắt tỉa ngữ cảnh hội thoại, viết lại câu hỏi follow-up. |
-| 3 | `tests/test_chunking.py` | **8** | 100% Pass | Chiến lược phân đoạn heading-bounded, fixed-size, bảo toàn tiếng Việt Unicode NFC. |
-| 4 | `tests/test_evaluate_rag_answers.py` | **2** | 100% Pass | Đánh giá chất lượng sinh câu trả lời RAG. |
-| 5 | `tests/test_evaluate_rag_production.py` | **1** | 100% Pass | Đo đạc kiểm thử pipeline RAG với mô hình production. |
-| 6 | `tests/test_evaluators.py` | **31** | 100% Pass | Đánh giá SQL guard, so sánh kết quả bảng, cơ chế retry khi lỗi. |
-| 7 | `tests/test_golden_data_validation.py` | **10** | 100% Pass | Kiểm tra tính toàn vẹn và phân bổ nhãn của tập golden set 65 ca. |
-| 8 | `tests/test_health.py` | **9** | 100% Pass | Liveness, readiness probes, kiểm tra kết nối Postgres và Ollama. |
-| 9 | `tests/test_ingestion.py` | **20** | 100% Pass | Trích xuất văn bản từ docx, pdf, xử lý lỗi định dạng và ký tự đặc biệt. |
-| 10 | `tests/test_integration_postgres.py` | **3** | Pass (CI/Live DB) | Kiểm thử live database pgvector và phân quyền `ai_nlq_reader` (chạy trên CI/Live DB). |
-| 11 | `tests/test_llm.py` | **15** | 100% Pass | Phân giải vai trò model (fast/strong/local), cache instance mô hình. |
-| 12 | `tests/test_nlq_runtime.py` | **27** | 100% Pass | NLQ graph sinh SQL, validator, test với `FakeListChatModel`, mã lỗi 503/504. |
-| 13 | `tests/test_prompt_and_streaming.py` | **6** | 100% Pass | Định dạng SSE, bắt sự kiện `start`, `sources`, `token`, `no_answer`, `error`. |
-| 14 | `tests/test_rag.py` | **21** | 100% Pass | Cosine gating, từ chối khi thiếu context, test với `FakeListChatModel` (JSON chuẩn, JSON hỏng, abstain). |
-| 15 | `tests/test_rag_heldout.py` | **2** | 100% Pass | Đánh giá độ trễ và tỷ lệ recall trên tập held-out M1/M2. |
-| 16 | `tests/test_rag_upload.py` | **12** | 100% Pass | Endpoint upload 5MB limit, byte-counting middleware (413), cô lập corpus theo session, NamedTemporaryFile tự hủy. |
-| 17 | `tests/test_report_v2_metrics.py` | **5** | 100% Pass | Kiểm tra tự động đảm bảo số liệu báo cáo khớp 100% với dữ liệu nguồn và test table. |
-| 18 | `tests/test_response_contracts.py` | **7** | 100% Pass | Chuẩn hóa schema Pydantic, xác thực trường `trace_id` trong response. |
-| 19 | `tests/test_retriever.py` | **15** | 100% Pass | Tìm kiếm vector, phân vùng BM25 cache theo corpus, hybrid fusion, reranker. |
-| 20 | `tests/test_router.py` | **8** | 100% Pass | Ma trận phân loại 2 trục, đánh giá tập đóng băng 70 câu, test với `FakeListChatModel`. |
-| 21 | `tests/test_security.py` | **5** | 100% Pass | Rate limiting theo IP, chống timing attack, `MaxBodySizeMiddleware`. |
-| 22 | `tests/test_tracing.py` | **10** | 100% Pass | Context manager tracing, an toàn khi Langfuse ngoại tuyến, sinh pre-generated `trace_id`. |
-| 23 | `tests/test_vector_store.py` | **11** | 100% Pass | Cosine distance, thay thế corpus, upsert và tìm kiếm theo danh sách `corpus = ANY(%s)`. |
+| 1 | `tests/test_api_client.py` | **13** | Chờ artifact JUnit trên CI | Xác thực `X-API-Key`, mã lỗi 401, 422, mock RAG/NLQ/Router/Feedback. |
+| 2 | `tests/test_chat_history.py` | **14** | Chờ artifact JUnit trên CI | Quản lý session LRU, cắt tỉa ngữ cảnh hội thoại, viết lại câu hỏi follow-up. |
+| 3 | `tests/test_chunking.py` | **8** | Chờ artifact JUnit trên CI | Chiến lược phân đoạn heading-bounded, fixed-size, bảo toàn tiếng Việt Unicode NFC. |
+| 4 | `tests/test_evaluate_rag_answers.py` | **2** | Chờ artifact JUnit trên CI | Đánh giá chất lượng sinh câu trả lời RAG. |
+| 5 | `tests/test_evaluate_rag_production.py` | **1** | Chờ artifact JUnit trên CI | Đo đạc kiểm thử pipeline RAG với mô hình production. |
+| 6 | `tests/test_evaluators.py` | **31** | Chờ artifact JUnit trên CI | Đánh giá SQL guard, so sánh kết quả bảng, cơ chế retry khi lỗi. |
+| 7 | `tests/test_golden_data_validation.py` | **10** | Chờ artifact JUnit trên CI | Kiểm tra tính toàn vẹn và phân bổ nhãn của tập golden set 65 ca. |
+| 8 | `tests/test_health.py` | **9** | Chờ artifact JUnit trên CI | Liveness, readiness probes, kiểm tra kết nối Postgres và Ollama. |
+| 9 | `tests/test_ingestion.py` | **20** | Chờ artifact JUnit trên CI | Trích xuất văn bản từ docx, pdf, xử lý lỗi định dạng và ký tự đặc biệt. |
+| 10 | `tests/test_integration_postgres.py` | **3** | Chờ artifact JUnit trên CI | Kiểm thử live database pgvector và phân quyền `ai_nlq_reader` (chạy trên CI/Live DB). |
+| 11 | `tests/test_llm.py` | **15** | Chờ artifact JUnit trên CI | Phân giải vai trò model (fast/strong/local), cache instance mô hình. |
+| 12 | `tests/test_nlq_runtime.py` | **27** | Chờ artifact JUnit trên CI | NLQ graph sinh SQL, validator, test với `FakeListChatModel`, mã lỗi 503/504. |
+| 13 | `tests/test_prompt_and_streaming.py` | **6** | Chờ artifact JUnit trên CI | Định dạng SSE, bắt sự kiện `start`, `sources`, `token`, `no_answer`, `error`. |
+| 14 | `tests/test_rag.py` | **21** | Chờ artifact JUnit trên CI | Cosine gating, từ chối khi thiếu context, test với `FakeListChatModel` (JSON chuẩn, JSON hỏng, abstain). |
+| 15 | `tests/test_rag_heldout.py` | **2** | Chờ artifact JUnit trên CI | Đánh giá độ trễ và tỷ lệ recall trên tập held-out M1/M2. |
+| 16 | `tests/test_rag_upload.py` | **20** | Chờ artifact JUnit trên CI | Endpoint upload 5MB limit, byte-counting middleware (413), cô lập corpus theo session, NamedTemporaryFile tự hủy. |
+| 17 | `tests/test_report_v2_metrics.py` | **6** | Chờ artifact JUnit trên CI | Kiểm tra tự động đảm bảo số liệu báo cáo khớp 100% với dữ liệu nguồn và test table. |
+| 18 | `tests/test_response_contracts.py` | **7** | Chờ artifact JUnit trên CI | Chuẩn hóa schema Pydantic, xác thực trường `trace_id` trong response. |
+| 19 | `tests/test_retriever.py` | **17** | Chờ artifact JUnit trên CI | Tìm kiếm vector, phân vùng BM25 cache theo corpus, hybrid fusion, reranker. |
+| 20 | `tests/test_router.py` | **8** | Chờ artifact JUnit trên CI | Ma trận phân loại 2 trục, đánh giá tập đóng băng 70 câu, test với `FakeListChatModel`. |
+| 21 | `tests/test_security.py` | **5** | Chờ artifact JUnit trên CI | Rate limiting theo IP, chống timing attack, `MaxBodySizeMiddleware`. |
+| 22 | `tests/test_tracing.py` | **12** | Chờ artifact JUnit trên CI | Context manager tracing, an toàn khi Langfuse ngoại tuyến, sinh pre-generated `trace_id`. |
+| 23 | `tests/test_vector_store.py` | **11** | Chờ artifact JUnit trên CI | Cosine distance, thay thế corpus, upsert và tìm kiếm theo danh sách `corpus = ANY(%s)`. |
 
-👉 **Tổng số kiểm thử thu thập:** **252 tests** trên toàn bộ **23 file test**.
+👉 **Tổng số kiểm thử thu thập:** **268 tests** trên toàn bộ **23 file test** (số lượng thu thập, không phải số lượng đã chạy/đạt).
 
-- Khi chạy kiểm thử cục bộ không có dịch vụ cơ sở dữ liệu thật, 249/249 unit tests được kiểm thử độc lập hoàn toàn với tỷ lệ đạt 100%. Khi kết nối PostgreSQL/pgvector trên CI hoặc local container, toàn bộ 252/252 tests đều hoàn tất thành công.
+- Trạng thái pass/fail của từng file được xác định bằng artifact JUnit `test-results.xml` do job CI tải lên, không phải bằng tuyên bố trong tài liệu này. Bảng trên chỉ phản ánh số test được `pytest --collect-only` thu thập tại thời điểm sinh báo cáo.
 - Lưu ý: Toàn bộ danh sách file trên được trích xuất trực tiếp từ cấu trúc thư mục `tests/` thực tế; báo cáo không còn chứa các file giả định (loại bỏ hoàn toàn các file giả định không có trong thư mục tests).

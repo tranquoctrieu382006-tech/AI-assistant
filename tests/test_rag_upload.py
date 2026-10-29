@@ -42,6 +42,7 @@ def test_upload_valid_text_file(client):
     assert data["corpus"] == "user"
     assert data["chunks_indexed"] >= 1
     assert "Chính sách công tác phí 2026" in data["display_name"]
+    assert data["filename"] == data["display_name"]
     mock_upsert.assert_called_once()
     call_kwargs = mock_upsert.call_args.kwargs
     assert call_kwargs["corpus"] == "user"
@@ -210,16 +211,114 @@ def test_session_corpus_isolation_logic():
         asyncio.run(_retrieve_with_timeout("Chính sách bảo hành?", req_a))
         asyncio.run(_retrieve_with_timeout("Chính sách bảo hành?", req_b))
 
-    assert captured_corpora[0] == ["demo", "session_session_A"]
-    assert captured_corpora[1] == ["demo", "session_session_B"]
+    assert captured_corpora[0] == ["demo", "user", "session_session_A"]
+    assert captured_corpora[1] == ["demo", "user", "session_session_B"]
     assert "session_session_A" not in captured_corpora[1]
 
 
+def test_retrieval_without_session_searches_demo_and_shared_user_corpus():
+    """Upload không kèm session nằm trong corpus 'user' và phải tìm được."""
+    from app.schemas.rag import RagAskRequest
+    from app.api.rag import _retrieve_with_timeout
+    from unittest.mock import patch
+    import asyncio
+
+    captured = []
+
+    def fake_retrieve(*args, **kwargs):
+        captured.append(args[-1])
+        return ([], False)
+
+    request = RagAskRequest(question="Chính sách bảo hành?")
+    with patch("app.api.rag.retrieve_and_gate", side_effect=fake_retrieve):
+        asyncio.run(_retrieve_with_timeout("Chính sách bảo hành?", request))
+
+    assert captured == [["demo", "user"]]
+
+
+def test_ask_rejects_foreign_session_corpus(client):
+    """Client không được đọc corpus session khác bằng cách đoán session_id."""
+    resp = client.post(
+        "/api/rag/ask",
+        json={
+            "question": "Chính sách bảo mật?",
+            "session_id": "my-session",
+            "corpus": "session_someone-else",
+        },
+    )
+    assert resp.status_code == 403
+
+
+def test_ask_allows_own_session_and_shared_corpora():
+    """Các corpus được phép: demo, user và đúng session hiện tại."""
+    from app.schemas.rag import RagAskRequest
+    from app.api.rag import _resolve_target_corpus
+
+    assert _resolve_target_corpus(RagAskRequest(question="q?", corpus="demo")) == "demo"
+    assert _resolve_target_corpus(RagAskRequest(question="q?", corpus="user")) == "user"
+    request = RagAskRequest(question="q?", session_id="mine", corpus="session_mine")
+    assert _resolve_target_corpus(request) == "session_mine"
+
+
+def test_upload_latin1_text_rejected_with_400(client):
+    """Văn bản không phải UTF-8 bị từ chối thay vì âm thầm giải mã latin-1."""
+    files = {"file": ("legacy.txt", "caf\xe9".encode("latin-1"), "text/plain")}
+
+    resp = client.post("/api/rag/upload", files=files)
+    assert resp.status_code == 400
+    assert "UTF-8" in resp.json()["detail"]
+
+
+def test_upload_infrastructure_error_returns_503(client):
+    """Lỗi kết nối PostgreSQL khi lập chỉ mục phải là 503, không phải 400."""
+    import psycopg
+
+    files = {"file": ("ok.txt", b"# Tieu de\nNoi dung", "text/plain")}
+    with patch(
+        "app.core.vector_store.upsert_document_chunks",
+        side_effect=psycopg.OperationalError("database down"),
+    ), patch("app.core.vector_store.ensure_vector_schema"):
+        resp = client.post("/api/rag/upload", files=files)
+
+    assert resp.status_code == 503
+
+
+def test_upload_unknown_error_returns_502(client):
+    """Lỗi không xác định khi lập chỉ mục phải là 502, không che thành lỗi người dùng."""
+    files = {"file": ("ok.txt", b"# Tieu de\nNoi dung", "text/plain")}
+    with patch(
+        "app.core.vector_store.upsert_document_chunks",
+        side_effect=RuntimeError("unexpected"),
+    ), patch("app.core.vector_store.ensure_vector_schema"):
+        resp = client.post("/api/rag/upload", files=files)
+
+    assert resp.status_code == 502
+
+
+def test_upload_empty_extraction_returns_400(client):
+    """Tài liệu không trích xuất được nội dung là lỗi đầu vào (400)."""
+    files = {"file": ("ok.txt", b"# Tieu de\nNoi dung", "text/plain")}
+    with patch(
+        "app.core.ingestion.chunk_document_blocks",
+        return_value=[],
+    ), patch("app.core.vector_store.ensure_vector_schema"):
+        resp = client.post("/api/rag/upload", files=files)
+
+    assert resp.status_code == 400
+
+
+def test_upload_rejects_malformed_session_id(client):
+    """session_id có ký tự lạ bị chặn ở lớp validation."""
+    files = {"file": ("ok.txt", b"# Tieu de\nNoi dung", "text/plain")}
+    resp = client.post("/api/rag/upload", files=files, data={"session_id": "../etc/passwd"})
+    assert resp.status_code == 422
+
+
 def test_upload_content_length_middleware_blocks_large_request(client):
-    """Kiểm tra MaxBodySizeMiddleware từ chối sớm request có Content-Length > 5MB."""
+    """Kiểm tra MaxBodySizeMiddleware từ chối sớm request vượt quá hạn mức body."""
     headers = {
         "X-API-Key": settings.app_api_key,
-        "Content-Length": "6000000",
+        "Content-Length": str(7 * 1024 * 1024),
     }
     resp = client.post("/api/rag/upload", content=b"dummy", headers=headers)
     assert resp.status_code == 413

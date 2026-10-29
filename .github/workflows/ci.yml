@@ -60,23 +60,30 @@ jobs:
           POSTGRES_USER=postgres POSTGRES_DB=ai_assistant_test NLQ_READER_PASSWORD=secret_nlq_reader PGPASSWORD=test_password_123 bash docker/init-db/03_create_reader_role.sh
       - name: Run test suite with JUnit XML report
         run: python -m pytest -v --junitxml=test-results.xml
+      - name: Upload JUnit test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-junit
+          path: test-results.xml
+          if-no-files-found: warn
 
   docker:
     name: Docker Build & Compose Health Probe
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Create temporary .env for Compose services
+        run: |
+          echo "POSTGRES_PASSWORD=test_password_123" >> .env
+          echo "NLQ_READER_PASSWORD=secret_nlq_reader" >> .env
+          echo "APP_API_KEY=ci-test-key-with-more-than-32-characters" >> .env
       - name: Validate Docker Compose Configuration
         run: docker compose config
         env:
           POSTGRES_PASSWORD: test_password_123
           NLQ_READER_PASSWORD: secret_nlq_reader
           APP_API_KEY: ci-test-key-with-more-than-32-characters
-      - name: Create temporary .env for Compose services
-        run: |
-          echo "POSTGRES_PASSWORD=test_password_123" >> .env
-          echo "NLQ_READER_PASSWORD=secret_nlq_reader" >> .env
-          echo "APP_API_KEY=ci-test-key-with-more-than-32-characters" >> .env
       - name: Test Docker Compose Multi-Service Health
         run: |
           docker compose up -d
@@ -91,8 +98,10 @@ jobs:
           done
           curl --fail http://localhost:8000/api/health/live
           curl --fail http://localhost:8501/_stcore/health
-          docker compose down -v
         env:
           POSTGRES_PASSWORD: test_password_123
           NLQ_READER_PASSWORD: secret_nlq_reader
           APP_API_KEY: ci-test-key-with-more-than-32-characters
+      - name: Tear down Compose services
+        if: always()
+        run: docker compose down -v

@@ -56,6 +56,54 @@ def test_langfuse_observation_is_disabled_for_local_runs(monkeypatch):
         assert observation is None
 
 
+def test_langfuse_observation_links_child_to_explicit_parent(monkeypatch):
+    span = MagicMock()
+    seen = {}
+
+    @contextmanager
+    def start_as_current_observation(**kwargs):
+        seen.update(kwargs)
+        yield span
+
+    client = MagicMock()
+    client.start_as_current_observation = start_as_current_observation
+    trace_id = "b" * 32
+    parent_span_id = "c" * 16
+    monkeypatch.setattr("app.core.tracing.is_langfuse_configured", lambda: True)
+    with patch.dict("sys.modules", {"langfuse": MagicMock(get_client=lambda: client)}):
+        with langfuse_observation(
+            "rag-stream-generation",
+            trace_id=trace_id,
+            parent_span_id=parent_span_id,
+        ) as observation:
+            assert observation is span
+
+    assert seen["trace_context"] == {
+        "trace_id": trace_id,
+        "parent_span_id": parent_span_id,
+    }
+
+
+def test_langfuse_observation_defaults_parent_to_current_span(monkeypatch):
+    span = MagicMock()
+    seen = {}
+
+    @contextmanager
+    def start_as_current_observation(**kwargs):
+        seen.update(kwargs)
+        yield span
+
+    client = MagicMock()
+    client.start_as_current_observation = start_as_current_observation
+    client.get_current_observation_id.return_value = "d" * 16
+    monkeypatch.setattr("app.core.tracing.is_langfuse_configured", lambda: True)
+    with patch.dict("sys.modules", {"langfuse": MagicMock(get_client=lambda: client)}):
+        with langfuse_observation("rag-retrieval", trace_id="e" * 32):
+            pass
+
+    assert seen["trace_context"]["parent_span_id"] == "d" * 16
+
+
 def test_langfuse_observation_failures_do_not_break_rag(monkeypatch, caplog):
     monkeypatch.setattr("app.core.tracing.is_langfuse_configured", lambda: True)
     client = MagicMock()

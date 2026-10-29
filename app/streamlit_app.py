@@ -254,8 +254,9 @@ def render_chat_message(message: dict, idx: int | None = None):
                     f"**{s_idx}. `{src.get('source')}`** (Độ tương đồng: `{src.get('score', 0):.3f}`){page}{sec}"
                 )
 
-    # Nút Feedback (👍 / 👎) sử dụng st.feedback native
-    if message.get("role") == "assistant" and idx is not None:
+    # Nút Feedback (👍 / 👎) sử dụng st.feedback native; chỉ hiển thị khi có
+    # trace_id để phản hồi luôn gắn được với một trace trên Langfuse.
+    if message.get("role") == "assistant" and idx is not None and message.get("trace_id"):
         trace_id = message.get("trace_id")
         already_voted = idx in st.session_state.feedback_given
 

@@ -15,6 +15,25 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
+def _trace_context(client, trace_id: str, parent_span_id: str | None = None) -> dict[str, str]:
+    """Build an explicit Langfuse context so child observations stay nested.
+
+    Passing only ``trace_id`` makes Langfuse invent a random remote parent and
+    mark the observation as a root, which flattens the trace tree.
+    """
+    context = {"trace_id": trace_id}
+    if parent_span_id:
+        context["parent_span_id"] = parent_span_id
+        return context
+    try:
+        current = client.get_current_observation_id()
+    except Exception:
+        current = None
+    if current:
+        context["parent_span_id"] = current
+    return context
+
+
 @contextmanager
 def langfuse_observation(
     name: str,
@@ -22,6 +41,7 @@ def langfuse_observation(
     as_type: str = "span",
     input: Any | None = None,
     trace_id: str | None = None,
+    parent_span_id: str | None = None,
 ):
     """Create a Langfuse observation when configured without blocking local use."""
     if not is_langfuse_configured():
@@ -29,14 +49,15 @@ def langfuse_observation(
         return
     try:
         import langfuse
+        client = langfuse.get_client()
         obs_kwargs = {
             "as_type": as_type,
             "name": name,
             "input": input,
         }
         if trace_id:
-            obs_kwargs["trace_context"] = {"trace_id": trace_id}
-        observation = langfuse.get_client().start_as_current_observation(**obs_kwargs)
+            obs_kwargs["trace_context"] = _trace_context(client, trace_id, parent_span_id)
+        observation = client.start_as_current_observation(**obs_kwargs)
         span = observation.__enter__()
     except Exception as exc:
         logger.warning("Không thể khởi tạo Langfuse observation '%s': %s", name, exc)
@@ -56,6 +77,47 @@ def langfuse_observation(
             observation.__exit__(None, None, None)
         except Exception as exc:
             logger.warning("Không thể kết thúc Langfuse observation '%s': %s", name, exc)
+
+
+def start_langfuse_observation(
+    name: str,
+    *,
+    as_type: str = "span",
+    input: Any | None = None,
+    trace_id: str | None = None,
+    parent_span_id: str | None = None,
+):
+    """Start a span that is *not* attached to the current context.
+
+    This is intended for streaming generators, whose lifetime outlives the
+    request coroutine and may be closed from a copied context. Manually ending
+    the returned observation avoids OpenTelemetry detach errors while still
+    keeping child observations linked through ``parent_span_id``.
+    """
+    if not is_langfuse_configured():
+        return None
+    try:
+        import langfuse
+        client = langfuse.get_client()
+        obs_kwargs = {"as_type": as_type, "name": name, "input": input}
+        if trace_id:
+            obs_kwargs["trace_context"] = _trace_context(client, trace_id, parent_span_id)
+        return client.start_observation(**obs_kwargs)
+    except Exception as exc:
+        logger.warning("Không thể khởi tạo Langfuse observation '%s': %s", name, exc)
+        return None
+
+
+def end_langfuse_observation(observation, **kwargs) -> None:
+    """Update and end a manually started observation, ignoring tracing errors."""
+    if observation is None:
+        return
+    try:
+        if kwargs:
+            observation.update(**kwargs)
+        observation.end()
+    except Exception as exc:
+        logger.warning("Không thể kết thúc Langfuse observation: %s", exc)
 
 
 def create_trace_id() -> str | None:
@@ -105,18 +167,21 @@ def is_langfuse_configured() -> bool:
     )
 
 
-def get_langfuse_handler():
+def get_langfuse_handler(trace_context: dict[str, str] | None = None):
     """
     Tạo một CallbackHandler mới cho request.
 
     Lưu ý: Trong Langfuse v5+, CallbackHandler tự động bắt ngữ cảnh
     (session_id, user_id, tags, metadata) từ context manager `langfuse_context()`.
-    Do đó mỗi request nên tạo một instance riêng thay vì dùng singleton toàn cục.
+    Truyền `trace_context` (kèm `parent_span_id`) khi cần gắn chuỗi LangChain
+    vào một span cụ thể thay vì tạo trace gốc mới.
     """
     if not is_langfuse_configured():
         return None
     try:
         from langfuse.langchain import CallbackHandler
+        if trace_context:
+            return CallbackHandler(trace_context=trace_context)
         return CallbackHandler()
     except Exception as e:
         logger.warning("Không thể khởi tạo Langfuse CallbackHandler: %s", e)

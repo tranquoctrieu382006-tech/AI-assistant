@@ -99,7 +99,7 @@ async def inline_threadpool(function, *args):
 
 def test_rag_abstains_when_retrieval_has_no_evidence():
     fake_store = types.ModuleType("app.core.vector_store")
-    fake_store.similarity_search = lambda question, k: []
+    fake_store.similarity_search = lambda question, k, **kwargs: []
     with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
           patch.object(rag, "run_in_threadpool", inline_threadpool)):
         with patch.object(rag.vector_store, "similarity_search", fake_store.similarity_search):
@@ -110,7 +110,7 @@ def test_rag_abstains_when_retrieval_has_no_evidence():
 
 def test_rag_abstains_when_top_match_is_below_configured_threshold():
     fake_store = types.ModuleType("app.core.vector_store")
-    fake_store.similarity_search = lambda question, k: [{
+    fake_store.similarity_search = lambda question, k, **kwargs: [{
         "content": "Nội dung không liên quan", "source": "other.md", "chunk_index": 0, "score": 0.44
     }]
     with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
@@ -124,7 +124,7 @@ def test_rag_abstains_when_top_match_is_below_configured_threshold():
 
 def test_rag_returns_answer_and_retrieved_source():
     fake_store = types.ModuleType("app.core.vector_store")
-    fake_store.similarity_search = lambda question, k: [{
+    fake_store.similarity_search = lambda question, k, **kwargs: [{
         "content": "12 ngày nghỉ phép mỗi năm", "source": "policy.md", "chunk_index": 0, "score": 0.8
     }]
     with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
@@ -140,7 +140,7 @@ def test_rag_returns_answer_and_retrieved_source():
 
 def test_rag_filters_each_low_score_chunk_and_uses_separate_messages():
     fake_store = types.ModuleType("app.core.vector_store")
-    fake_store.similarity_search = lambda question, k: [
+    fake_store.similarity_search = lambda question, k, **kwargs: [
         {"content": "good", "source": "good.md", "chunk_index": 0, "score": 0.8},
         {"content": "poor", "source": "poor.md", "chunk_index": 1, "score": 0.2},
     ]
@@ -158,7 +158,7 @@ def test_rag_filters_each_low_score_chunk_and_uses_separate_messages():
 
 def test_rag_clears_sources_when_model_abstains():
     fake_store = types.ModuleType("app.core.vector_store")
-    fake_store.similarity_search = lambda question, k: [{
+    fake_store.similarity_search = lambda question, k, **kwargs: [{
         "content": "unrelated", "source": "policy.md", "chunk_index": 0, "score": 0.8
     }]
     model = FakeModel(rag.NO_ANSWER)
@@ -174,7 +174,7 @@ def test_rag_clears_sources_when_model_abstains():
 
 def test_rag_returns_pydantic_parsed_answer_and_honors_abstain_flag():
     fake_store = types.ModuleType("app.core.vector_store")
-    fake_store.similarity_search = lambda question, k: [{
+    fake_store.similarity_search = lambda question, k, **kwargs: [{
         "content": "Evidence", "source": "policy.md", "chunk_index": 0, "score": 0.8
     }]
     model = FakeModel("The generated field is valid.")
@@ -192,7 +192,7 @@ def test_rag_returns_pydantic_parsed_answer_and_honors_abstain_flag():
 
 def test_rag_rejects_invalid_structured_generation():
     fake_store = types.ModuleType("app.core.vector_store")
-    fake_store.similarity_search = lambda question, k: [{
+    fake_store.similarity_search = lambda question, k, **kwargs: [{
         "content": "Evidence", "source": "policy.md", "chunk_index": 0, "score": 0.8
     }]
 
@@ -333,7 +333,7 @@ async def test_stream_disconnect_persists_partial_turn_for_followup():
 
 def test_rag_reports_retrieval_failure_without_leaking_exception_details():
     fake_store = types.ModuleType("app.core.vector_store")
-    fake_store.similarity_search = lambda question, k: (_ for _ in ()).throw(ConnectionError("private detail"))
+    fake_store.similarity_search = lambda question, k, **kwargs: (_ for _ in ()).throw(ConnectionError("private detail"))
     with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),
           patch.object(rag, "run_in_threadpool", inline_threadpool)):
         try:
@@ -348,7 +348,7 @@ def test_rag_reports_retrieval_failure_without_leaking_exception_details():
 
 def test_rag_reports_generation_failure_separately():
     fake_store = types.ModuleType("app.core.vector_store")
-    fake_store.similarity_search = lambda question, k: [{
+    fake_store.similarity_search = lambda question, k, **kwargs: [{
         "content": "12 ngày nghỉ phép mỗi năm", "source": "policy.md", "chunk_index": 0, "score": 0.8
     }]
     with (patch.dict(sys.modules, {"app.core.vector_store": fake_store}),

@@ -22,13 +22,15 @@ from app.core.config import settings
 from app.core.llm import extract_message_text, get_model_provider, get_rag_llm
 from app.core.tracing import (
     create_trace_id,
+    end_langfuse_observation,
     get_langfuse_handler,
     langfuse_context,
     langfuse_observation,
+    start_langfuse_observation,
     update_langfuse_observation,
 )
 from app.core.security import require_api_key
-from app.schemas.rag import RagAskRequest, RagAskResponse, RagSource, RagUploadResponse
+from app.schemas.rag import RagAskRequest, RagAskResponse, RagSource, RagUploadResponse, SESSION_ID_PATTERN
 from app.core import vector_store
 from app.core import session_store
 from app.core.question_rewriter import rewrite_question_if_needed
@@ -42,6 +44,34 @@ from app.core.rag_prompt import (
 
 router = APIRouter(dependencies=[Security(require_api_key)])
 logger = logging.getLogger(__name__)
+
+DEFAULT_CORPORA = ("demo", "user")
+
+
+def _session_corpus(session_id: str) -> str:
+    return f"session_{session_id}"
+
+
+def _resolve_target_corpus(request: RagAskRequest):
+    """Resolve which corpora a request may search.
+
+    Clients may pin `demo`, the shared `user` corpus, or their own session
+    corpus. Session corpora belonging to other sessions are rejected so a
+    caller cannot read another session's uploads by guessing its id.
+    """
+    if request.corpus is not None:
+        allowed = set(DEFAULT_CORPORA)
+        if request.session_id:
+            allowed.add(_session_corpus(request.session_id))
+        if request.corpus not in allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Không có quyền truy cập corpus được yêu cầu.",
+            )
+        return request.corpus
+    if request.session_id:
+        return [*DEFAULT_CORPORA, _session_corpus(request.session_id)]
+    return list(DEFAULT_CORPORA)
 
 
 def _rag_timeout_seconds() -> float:
@@ -124,16 +154,7 @@ async def _invoke_rag_with_retry(chain, inputs: dict, config: dict):
 
 
 async def _retrieve_with_timeout(question: str, request: RagAskRequest, trace_id: str | None = None):
-    # Xác định corpus hợp lệ:
-    # 1. Nếu client chỉ định cụ thể request.corpus: tuân thủ yêu cầu đó (benchmark/offline eval).
-    # 2. Nếu có session_id: tìm kiếm trên demo + corpus của session hiện tại.
-    # 3. Mặc định: tìm kiếm trên demo.
-    if request.corpus is not None:
-        target_corpus = request.corpus
-    elif request.session_id:
-        target_corpus = ["demo", f"session_{request.session_id}"]
-    else:
-        target_corpus = "demo"
+    target_corpus = _resolve_target_corpus(request)
 
     async with asyncio.timeout(settings.rag_retrieval_timeout_seconds):
         return await run_in_threadpool(
@@ -155,7 +176,7 @@ async def _retrieve_with_timeout(question: str, request: RagAskRequest, trace_id
 )
 async def upload_document(
     file: UploadFile = File(...),
-    session_id: str | None = Form(default=None),
+    session_id: str | None = Form(default=None, max_length=128, pattern=SESSION_ID_PATTERN),
 ) -> RagUploadResponse:
     # 1. Kích thước tệp (tối đa 5MB) - Chốt chặn tầng 2
     max_file_size = 5 * 1024 * 1024
@@ -248,16 +269,12 @@ async def upload_document(
                 detail="Tệp văn bản chứa ký tự null không an toàn (dấu hiệu tệp nhị phân)",
             )
         try:
-            content.decode("utf-8")
-        except UnicodeDecodeError:
-            try:
-                content.decode("latin-1")
-            except Exception as exc:
-                logger.exception("Lỗi giải mã văn bản")
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Tệp văn bản không đúng chuẩn mã hóa hợp lệ",
-                ) from exc
+            content.decode("utf-8-sig")
+        except UnicodeDecodeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tệp văn bản phải được mã hóa UTF-8 hợp lệ",
+            ) from exc
 
     # 4. Phân vùng corpus theo session (cô lập mềm)
     corpus = f"session_{session_id}" if session_id else "user"
@@ -305,11 +322,29 @@ async def upload_document(
         indexed_count = await run_in_threadpool(_process_and_index)
     except HTTPException:
         raise
-    except Exception as exc:
-        logger.exception("Lỗi trong quá trình xử lý hoặc lập chỉ mục tài liệu")
+    except ValueError as exc:
+        logger.warning("Tài liệu tải lên không hợp lệ: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Không thể phân tích hoặc lập chỉ mục tài liệu được tải lên.",
+            detail="Không thể phân tích tài liệu: nội dung trống hoặc không hợp lệ.",
+        ) from exc
+    except vector_store.VectorStoreNotReady as exc:
+        logger.exception("Kho vector chưa sẵn sàng để lập chỉ mục tài liệu")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Dịch vụ lập chỉ mục tài liệu chưa sẵn sàng.",
+        ) from exc
+    except (psycopg.Error, httpx.HTTPError, OSError, TimeoutError) as exc:
+        logger.exception("Lỗi hạ tầng khi lập chỉ mục tài liệu")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Dịch vụ lập chỉ mục tài liệu tạm thời không khả dụng.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Lỗi không mong đợi khi xử lý hoặc lập chỉ mục tài liệu")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Không thể xử lý tài liệu do lỗi không mong đợi.",
         ) from exc
     finally:
         try:
@@ -319,7 +354,7 @@ async def upload_document(
 
     return RagUploadResponse(
         status="success",
-        filename=safe_filename,
+        filename=display_name,
         display_name=display_name,
         chunks_indexed=indexed_count,
         corpus=corpus,
@@ -360,26 +395,42 @@ async def ask_rag_stream(request: RagAskRequest):
     If evidence is insufficient (gating cutoff), emits a no_answer event and finishes immediately.
     """
     trace_id = create_trace_id()
+    stream_root = start_langfuse_observation(
+        "rag-stream",
+        trace_id=trace_id,
+        input={"question": request.question, "session_id": request.session_id},
+    )
+    root_span_id = getattr(stream_root, "id", None)
     history = session_store.get_history(request.session_id)
     standalone_question = await rewrite_question_if_needed(request.question, history)
 
     try:
-        with langfuse_observation(name="rag-stream-retrieval", trace_id=trace_id) as observation:
+        with langfuse_observation(
+            name="rag-stream-retrieval",
+            trace_id=trace_id,
+            parent_span_id=root_span_id,
+        ) as observation:
             matches, is_refused = await _retrieve_with_timeout(standalone_question, request)
             context = format_context(matches)
             update_langfuse_observation(
                 observation,
                 output={"match_count": len(matches), "refused_by_retrieval": is_refused},
             )
+    except HTTPException:
+        end_langfuse_observation(stream_root)
+        raise
     except Exception as exc:
+        end_langfuse_observation(stream_root)
         logger.exception("RAG retrieval failed in stream endpoint")
         if _is_timeout_error(exc):
             raise HTTPException(status_code=504, detail="RAG retrieval timed out") from exc
         if isinstance(exc, vector_store.VectorStoreNotReady):
             raise HTTPException(status_code=503, detail=str(exc)) from exc
+        if isinstance(exc, (psycopg.Error, httpx.HTTPError, OSError)):
+            raise HTTPException(status_code=503, detail="RAG retrieval unavailable") from exc
         raise HTTPException(status_code=503, detail="RAG retrieval unavailable") from exc
 
-    async def event_generator():
+    async def _stream_events():
         # First event: emit start event with trace_id immediately
         yield f"data: {json.dumps({'type': 'start', 'trace_id': trace_id}, ensure_ascii=False)}\n\n"
 
@@ -404,11 +455,22 @@ async def ask_rag_stream(request: RagAskRequest):
         pending = ""
         sources_sent = False
         try:
-            with langfuse_observation(name="rag-stream-generation", trace_id=trace_id) as gen_obs:
+            with langfuse_observation(
+                name="rag-stream-generation",
+                trace_id=trace_id,
+                parent_span_id=root_span_id,
+            ) as gen_obs:
                 prompt_template = build_rag_text_prompt()
                 llm = get_rag_llm(temperature=0)
                 chain = prompt_template | llm
-                handler = get_langfuse_handler()
+                generation_span_id = getattr(gen_obs, "id", None) or root_span_id
+                handler = get_langfuse_handler(
+                    trace_context=(
+                        {"trace_id": trace_id, "parent_span_id": generation_span_id}
+                        if trace_id and generation_span_id
+                        else None
+                    )
+                )
                 callbacks = [handler] if handler else []
                 with langfuse_context(session_id=request.session_id, tags=["rag", "streaming"]):
                     stream = chain.astream(
@@ -480,6 +542,19 @@ async def ask_rag_stream(request: RagAskRequest):
         session_store.add_turn(request.session_id, request.question, complete_answer)
         yield "data: [DONE]\n\n"
 
+    async def event_generator():
+        events = _stream_events()
+        try:
+            async for event in events:
+                yield event
+        finally:
+            # Closing the client connection must also run the inner generator's
+            # GeneratorExit handler so a partial answer is persisted.
+            try:
+                await events.aclose()
+            finally:
+                end_langfuse_observation(stream_root)
+
     headers = {
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
@@ -529,14 +604,16 @@ async def _answer_rag(request: RagAskRequest, trace_id: str | None = None) -> Ra
                     "context": context,
                 },
             )
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("RAG retrieval failed")
         if _is_timeout_error(exc):
             raise HTTPException(status_code=504, detail="RAG retrieval timed out") from exc
         if isinstance(exc, vector_store.VectorStoreNotReady):
             raise HTTPException(status_code=503, detail=str(exc)) from exc
-        if isinstance(exc, psycopg.OperationalError):
-            raise HTTPException(status_code=503, detail="PostgreSQL retrieval service unavailable") from exc
+        if isinstance(exc, (psycopg.Error, httpx.HTTPError, OSError)):
+            raise HTTPException(status_code=503, detail="RAG retrieval unavailable") from exc
         raise HTTPException(status_code=503, detail="RAG retrieval unavailable") from exc
 
     if is_refused or not matches:

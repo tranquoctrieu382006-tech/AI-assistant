@@ -101,7 +101,9 @@ app = FastAPI(
 
 # CORS Middleware – sử dụng danh sách origin tường minh, an toàn khi có credentials
 app.add_middleware(RateLimitMiddleware)
-app.add_middleware(MaxBodySizeMiddleware, max_upload_bytes=5 * 1024 * 1024)
+# Allow 1 MiB of multipart framing above the 5 MiB file limit; the endpoint
+# still enforces the exact file-size limit after parsing the upload.
+app.add_middleware(MaxBodySizeMiddleware, max_upload_bytes=6 * 1024 * 1024)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

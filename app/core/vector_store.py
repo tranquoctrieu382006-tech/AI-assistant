@@ -223,6 +223,16 @@ def upsert_document_chunks(
     return len(chunks)
 
 
+def delete_corpus(corpus: str) -> int:
+    """Delete every chunk in a corpus and return the number of removed rows."""
+    if not corpus:
+        raise ValueError("corpus must not be empty")
+    with _connect() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("DELETE FROM rag_chunks WHERE corpus = %s", (corpus,))
+            return cursor.rowcount
+
+
 def similarity_search(
     query: str,
     k: int | None = None,

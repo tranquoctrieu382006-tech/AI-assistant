@@ -46,7 +46,9 @@ def test_session_store_expires_inactive_sessions_and_refreshes_lru(monkeypatch):
     session_store.add_turn("old", "q", "a")
     session_store.add_turn("recent", "q", "a")
     session_store._SESSION_LAST_ACTIVITY["old"] = 0
-    assert session_store.get_history("old") == []
+    with patch("app.core.vector_store.delete_corpus", return_value=0) as delete_corpus:
+        assert session_store.get_history("old") == []
+    delete_corpus.assert_called_once_with("session_old")
     assert "old" not in session_store._SESSIONS
     assert list(session_store._SESSIONS) == ["recent"]
 
@@ -57,8 +59,23 @@ def test_session_eviction_uses_least_recently_used(monkeypatch):
     session_store.add_turn("a", "q", "a")
     session_store.add_turn("b", "q", "a")
     session_store.get_history("a")
-    session_store.add_turn("c", "q", "a")
+    with patch("app.core.vector_store.delete_corpus", return_value=0) as delete_corpus:
+        session_store.add_turn("c", "q", "a")
+    delete_corpus.assert_called_once_with("session_b")
     assert list(session_store._SESSIONS) == ["a", "c"]
+
+
+def test_session_eviction_clears_bm25_cache_when_corpus_had_rows(monkeypatch):
+    """Khi corpus session bị xoá thật, index BM25 đã cache cũng phải bị xoá."""
+    session_store.clear_all_sessions()
+    monkeypatch.setattr(session_store, "_MAX_SESSIONS", 1)
+    session_store.add_turn("a", "q", "a")
+    with (
+        patch("app.core.vector_store.delete_corpus", return_value=3),
+        patch("app.core.retriever.clear_bm25_cache") as clear_cache,
+    ):
+        session_store.add_turn("b", "q", "a")
+    clear_cache.assert_called_once_with()
 
 
 def test_trim_history_preserves_most_recent_turns():

@@ -269,6 +269,65 @@ def test_warm_bm25_cache_path_does_not_acquire_global_lock():
 
 
 
+def test_bm25_cache_is_partitioned_by_corpus():
+    """Mỗi corpus phải có index BM25 riêng, không dùng lẫn toàn bộ corpus."""
+    clear_bm25_cache()
+    created = []
+
+    class FakeBM25Instance:
+        def __init__(self, docs, k):
+            self.docs, self.k = docs, k
+
+    class FakeBM25:
+        @classmethod
+        def from_documents(cls, docs, k, preprocess_func):
+            instance = FakeBM25Instance(docs, k)
+            created.append(instance)
+            return instance
+
+    fake_module = __import__("types").SimpleNamespace(BM25Retriever=FakeBM25)
+    chunks_by_corpus = {
+        "demo": [{"content": "demo chunk", "source": "demo.md", "chunk_index": 0}],
+        "user": [{"content": "user chunk", "source": "user.md", "chunk_index": 0}],
+    }
+
+    def fake_chunks(corpus=None):
+        return chunks_by_corpus[corpus]
+
+    def fake_revision(corpus=None):
+        return (1, 1)
+
+    with (
+        patch("app.core.vector_store.get_corpus_revision", side_effect=fake_revision),
+        patch("app.core.vector_store.get_all_chunks", side_effect=fake_chunks) as get_chunks,
+        patch.dict("sys.modules", {"langchain_community.retrievers": fake_module}),
+    ):
+        demo = get_bm25_retriever(k=3, corpus="demo")
+        user = get_bm25_retriever(k=3, corpus="user")
+        demo_warm = get_bm25_retriever(k=5, corpus="demo")
+
+    assert len(created) == 2
+    assert [call.kwargs for call in get_chunks.call_args_list] == [
+        {"corpus": "demo"},
+        {"corpus": "user"},
+    ]
+    assert created[0].docs[0].page_content == "demo chunk"
+    assert created[1].docs[0].page_content == "user chunk"
+    assert demo is not user
+    assert demo_warm.k == 5
+    clear_bm25_cache()
+
+
+def test_type_error_from_similarity_search_is_not_swallowed():
+    """Lỗi lập trình (sai chữ ký) phải nổi lên thay vì âm thầm gọi lại API cũ."""
+    with patch(
+        "app.core.vector_store.similarity_search",
+        side_effect=TypeError("unexpected keyword argument"),
+    ):
+        with pytest.raises(TypeError, match="unexpected keyword argument"):
+            retrieve_and_gate("query", top_k=1, mode="vector")
+
+
 def test_rerank_documents_reorders_by_score():
     from app.core.reranker import rerank_documents
 

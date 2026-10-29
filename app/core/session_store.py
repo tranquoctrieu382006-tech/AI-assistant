@@ -1,10 +1,13 @@
 """In-memory session history storage and token trimmer for multi-turn chat."""
 from __future__ import annotations
 
+import logging
 import time
 from collections import OrderedDict
 from typing import Literal
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 # In-memory dictionary: session_id -> list of message dicts
 _SESSIONS: OrderedDict[str, list[dict]] = OrderedDict()
@@ -12,6 +15,30 @@ _SESSION_LAST_ACTIVITY: dict[str, float] = {}
 _MAX_SESSIONS = 1000
 _MAX_MESSAGES_PER_SESSION = 40
 _SESSION_TTL_SECONDS = 30 * 60
+
+
+def _cleanup_session_corpus(session_id: str) -> None:
+    """Best-effort removal of uploaded chunks when a session is evicted.
+
+    Session histories live in process memory while their uploaded documents live
+    in PostgreSQL. Without this hook the session corpus outlives the session and
+    keeps growing across TTL expiry and LRU eviction.
+    """
+    try:
+        from app.core import vector_store
+
+        deleted = vector_store.delete_corpus(f"session_{session_id}")
+    except Exception as exc:
+        logger.warning("Không thể dọn corpus cho session '%s': %s", session_id, exc)
+        return
+    if not deleted:
+        return
+    try:
+        from app.core.retriever import clear_bm25_cache
+
+        clear_bm25_cache()
+    except Exception as exc:
+        logger.warning("Không thể xoá cache BM25 sau khi dọn session '%s': %s", session_id, exc)
 
 
 def _expire_sessions(now: float) -> None:
@@ -24,6 +51,7 @@ def _expire_sessions(now: float) -> None:
             break
         _SESSIONS.pop(session_id, None)
         _SESSION_LAST_ACTIVITY.pop(session_id, None)
+        _cleanup_session_corpus(session_id)
 
 
 class ChatMessage(BaseModel):
@@ -57,6 +85,7 @@ def add_turn(session_id: str | None, question: str, answer: str) -> None:
         oldest_key = next(iter(_SESSIONS))
         _SESSIONS.pop(oldest_key, None)
         _SESSION_LAST_ACTIVITY.pop(oldest_key, None)
+        _cleanup_session_corpus(oldest_key)
 
     if session_id not in _SESSIONS:
         _SESSIONS[session_id] = []

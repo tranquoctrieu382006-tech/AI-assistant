@@ -1,11 +1,20 @@
 from pydantic import BaseModel, Field
 
+SESSION_ID_PATTERN = r"^[A-Za-z0-9._:-]{1,128}$"
+CORPUS_PATTERN = r"^(demo|user|session_[A-Za-z0-9._:-]{1,128})$"
+
 
 class RagAskRequest(BaseModel):
     question: str = Field(min_length=2, max_length=2000)
     top_k: int = Field(default=5, ge=1, le=20)
-    session_id: str | None = Field(default=None, max_length=128)
-    corpus: str | None = Field(default=None, description="Tùy chọn lọc theo kho tài liệu: 'demo', 'user' hoặc None (tất cả)")
+    session_id: str | None = Field(default=None, max_length=128, pattern=SESSION_ID_PATTERN)
+    corpus: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=136,
+        pattern=CORPUS_PATTERN,
+        description="Tùy chọn lọc theo kho tài liệu: 'demo', 'user' hoặc corpus của chính session hiện tại",
+    )
 
 
 class RagSource(BaseModel):

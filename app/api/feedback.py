@@ -5,6 +5,7 @@ Ghi nhận phản hồi đánh giá chất lượng (👍 / 👎) từ người 
 
 import logging
 import re
+import uuid
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, HTTPException, Security, status
 
@@ -52,7 +53,14 @@ def record_feedback(request: FeedbackRequest) -> FeedbackResponse:
 
     if client:
         try:
-            score_id = f"feedback-{request.trace_id}" if request.trace_id else f"feedback-{request.session_id}"
+            # Trace feedback is idempotent per trace. Session-only feedback has
+            # no natural unique key, so each submission needs its own score id
+            # or later votes overwrite earlier ones.
+            score_id = (
+                f"feedback-{request.trace_id}"
+                if request.trace_id
+                else f"feedback-session-{request.session_id}-{uuid.uuid4().hex}"
+            )
             if request.trace_id:
                 client.create_score(
                     name="user_feedback",

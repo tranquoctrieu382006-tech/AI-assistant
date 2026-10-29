@@ -18,13 +18,50 @@ logger = logging.getLogger(__name__)
 
 _BM25_INSTANCE = None
 _BM25_REVISION: tuple[int, int] | None = None
+# Corpus-specific indexes are keyed by the normalised corpus selector. The
+# None key keeps the legacy all-corpus index in the two globals above.
+_BM25_INSTANCES: dict[tuple[str, ...], object] = {}
+_BM25_REVISIONS: dict[tuple[str, ...], tuple[int, int]] = {}
 _BM25_LOCK = threading.RLock()
 _REVISION_LOCK = threading.Lock()
 _REVISION_CACHE_TTL_SECONDS = settings.bm25_revision_ttl_seconds
-_REVISION_CACHE: tuple[int, int] | None = None
-_REVISION_CHECKED_AT = 0.0
+_REVISION_CACHE: dict[tuple[str, ...] | None, tuple[tuple[int, int], float]] = {}
 _RRF_CONSTANT = 60
 _RRF_WEIGHTS = (0.5, 0.5)  # BM25, vector
+
+
+def _corpus_key(corpus: str | list[str] | tuple[str, ...] | None) -> tuple[str, ...] | None:
+    """Return a stable cache key for a corpus selector."""
+    if corpus is None:
+        return None
+    if isinstance(corpus, str):
+        return (corpus,)
+    return tuple(sorted({str(item) for item in corpus}))
+
+
+def _cached_bm25(
+    key: tuple[str, ...] | None,
+) -> tuple[object | None, tuple[int, int] | None]:
+    if key is None:
+        return _BM25_INSTANCE, _BM25_REVISION
+    return _BM25_INSTANCES.get(key), _BM25_REVISIONS.get(key)
+
+
+def _store_bm25(
+    key: tuple[str, ...] | None,
+    instance: object | None,
+    revision: tuple[int, int],
+) -> None:
+    global _BM25_INSTANCE, _BM25_REVISION
+    if key is None:
+        _BM25_INSTANCE = instance
+        _BM25_REVISION = revision
+    else:
+        if instance is None:
+            _BM25_INSTANCES.pop(key, None)
+        else:
+            _BM25_INSTANCES[key] = instance
+        _BM25_REVISIONS[key] = revision
 
 
 def _bm25_tokens(text: str) -> list[str]:
@@ -33,22 +70,30 @@ def _bm25_tokens(text: str) -> list[str]:
     return re.findall(r"\w+", normalized, flags=re.UNICODE)
 
 
-def get_bm25_retriever(k: int = 5):
-    """Return a per-call BM25 retriever over a revision-aware cached corpus index."""
-    global _BM25_INSTANCE, _BM25_REVISION
+def get_bm25_retriever(
+    k: int = 5,
+    corpus: str | list[str] | tuple[str, ...] | None = None,
+):
+    """Return a per-call BM25 retriever over the requested corpus only."""
+    key = _corpus_key(corpus)
     # A DB revision check is needed for each hybrid query, but it must not hold
     # the process-wide cache lock on the warm path.
-    revision = _get_corpus_revision()
-    instance = _BM25_INSTANCE
-    if instance is None or _BM25_REVISION != revision:
+    revision = _get_corpus_revision(corpus)
+    instance, cached_revision = _cached_bm25(key)
+    if instance is None or cached_revision != revision:
         with _BM25_LOCK:
             # Recheck after acquiring the lock; another request may have built
             # the current revision while this request waited.
-            revision = _get_corpus_revision()
-            if _BM25_INSTANCE is None or _BM25_REVISION != revision:
+            revision = _get_corpus_revision(corpus)
+            instance, cached_revision = _cached_bm25(key)
+            if instance is None or cached_revision != revision:
                 from langchain_community.retrievers import BM25Retriever
 
-                chunks = vector_store.get_all_chunks()
+                chunks = (
+                    vector_store.get_all_chunks()
+                    if key is None
+                    else vector_store.get_all_chunks(corpus=corpus)
+                )
                 docs = [
                     Document(
                         page_content=chunk["content"],
@@ -62,16 +107,16 @@ def get_bm25_retriever(k: int = 5):
                     for chunk in chunks
                 ]
                 if not docs:
-                    _BM25_INSTANCE = None
-                    _BM25_REVISION = revision
-                    raise vector_store.VectorStoreNotReady("RAG vector store contains no indexed chunks.")
-                _BM25_INSTANCE = BM25Retriever.from_documents(
+                    _store_bm25(key, None, revision)
+                    raise vector_store.VectorStoreNotReady(
+                        "RAG vector store contains no indexed chunks for the requested corpus."
+                    )
+                instance = BM25Retriever.from_documents(
                     docs,
                     k=max(k, 1),
                     preprocess_func=_bm25_tokens,
                 )
-                _BM25_REVISION = revision
-            instance = _BM25_INSTANCE
+                _store_bm25(key, instance, revision)
     # Hold a local strong reference before copying. A concurrent cache clear
     # may replace the global reference, but cannot invalidate this request's
     # immutable index or make copy.copy(None).
@@ -84,27 +129,37 @@ def get_bm25_retriever(k: int = 5):
 
 def clear_bm25_cache() -> None:
     """Clear cached BM25 state, for tests and explicit in-process reindexing."""
-    global _BM25_INSTANCE, _BM25_REVISION, _REVISION_CACHE, _REVISION_CHECKED_AT
+    global _BM25_INSTANCE, _BM25_REVISION
     with _BM25_LOCK:
         _BM25_INSTANCE = None
         _BM25_REVISION = None
+        _BM25_INSTANCES.clear()
+        _BM25_REVISIONS.clear()
     with _REVISION_LOCK:
-        _REVISION_CACHE = None
-        _REVISION_CHECKED_AT = 0.0
+        _REVISION_CACHE.clear()
 
 
-def _get_corpus_revision() -> tuple[int, int]:
+def _get_corpus_revision(
+    corpus: str | list[str] | tuple[str, ...] | None = None,
+) -> tuple[int, int]:
     """Cache DB revision checks briefly; external ingestion appears within 5 seconds."""
-    global _REVISION_CACHE, _REVISION_CHECKED_AT
+    key = _corpus_key(corpus)
     now = time.monotonic()
-    if _REVISION_CACHE is not None and now - _REVISION_CHECKED_AT < _REVISION_CACHE_TTL_SECONDS:
-        return _REVISION_CACHE
+    cached = _REVISION_CACHE.get(key)
+    if cached is not None and now - cached[1] < _REVISION_CACHE_TTL_SECONDS:
+        return cached[0]
     with _REVISION_LOCK:
         now = time.monotonic()
-        if _REVISION_CACHE is None or now - _REVISION_CHECKED_AT >= _REVISION_CACHE_TTL_SECONDS:
-            _REVISION_CACHE = vector_store.get_corpus_revision()
-            _REVISION_CHECKED_AT = time.monotonic()
-        return _REVISION_CACHE
+        cached = _REVISION_CACHE.get(key)
+        if cached is None or now - cached[1] >= _REVISION_CACHE_TTL_SECONDS:
+            revision = (
+                vector_store.get_corpus_revision()
+                if key is None
+                else vector_store.get_corpus_revision(corpus=corpus)
+            )
+            cached = (revision, time.monotonic())
+            _REVISION_CACHE[key] = cached
+        return cached[0]
 
 
 def _hybrid_fusion(bm25_docs: list[Document], vector_matches: list[dict], top_k: int) -> list[Document]:
@@ -159,18 +214,12 @@ def retrieve_and_gate(
     search_kwargs = {"corpus": corpus} if corpus is not None else {}
     if mode == "hybrid":
         query_vector = vector_store.embed_query(query)
-        try:
-            vector_matches = vector_store.similarity_search(
-                query, k=candidate_k, embedding=query_vector, **search_kwargs
-            )
-        except TypeError:
-            vector_matches = vector_store.similarity_search(query, k=candidate_k)
+        vector_matches = vector_store.similarity_search(
+            query, k=candidate_k, embedding=query_vector, **search_kwargs
+        )
     else:
         query_vector = None
-        try:
-            vector_matches = vector_store.similarity_search(query, k=candidate_k, **search_kwargs)
-        except TypeError:
-            vector_matches = vector_store.similarity_search(query, k=candidate_k)
+        vector_matches = vector_store.similarity_search(query, k=candidate_k, **search_kwargs)
     gated_vector_matches = [
         match for match in vector_matches
         if match["score"] >= settings.rag_min_relevance_score

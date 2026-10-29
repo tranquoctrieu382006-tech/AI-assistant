@@ -4,7 +4,7 @@ Unit tests for FastAPI endpoints using async HTTP client with in-process ASGI tr
 """
 
 from contextlib import asynccontextmanager
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
 import httpx
 import pytest
 
@@ -193,6 +193,41 @@ async def test_feedback_endpoint_with_session_id():
         assert data["status"] == "ok"
         assert data["session_id"] == "sess-xyz-789"
         assert data["recorded"] is False
+
+
+def test_session_only_feedback_uses_unique_score_ids():
+    """Feedback chỉ có session_id không được ghi đè lên lần gửi trước."""
+    from app.api.feedback import FeedbackRequest, record_feedback
+
+    client = MagicMock()
+    with (
+        patch("app.api.feedback.get_langfuse_client", return_value=client),
+        patch("app.api.feedback.flush_langfuse"),
+    ):
+        record_feedback(FeedbackRequest(score=1.0, session_id="sess-1"))
+        record_feedback(FeedbackRequest(score=0.0, session_id="sess-1"))
+
+    score_ids = [call.kwargs["score_id"] for call in client.create_score.call_args_list]
+    assert len(score_ids) == 2
+    assert len(set(score_ids)) == 2
+    assert all(score_id.startswith("feedback-session-sess-1-") for score_id in score_ids)
+
+
+def test_trace_feedback_keeps_deterministic_score_id():
+    """Feedback theo trace vẫn idempotent để không tạo nhiều score trùng."""
+    from app.api.feedback import FeedbackRequest, record_feedback
+
+    trace_id = "1bc12f0391e0773c3458cc76c295d8c6"
+    client = MagicMock()
+    with (
+        patch("app.api.feedback.get_langfuse_client", return_value=client),
+        patch("app.api.feedback.flush_langfuse"),
+    ):
+        record_feedback(FeedbackRequest(score=1.0, trace_id=trace_id))
+        record_feedback(FeedbackRequest(score=1.0, trace_id=trace_id))
+
+    score_ids = [call.kwargs["score_id"] for call in client.create_score.call_args_list]
+    assert score_ids == [f"feedback-{trace_id}", f"feedback-{trace_id}"]
 
 
 async def test_router_classify_endpoint():
