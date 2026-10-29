@@ -1,0 +1,69 @@
+{
+  "model_role": "local",
+  "model_name": "ollama/gemma3:12b",
+  "cases": 2,
+  "execution_correct": 2,
+  "execution_accuracy": 1.0,
+  "executed_cases": 2,
+  "executed_accuracy": 1.0,
+  "counts": {
+    "pass": 2,
+    "fail": 0,
+    "rejected": 0,
+    "error": 0
+  },
+  "mean_generation_latency_seconds": 18.3155,
+  "total_generation_latency_seconds": 36.631,
+  "evaluation_wall_seconds": 36.965,
+  "token_totals": {
+    "input_tokens": 1170,
+    "output_tokens": 30,
+    "total_tokens": 1200
+  },
+  "estimated_api_cost_usd": 0.0,
+  "pricing_basis": "local inference; excludes electricity and hardware",
+  "model_evaluated": true,
+  "trace_uploaded": false,
+  "results": [
+    {
+      "id": "nlq-001",
+      "question": "Có bao nhiêu sản phẩm?",
+      "generation_latency_seconds": 33.009,
+      "input_tokens": 585,
+      "output_tokens": 15,
+      "total_tokens": 600,
+      "generated_sql": "SELECT\n  COUNT(*)\nFROM products;",
+      "status": "pass",
+      "expected": [
+        {
+          "product_count": 80
+        }
+      ],
+      "actual": [
+        {
+          "count": 80
+        }
+      ]
+    },
+    {
+      "id": "nlq-002",
+      "question": "Có bao nhiêu khách hàng?",
+      "generation_latency_seconds": 3.622,
+      "input_tokens": 585,
+      "output_tokens": 15,
+      "total_tokens": 600,
+      "generated_sql": "SELECT\n  COUNT(*)\nFROM customers;",
+      "status": "pass",
+      "expected": [
+        {
+          "customer_count": 200
+        }
+      ],
+      "actual": [
+        {
+          "count": 200
+        }
+      ]
+    }
+  ]
+}
