@@ -206,3 +206,11 @@ API `/api/rag/*` và endpoint debug `/api/health/verify-model` yêu cầu header
 ```
 
 Benchmark ghi độ trễ, token, trạng thái và ước tính chi phí cho các model Groq đã cấu hình vào `docs/benchmark_runs/`. Tóm tắt lần chạy gần nhất nằm trong `docs/benchmark_results.md`.
+
+## Chạy giao diện Streamlit
+
+Cấu hình `APP_API_KEY` giống backend, sau đó chạy:
+
+```bash
+streamlit run app/streamlit_app.py --server.port 8501
+```
