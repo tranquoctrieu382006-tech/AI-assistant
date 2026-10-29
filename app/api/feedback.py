@@ -1,0 +1,69 @@
+"""
+Feedback API router.
+Ghi nhận phản hồi đánh giá chất lượng (👍 / 👎) từ người dùng cuối về Langfuse.
+"""
+
+import logging
+import uuid
+from typing import Any
+from pydantic import BaseModel, Field
+from fastapi import APIRouter, Security
+
+from app.core.security import require_api_key
+from app.core.tracing import get_langfuse_client, flush_langfuse
+
+router = APIRouter(dependencies=[Security(require_api_key)])
+logger = logging.getLogger(__name__)
+
+
+class FeedbackRequest(BaseModel):
+    score: float = Field(ge=0.0, le=1.0, description="Điểm đánh giá: 1.0 (hài lòng/👍) hoặc 0.0 (chưa đúng/👎)")
+    trace_id: str | None = Field(default=None, description="Mã trace_id của lượt sinh câu trả lời")
+    session_id: str | None = Field(default=None, description="Mã phiên làm việc")
+    comment: str | None = Field(default="", description="Góp ý chi tiết của người dùng")
+
+
+class FeedbackResponse(BaseModel):
+    status: str
+    recorded: bool
+    score: float
+    trace_id: str | None = None
+
+
+@router.post("/feedback", response_model=FeedbackResponse, summary="Ghi nhận phản hồi người dùng")
+def record_feedback(request: FeedbackRequest) -> FeedbackResponse:
+    recorded = False
+    client = get_langfuse_client()
+
+    if client:
+        try:
+            if request.trace_id:
+                client.create_score(
+                    name="user_feedback",
+                    value=request.score,
+                    trace_id=request.trace_id,
+                    comment=request.comment or "",
+                )
+                recorded = True
+            elif request.session_id:
+                client.create_score(
+                    name="user_feedback",
+                    value=request.score,
+                    session_id=request.session_id,
+                    comment=request.comment or "",
+                )
+                recorded = True
+            flush_langfuse()
+            logger.info("Feedback recorded successfully for trace_id=%s score=%s", request.trace_id, request.score)
+        except Exception as exc:
+            logger.warning("Không thể gửi phản hồi lên Langfuse: %s", exc)
+    else:
+        logger.info("Langfuse chưa cấu hình; feedback được ghi nhận cục bộ (trace_id=%s, score=%s)", request.trace_id, request.score)
+        recorded = True
+
+    return FeedbackResponse(
+        status="ok",
+        recorded=recorded,
+        score=request.score,
+        trace_id=request.trace_id,
+    )

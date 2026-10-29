@@ -5,18 +5,16 @@ FastAPI application entrypoint.
 from contextlib import asynccontextmanager
 from importlib.util import find_spec
 import logging
-import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health, nlq, rag
+from app.api import feedback, health, nlq, rag, router_api
 from app.core.config import settings
 from app.core.llm import MODEL_REGISTRY, check_ollama_status_async
 from app.core.tracing import init_tracing, flush_langfuse
 from app.core.vector_store import close_pool
 from app.core.security import RateLimitMiddleware
-from app.core.nlq_schema import close_nlq_pool
 
 logging.basicConfig(
     level=logging.INFO,
@@ -42,32 +40,9 @@ def validate_optional_dependencies() -> None:
         )
 
 
-def validate_single_worker_configuration() -> None:
-    """Fail fast when known worker settings conflict with in-memory state."""
-    configured = {"APP_WORKERS": str(settings.app_workers)}
-    for name in ("WEB_CONCURRENCY", "UVICORN_WORKERS"):
-        value = os.getenv(name)
-        if value:
-            configured[name] = value
-    invalid = []
-    for name, value in configured.items():
-        try:
-            workers = int(value)
-        except ValueError as exc:
-            raise RuntimeError(f"{name} must be an integer; got {value!r}.") from exc
-        if workers != 1:
-            invalid.append(f"{name}={workers}")
-    if invalid:
-        raise RuntimeError(
-            "This demo stores sessions and rate limits in process memory and requires one worker. "
-            "Set " + ", ".join(invalid) + " to 1; do not pass --workers > 1 or gunicorn -w > 1."
-        )
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle startup / shutdown hook."""
-    validate_single_worker_configuration()
     validate_optional_dependencies()
     logger.info("Starting %s v%s...", settings.app_name, settings.app_version)
 
@@ -88,15 +63,15 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down %s... Flushing remaining traces.", settings.app_name)
     flush_langfuse()
     close_pool()
-    close_nlq_pool()
 
 
 app = FastAPI(
     title=settings.app_name,
     description="Mini AI Assistant – RAG & NLQ (FastAPI, LangChain, Langfuse, PostgreSQL/pgvector)",
     version=settings.app_version,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if settings.debug else None,
+    redoc_url="/redoc" if settings.debug else None,
+    openapi_url="/openapi.json" if settings.debug else None,
     lifespan=lifespan,
 )
 
@@ -114,6 +89,8 @@ app.add_middleware(
 app.include_router(health.router, prefix="/api", tags=["Health"])
 app.include_router(rag.router, prefix="/api", tags=["RAG"])
 app.include_router(nlq.router, prefix="/api", tags=["NLQ"])
+app.include_router(feedback.router, prefix="/api", tags=["Feedback"])
+app.include_router(router_api.router, prefix="/api", tags=["Router"])
 
 
 @app.get("/", include_in_schema=False)

@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 class NlqAskRequest(BaseModel):
     question: str = Field(min_length=2, max_length=2000)
     session_id: str | None = Field(default=None, max_length=128)
+    user_id: str | None = Field(default=None, max_length=128)
 
 
 class NlqAskResponse(BaseModel):
@@ -13,3 +14,4 @@ class NlqAskResponse(BaseModel):
     answer: str
     repaired: bool = False
     truncated: bool = False
+    trace_id: str | None = None

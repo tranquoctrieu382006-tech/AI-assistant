@@ -1,216 +1,215 @@
 # AI Assistant
 
-Mini AI Assistant – Hỏi đáp tài liệu (RAG) & truy vấn dữ liệu bằng ngôn ngữ tự nhiên (NLQ).
+Mini AI Assistant – Hệ thống Trợ lý Doanh nghiệp hỗ trợ tra cứu chính sách nội bộ (RAG) và truy vấn dữ liệu kinh doanh bằng ngôn ngữ tự nhiên (NLQ).
 
-## Tech Stack
+---
 
-- **Python 3.11+**, **FastAPI**, **LangChain** (RAG and NLQ APIs)
-- **Langfuse** (optional tracing and model experiments)
-- **PostgreSQL + pgvector** (vector store)
-- **Google Gemini** (default cloud LLM), with **Ollama** for local inference and embeddings
+## 🛠️ Công Nghệ Sử Dụng (Tech Stack)
 
-## Quick Start
+- **Ngôn ngữ & Framework:** Python 3.12+, FastAPI, Streamlit, LangChain, LangGraph.
+- **Cơ sở dữ liệu:** PostgreSQL 16 kết hợp extension `pgvector` (Vector Store).
+- **Mô hình nhúng (Embedding):** `bge-m3` (1024 chiều) chạy qua Ollama hoặc API.
+- **Mô hình ngôn ngữ (LLM):** Hỗ trợ đa mô hình linh hoạt qua cấu hình môi trường:
+  - `local`: `ollama/gemma3:12b` (chạy offline bảo mật dữ liệu).
+  - `fast`: `google_genai/gemini-3.5-flash-lite` hoặc `openai/gpt-4o-mini` (định tuyến, viết lại câu hỏi, giải nghĩa nhanh).
+  - `strong`: `google_genai/gemini-3.6-flash` hoặc `openai/gpt-4o` (tổng hợp SQL phức tạp).
+- **Giám sát & Đánh giá (Observability):** Langfuse Tracing, LLM-as-a-Judge.
+
+---
+
+## 🚀 Khởi Động Nhanh (Quick Start)
+
+Bạn có thể lựa chọn 1 trong 2 cách triển khai dưới đây:
+
+### Cách 1: Sử dụng Docker Compose (Khuyến nghị cho môi trường mới)
+
+Chỉ với 1 lệnh, hệ thống sẽ tự động khởi tạo PostgreSQL có sẵn `pgvector`, nạp 2.346 dòng dữ liệu bán hàng mẫu, tạo role chỉ đọc `ai_nlq_reader` và bật Ollama:
 
 ```bash
-# 1. Clone & cài đặt
-git clone <repo-url>
-cd ai-assistant
+# 1. Khởi động hạ tầng CSDL và Ollama
+docker compose up -d
+
+# 2. Tải model embedding bge-m3 vào container Ollama
+docker compose exec ollama ollama pull bge-m3
+
+# 3. Cài đặt thư viện Python trên máy
 pip install -r requirements.lock
 
-# 2. Cấu hình
+# 4. Sao chép và cấu hình file môi trường
 cp .env.example .env
-# Sửa .env: điền API key, chọn model
-# Tạo API key: python -c "import secrets; print(secrets.token_urlsafe(32))"
-# Điền kết quả vào APP_API_KEY trong .env (không chia sẻ/commit khóa này)
-# Thay YOUR_USER và YOUR_PASSWORD trong DATABASE_URL bằng thông tin PostgreSQL cục bộ.
-# File .env đã được Git bỏ qua; không commit thông tin đăng nhập thật.
 
-# 3. Chạy
-python -m app.main
+# 5. Lập chỉ mục tài liệu vào PostgreSQL pgvector
+python -m scripts.ingest_documents --strategy heading
 
-# 4. Mở Swagger UI
-# http://localhost:8000/docs
+# 6. Khởi động API Backend
+uvicorn app.main:app --port 8000 --reload
 ```
 
-## Đổi mô hình
+---
 
-Sửa biến trong `.env`, **không cần sửa code**:
-
-| Vai trò | Biến môi trường | Ví dụ |
-|---|---|---|
-| Mặc định | `DEFAULT_MODEL` | `google_genai/gemini-3.5-flash-lite` |
-| Mạnh (SQL phức tạp, tổng hợp) | `STRONG_MODEL` | `google_genai/gemini-3.6-flash` |
-| Nhanh/rẻ (RAG, NLQ, rewrite) | `FAST_MODEL` | `google_genai/gemini-3.5-flash-lite` |
-| Viết lại câu hỏi hội thoại | `QUESTION_REWRITER_MODEL` | `fast` (Gemini API) |
-| Local inference | `LOCAL_MODEL` | `ollama/gemma3:12b` |
-| Mô hình trả lời RAG | `RAG_MODEL` | `fast` (Gemini API) |
-| Số chiều embedding | `EMBEDDING_DIMENSIONS` | `1024` (đổi chiều cần tạo lại bảng và nạp lại corpus) |
-| Context window Ollama cho RAG | `RAG_NUM_CTX` | `8192` |
-| Timeout embedding Ollama | `EMBEDDING_TIMEOUT_SECONDS` | `30` giây |
-| Timeout truy xuất RAG | `RAG_RETRIEVAL_TIMEOUT_SECONDS` | `60` giây tổng |
-| Timeout Gemini RAG | `RAG_MODEL_TIMEOUT_SECONDS` | `30` giây mỗi lần gọi |
-| Timeout Ollama RAG | `RAG_LOCAL_MODEL_TIMEOUT_SECONDS` | `90` giây mỗi lần gọi |
-| Retry RAG | `RAG_MODEL_MAX_RETRIES` | `1` lần, chỉ lỗi 429/503 |
-| Timeout viết lại câu hỏi | `QUESTION_REWRITER_TIMEOUT_SECONDS` | `10` giây; hết giờ dùng câu gốc |
-| Cache revision BM25 | `BM25_REVISION_TTL_SECONDS` | `5` giây |
-| Số worker | `APP_WORKERS` | `1` (bắt buộc với session/rate limit RAM) |
-| Chế độ tìm kiếm | `SEARCH_MODE` | `vector` hoặc `hybrid` (BM25 + PGVector) |
-| Bật Reranker | `USE_RERANKER` | `false` (mặc định) hoặc `true` (`bge-reranker-v2-m3`) |
-| Mô hình reranker | `RERANKER_MODEL` | `BAAI/bge-reranker-v2-m3` |
-| Số ứng viên cho reranker | `RERANKER_POOL_SIZE` | `20` (giới hạn đầu vào CrossEncoder) |
-| Timeout kết nối/chờ DB | `DATABASE_CONNECTION_TIMEOUT_SECONDS` | `3` giây |
-
-`rank-bm25` được cài trong bộ runtime mặc định cho chế độ hybrid. Reranker là tùy chọn nặng do phụ thuộc PyTorch; để bật `USE_RERANKER=true`, cài thêm `pip install -r requirements-reranker.txt`. Khi bật chế độ nhưng thiếu dependency, ứng dụng dừng ngay lúc startup và nêu lệnh cài đặt.
-
-**Demo chạy một worker:** session chat và rate limit hiện lưu trong RAM, vì vậy chạy đúng một worker (`APP_WORKERS=1`; không dùng `uvicorn --workers N` hoặc `gunicorn -w N`). Startup từ chối các giá trị `APP_WORKERS`, `WEB_CONCURRENCY` hoặc `UVICORN_WORKERS` khác 1. Các lệnh runner truyền worker count trực tiếp vẫn phải được cấu hình bằng 1. Nếu chạy nhiều replica, session có thể không được chia sẻ và rate limit bị nhân theo replica. `session_id` cũng do client cung cấp, chưa được gắn với danh tính người dùng; không dùng làm ranh giới bảo mật.
-
-Ở chế độ `hybrid`, BM25 kiểm tra revision corpus theo TTL (mặc định 5 giây). Ingest cùng tiến trình xóa cache ngay; ingest từ tiến trình khác có thể mất tối đa TTL để hiện lên. Có thể đặt `BM25_REVISION_TTL_SECONDS=0` để luôn kiểm tra DB, đổi lại mỗi truy vấn hybrid thêm một lần đọc revision.
-
-RAG, NLQ và question rewriter dùng Gemini API qua `GOOGLE_API_KEY` theo cấu hình mẫu. Gemini Free Tier vẫn có quota theo model và project; evaluator NLQ giới hạn nhịp gọi để tránh vượt mức RPM. Có thể chọn Ollama riêng bằng `LOCAL_MODEL` và role `local`.
-
-Mỗi lượt RAG giới hạn truy xuất 60 giây, embedding Ollama 30 giây, sinh câu trả lời Gemini 30 giây, và viết lại câu hỏi 10 giây không retry. Endpoint JSON có thể thử lại tối đa một lần chỉ với HTTP 429/503; endpoint stream tắt retry vì không thể phát lại an toàn sau khi đã gửi token. Ollama sinh RAG có timeout 90 giây. Stream dừng nếu không có token đầu trong 35 giây hoặc im lặng giữa các token quá 15 giây. Khi sinh câu trả lời hoặc truy xuất hết hạn, API JSON trả HTTP 504; nếu rewrite hết hạn, hệ thống tiếp tục bằng câu hỏi gốc. NLQ vẫn dùng timeout 60 giây và retry riêng theo `NLQ_MODEL_MAX_RETRIES`.
-
-Câu hỏi, schema được chọn và kết quả truy vấn NLQ được gửi tới Gemini; nếu cấu hình Langfuse Cloud, trace cũng được gửi lên Langfuse. Chỉ dùng dữ liệu phù hợp với phạm vi chia sẻ này.
-
-NLQ API dùng tài khoản PostgreSQL riêng chỉ đọc qua `NLQ_DATABASE_URL`; không tự động dùng `DATABASE_URL`. Xem [hướng dẫn NLQ API](docs/nlq_api.md) để cấu hình quyền, bảo vệ truy vấn và gọi `POST /api/nlq/ask`. So sánh 3 model và kết quả benchmark nằm tại [eval/nlq_model_comparison_2026-10-27.md](eval/nlq_model_comparison_2026-10-27.md).
-
-## Tại sao chọn `init_chat_model` thay vì LiteLLM?
-
-| Tiêu chí | init_chat_model (LangChain) | LiteLLM |
-|---|---|---|
-| Dependency | Không thêm package | Thêm `litellm` |
-| Tương thích LangChain | Native, luôn đồng bộ version | Đôi khi lag version |
-| Số provider hỗ trợ | ~10 provider chính | 100+ provider |
-| Fallback tự động | Cần tự viết | Có sẵn |
-| Cost tracking | Qua Langfuse | Có sẵn + Langfuse |
-
-**Quyết định:** Dùng `init_chat_model` vì project chỉ cần 3 provider (OpenAI, Google, Ollama), ưu tiên đơn giản và ít dependency. Nếu sau này cần nhiều provider hoặc fallback tự động → chuyển sang LiteLLM.
-
-## Cấu trúc project
-
-```
-ai-assistant/
-├── app/
-│   ├── main.py              # FastAPI app
-│   ├── api/
-│   │   ├── health.py        # Health endpoints
-│   │   └── rag.py           # POST /api/rag/ask
-│   ├── core/
-│   │   ├── config.py        # Pydantic Settings
-│   │   ├── llm.py           # Lớp cấu hình LLM đa mô hình
-│   │   ├── ingestion.py     # Đọc và chia chunk tài liệu
-│   │   ├── rag_prompt.py    # Prompt dùng chung cho API và evaluation
-│   │   ├── security.py     # API key và rate limiting
-│   │   ├── tracing.py       # Langfuse integration
-│   │   └── vector_store.py  # PostgreSQL/pgvector
-│   └── schemas/
-│       ├── health.py        # Health response
-│       └── rag.py           # RAG request/response
-├── data/
-│   ├── demo_sales_warehouse/ # Tài liệu và SQL seed mẫu
-│   ├── documents/            # Corpus chính sách thay thế (không nạp mặc định)
-│   ├── rag_golden_set.json
-│   └── nlq_golden_set.json
-├── docs/
-│   ├── architecture.md
-│   ├── benchmark_results.md
-│   └── rag_evaluation_v1.md
-├── eval/
-│   └── report_v1.md
-├── scripts/
-│   ├── compare_models.py
-│   ├── ingest_documents.py
-│   ├── evaluate_rag_retrieval.py
-│   ├── compare_chunking_strategies.py
-│   ├── evaluate_rag_answers.py
-│   ├── evaluate_rag_experiment.py
-│   ├── evaluate_rag_structured_local.py
-│   ├── evaluate_nlq_golden.py
-│   └── evaluate_nlq_model.py
-├── tests/
-│   ├── test_evaluators.py
-│   ├── test_health.py
-│   ├── test_ingestion.py
-│   ├── test_llm.py
-│   ├── test_rag.py
-│   ├── test_security.py
-│   ├── test_vector_store.py
-│   └── test_tracing.py
-├── .env.example
-├── .gitignore
-├── requirements.txt
-├── requirements-dev.txt
-├── requirements.lock
-└── README.md
-```
-
-## Dữ liệu demo RAG và NLQ
-
-- `data/demo_sales_warehouse/`: 12 tài liệu tiếng Việt mẫu (MD, DOCX, PDF), từ điển dữ liệu và nguồn tham khảo.
-- `data/demo_sales_warehouse/schema_seed.sql`: tạo 9 bảng có khóa ngoại/ràng buộc và nạp 2.346 dòng dữ liệu giả lập cố định.
-
-Tạo database rỗng rồi nạp bằng PostgreSQL client:
+### Cách 2: Cài đặt thủ công cục bộ (Local Setup)
 
 ```bash
+# 1. Cài đặt dependencies từ lockfile
+pip install -r requirements.lock
+
+# 2. Thiết lập cấu hình .env
+cp .env.example .env
+# Tạo API key bí mật tối thiểu 32 ký tự:
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+# Điền khóa vừa sinh vào biến APP_API_KEY trong .env
+
+# 3. Tạo CSDL PostgreSQL và nạp seed dữ liệu demo
 createdb ai_assistant_demo
+psql -d ai_assistant_demo -c "CREATE EXTENSION IF NOT EXISTS vector;"
 psql -d ai_assistant_demo -f data/demo_sales_warehouse/schema_seed.sql
-```
 
-Toàn bộ tên và email khách hàng trong seed là giả lập (`example.test`). Các quy chế/chính sách trong tài liệu cũng là nội dung mô phỏng để thử nghiệm, không dùng thay quy định doanh nghiệp thật.
+# 4. Tạo role chỉ đọc an toàn cho tính năng NLQ (xem docs/threat_model_nlq.md)
+psql -d ai_assistant_demo -c "
+CREATE ROLE ai_nlq_reader LOGIN PASSWORD 'secret_nlq_reader';
+GRANT CONNECT ON DATABASE ai_assistant_demo TO ai_nlq_reader;
+GRANT USAGE ON SCHEMA public TO ai_nlq_reader;
+GRANT SELECT ON categories, suppliers, products, warehouses, orders, order_items, inventory, stock_movements TO ai_nlq_reader;
+GRANT SELECT (customer_id, city, member_tier, joined_on) ON customers TO ai_nlq_reader;
+"
 
-### Nạp tài liệu và hỏi đáp RAG
-
-Mặc định corpus gồm 12 tài liệu nghiệp vụ trong `data/demo_sales_warehouse`; ba file mô tả repo/dataset (`README.md`, `data_dictionary.md`, `nguon_dataset.md`) được loại khỏi ingestion. `data/documents/` là corpus chính sách riêng, không được trộn vào corpus bán hàng mặc định; muốn nạp corpus này thì đổi `RAG_DOCUMENT_DIR=data/documents` rồi chạy ingest lại. Đảm bảo PostgreSQL có extension pgvector, Ollama đang chạy, sau đó tải model embedding và cấu hình `DATABASE_URL`, `RAG_DOCUMENT_DIR` trong `.env`:
-
-```bash
+# 5. Tải model embedding và ingest tài liệu RAG
 ollama pull bge-m3
 python -m scripts.ingest_documents --strategy heading
+
+# 6. Khởi chạy Backend API
+uvicorn app.main:app --port 8000 --reload
 ```
 
-Pipeline mặc định chia theo heading (`--strategy heading`); có thể chọn `--strategy fixed_size` để chia kích thước cố định có overlap. Hai cách được so sánh độc lập, không ghi vào vector store, bằng `python -m scripts.compare_chunking_strategies`. Pipeline dùng LangChain `TextLoader` cho MD/TXT và `PyPDFLoader` cho PDF; DOCX tiếp tục dùng parser `python-docx` để giữ thứ tự đoạn/bảng và style Heading mà `Docx2txtLoader` làm mất. Chunk PDF có overlap nhỏ qua ranh giới trang, và heading Markdown liên tiếp được gộp với nội dung sau. Nếu thư mục sai, không có file hỗ trợ hoặc không trích được chunk nào, ingestion dừng trước khi thay index; file riêng lẻ trống được cảnh báo. Embedding dimensions mặc định là 1024; khi đổi sang model khác chiều cần đặt `EMBEDDING_DIMENSIONS`, tạo lại bảng `rag_chunks` và nạp lại corpus. `RAG_MIN_RELEVANCE_SCORE` cấu hình ngưỡng để API từ chối câu hỏi không có đoạn liên quan đủ mạnh. Hỏi tài liệu qua:
+---
 
-```bash
-curl -X POST http://localhost:8000/api/rag/ask \
-  -H "X-API-Key: <APP_API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{"question":"Nhân viên được nghỉ phép năm bao nhiêu ngày?","top_k":5,"session_id":"test-session-1"}'
-```
+## 🖥️ Giao Diện Trò Chuyện (Streamlit Chat UI)
 
-Hoặc hỏi đáp dạng streaming từng token (Server-Sent Events - SSE):
-
-```bash
-curl -N -X POST http://localhost:8000/api/rag/ask/stream \
-  -H "X-API-Key: <APP_API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{"question":"Nhân viên được nghỉ phép năm bao nhiêu ngày?","top_k":5,"session_id":"test-session-1"}'
-```
-
-Hệ thống tự động lưu lịch sử hội thoại theo `session_id`, tự động nhận diện và viết lại các câu hỏi tỉnh lược ngữ cảnh (ví dụ: *"Phải gửi đề nghị trước bao lâu?"* -> *"Nhân viên phải gửi đề nghị nghỉ phép trước bao lâu?"*). Phản hồi gồm `answer` và danh sách `sources` có đường dẫn, mục, đoạn, điểm và số trang (với PDF). API lọc từng chunk dưới ngưỡng và trả `sources: []` khi từ chối trả lời. Chạy `python -m scripts.validate_golden_data` để kiểm tra mã hóa, nhãn, nguồn và evidence offline; chạy `python -m scripts.evaluate_rag_retrieval` để đo context recall@5, Hit@1/3/5, MRR và lỗi từ chối theo nhóm. Evidence được gắn bằng đoạn văn bản nguồn thay vì chunk ID; câu multi-document chỉ được tính hit khi tìm thấy đủ tất cả nguồn. `python -m scripts.evaluate_rag_answers` kiểm tra chuỗi đáp án trên API đang chạy, gồm từng mảnh đáp án với câu tổng hợp. Đây là bộ đo phát triển, không phải đánh giá held-out. Quy tắc đóng băng và tạo held-out nằm trong `docs/rag_eval_protocol.md`. NLQ golden script chỉ xác nhận SQL tham chiếu khớp dữ liệu seed, không đo khả năng sinh SQL của mô hình.
-
-So sánh chunking hiện tại (gộp paragraph trong cùng section/page) với phương án giữ riêng block trích xuất bằng `python -m scripts.compare_chunking_strategies`. Script dùng embedding local, cùng golden set và ngưỡng retrieval; không sửa vector store đang chạy. Kết quả lần gần nhất được lưu ở `eval/chunking_comparison_2026-10-23.json`.
-
-Chạy `python -m scripts.evaluate_nlq_golden` để kiểm tra SQL tham chiếu với seed; chạy `python -m scripts.evaluate_nlq_model --model-role local --output eval/nlq_model_local_2026-10-23.json` để chấm SQL do model sinh bằng kết quả thực thi read-only. Lệnh này gọi model cho từng câu trong bộ golden và lưu kết quả cục bộ. Sau khi đã duyệt phạm vi chia sẻ, có thể tạo Langfuse Dataset/Experiment từ kết quả đã lưu (không gọi model lại) bằng `python -m scripts.evaluate_nlq_model --upload-results eval/nlq_model_local_2026-10-23.json --langfuse --output eval/nlq_model_local_2026-10-23.json`; nếu không có `--langfuse`, dữ liệu không được gửi lên Cloud.
-
-`python -m scripts.evaluate_rag_experiment --roles local strong --judge-role fast` so sánh câu trả lời local Gemma với model strong đã cấu hình, chấm answer substring, faithfulness và answer relevancy, rồi tạo Dataset/Experiment và bổ sung các item còn thiếu trên Langfuse. Lệnh này gửi câu hỏi, context được truy xuất, đáp án mong đợi và câu trả lời model tới nhà cung cấp model judge/candidate và Langfuse Cloud; chỉ chạy khi đã phê duyệt phạm vi chia sẻ dữ liệu. Bộ dữ liệu demo hiện là dữ liệu tổng hợp.
-
-`requirements.lock` khóa phiên bản runtime và dev đã resolve cho nhiều nền tảng. Khi thay dependencies, cập nhật bằng `uv pip compile requirements-dev.txt --output-file requirements.lock --universal`, review diff rồi cài lại từ lock.
-
-API `/api/rag/*` và endpoint debug `/api/health/verify-model` yêu cầu header `X-API-Key`; đặt `APP_API_KEY` thành chuỗi bí mật ngẫu nhiên tối thiểu 32 ký tự. Khi chưa cấu hình key, các endpoint được bảo vệ trả HTTP 503 thay vì mở công khai. `/api/health` và `/api/health/live` vẫn công khai để health checks. Các endpoint API được giới hạn mặc định 60 request/phút theo IP; bộ đếm nằm trong tiến trình, nên nếu chạy nhiều worker thì cần giới hạn ở proxy/chia sẻ store. Sau reverse proxy, chỉ khai báo `TRUSTED_PROXY_IPS` khi proxy ghi đè `X-Forwarded-For` hoặc thêm IP client thật ở cuối header; nếu không, middleware chỉ dùng IP kết nối trực tiếp.
-
-## Benchmark mô hình
-
-Đặt API keys trong `.env`, cài dependencies từ `requirements.txt`, bảo đảm Ollama đang chạy và model `gemma3:12b` đã được tải. Sau đó chạy từ thư mục repo:
-
-```powershell
-.venv\Scripts\python.exe -m scripts.compare_models
-```
-
-Benchmark ghi độ trễ, token, trạng thái và ước tính chi phí cho các model Groq đã cấu hình vào `docs/benchmark_runs/`. Tóm tắt lần chạy gần nhất nằm trong `docs/benchmark_results.md`.
-
-## Chạy giao diện Streamlit
-
-Cấu hình `APP_API_KEY` giống backend, sau đó chạy:
+Khởi động giao diện Web tương tác trực quan:
 
 ```bash
 streamlit run app/streamlit_app.py --server.port 8501
 ```
+
+**Tính năng nổi bật:**
+- 🎯 **Tự động định tuyến (Smart Router):** Tự động phân loại câu hỏi sang RAG (tài liệu), NLQ (truy vấn CSDL số liệu) hoặc Out-of-scope (chào hỏi/ngoài phạm vi).
+- ⚡ **Streaming SSE:** Truyền token phản hồi theo thời gian thực kèm hộp trạng thái hiển thị các bước phân tích.
+- 📊 **Trực quan hóa SQL:** Xem câu lệnh SQL đã chạy, hiển thị bảng số liệu và tự động vẽ biểu đồ cột cho dữ liệu định lượng.
+- 📚 **Minh bạch trích dẫn (Grounding):** Hiển thị rõ tên file nguồn, tiêu đề mục, trang PDF và điểm tương đồng cosine.
+- 📁 **Nạp tài liệu tức thì:** Kéo thả tài liệu (`.pdf`, `.docx`, `.md`, `.txt`) để lập chỉ mục trực tiếp vào hệ thống.
+- 👍/👎 **Phản hồi người dùng:** Đánh giá chất lượng câu trả lời, gửi điểm số trực tiếp lên Langfuse Cloud kèm `trace_id`.
+
+---
+
+## ⚙️ Cấu Hình Mô Hình (.env)
+
+Thay đổi mô hình linh hoạt qua biến môi trường mà **không cần sửa code**:
+
+| Vai trò | Biến môi trường | Giá trị khuyến nghị | Mục đích sử dụng |
+| :--- | :--- | :--- | :--- |
+| **Mặc định** | `DEFAULT_MODEL` | `google_genai/gemini-3.5-flash-lite` | Mô hình chính toàn hệ thống |
+| **Mạnh** | `STRONG_MODEL` | `google_genai/gemini-3.6-flash` | Tổng hợp báo cáo, viết SQL phức tạp |
+| **Nhanh/Rẻ** | `FAST_MODEL` | `google_genai/gemini-3.5-flash-lite` | Phân loại router, viết lại câu hỏi |
+| **Nội bộ** | `LOCAL_MODEL` | `ollama/gemma3:12b` | Chạy offline, bảo mật tuyệt đối dữ liệu |
+| **Tìm kiếm** | `SEARCH_MODE` | `hybrid` hoặc `vector` | Kết hợp PGVector (Dense) + BM25 (Sparse) |
+| **Reranker** | `USE_RERANKER` | `false` hoặc `true` | Bật mô hình BAAI cross-encoder reranking |
+
+---
+
+## 📁 Cấu Trúc Dự Án (Project Structure)
+
+```
+ai-assistant/
+├── app/
+│   ├── main.py                    # Khởi tạo ứng dụng FastAPI và middleware
+│   ├── streamlit_app.py           # Giao diện Chat Web UI tương tác
+│   ├── api/
+│   │   ├── rag.py                 # POST /api/rag/ask, /stream, /upload
+│   │   ├── nlq.py                 # POST /api/nlq/ask
+│   │   ├── feedback.py            # POST /api/feedback (Langfuse scores)
+│   │   ├── router_api.py          # POST /api/router/classify
+│   │   └── health.py              # GET /api/health, /live, /ready
+│   ├── core/
+│   │   ├── config.py              # Pydantic Settings đọc cấu hình từ .env
+│   │   ├── router.py              # Phân loại intent (RAG vs NLQ vs Out-of-scope)
+│   │   ├── nlq_graph.py           # LangGraph workflow cho Text-to-SQL an toàn
+│   │   ├── nlq_schema.py          # Quản lý schema & schema-linking CSDL
+│   │   ├── retriever.py           # Hybrid search (Vector + BM25) & score gating
+│   │   ├── question_rewriter.py   # Viết lại câu hỏi tỉnh lược qua lịch sử hội thoại
+│   │   ├── rag_prompt.py          # Quản lý prompt và Langfuse prompt fallback
+│   │   ├── vector_store.py        # Tương tác PostgreSQL pgvector
+│   │   ├── security.py            # Xác thực API Key & Rate limiting
+│   │   └── tracing.py             # Langfuse tracing & OpenTelemetry metrics
+│   └── schemas/                   # Pydantic contracts cho API RAG, NLQ, Feedback
+├── data/
+│   ├── demo_sales_warehouse/      # 12 tài liệu nghiệp vụ mẫu & schema_seed.sql
+│   ├── rag_golden_set.json        # 65 bộ câu hỏi - đáp chuẩn đánh giá RAG
+│   └── nlq_golden_set.json        # 30 bộ câu hỏi - SQL chuẩn đánh giá NLQ
+├── docker/
+│   └── init-db/                   # Script khởi tạo extension pgvector và role DB
+├── docs/
+│   ├── architecture.md            # Thiết kế kiến trúc tổng thể hệ thống
+│   ├── rag_api.md                 # Đặc tả chi tiết RAG API & sự kiện SSE Streaming
+│   ├── nlq_api.md                 # Hướng dẫn cấu hình và sử dụng NLQ API
+│   ├── threat_model_nlq.md        # Mô hình đe dọa và bảo mật phân tầng CSDL NLQ
+│   └── archive/                   # Lưu trữ snapshot lịch sử (benchmark, v1 eval, worklog)
+├── eval/
+│   └── report_v2.md               # Báo cáo đánh giá toàn diện v2 (LLM-as-a-judge)
+├── scripts/
+│   ├── ingest_documents.py        # Lập chỉ mục tài liệu vào vector store
+│   ├── validate_golden_data.py    # Kiểm tra tính toàn vẹn của tập Golden Dataset
+│   ├── evaluate_rag_retrieval.py  # Đo lường Hit@K, MRR, Context Recall
+│   └── evaluate_nlq_model.py      # Benchmark độ chính xác sinh SQL của LLM
+├── tests/                         # Bộ kiểm thử tự động (Unit & Integration tests)
+├── docker-compose.yml             # Triển khai nhanh PostgreSQL + pgvector + Ollama
+├── Dockerfile                     # Dockerfile đóng gói ứng dụng
+└── LICENSE                        # MIT License
+```
+
+---
+
+## 🧪 Hướng Dẫn Chạy Kiểm Thử (Unit Tests)
+
+Bộ kiểm thử được thiết kế hoàn toàn cô lập, không gọi tới API bên ngoài và không tiêu tốn token thật:
+
+```bash
+# 1. Cài đặt công cụ kiểm thử
+pip install -r requirements-dev.txt
+
+# 2. Chạy toàn bộ test suite
+pytest tests/ -v
+
+# 3. Chạy kiểm tra tính an toàn của NLQ (SQL Guard & Role Defense)
+pytest tests/test_nlq_runtime.py -v
+
+# 4. Kiểm tra tính toàn vẹn của dữ liệu mẫu (Golden Dataset)
+python -m scripts.validate_golden_data
+```
+
+---
+
+## ❓ Xử Lý Sự Cố Thường Gặp (Troubleshooting)
+
+| Hiện tượng lỗi | Nguyên nhân | Cách khắc phục |
+| :--- | :--- | :--- |
+| **`HTTP 503: Service Unavailable` khi gọi API** | Chưa cấu hình `APP_API_KEY` hoặc độ dài khóa ngắn hơn 32 ký tự. | Chạy lệnh `python -c "import secrets; print(secrets.token_urlsafe(32))"` và điền vào biến `APP_API_KEY` trong file `.env`. |
+| **`ImportError: No module named rank_bm25`** | Bật `SEARCH_MODE=hybrid` nhưng môi trường thiếu thư viện BM25. | Cài đặt bổ sung: `pip install rank-bm25`. |
+| **`psycopg.OperationalError: type "vector" does not exist`** | PostgreSQL chưa được cài đặt extension pgvector. | Chạy lệnh SQL với quyền superuser: `CREATE EXTENSION IF NOT EXISTS vector;` hoặc dùng image Docker `pgvector/pgvector:pg16`. |
+| **`/api/health` báo trạng thái `degraded`** | Không kết nối được tới Ollama (cổng 11434) hoặc PostgreSQL (cổng 5432). | Kiểm tra dịch vụ Ollama (`ollama serve`) và trạng thái CSDL PostgreSQL. |
+| **NLQ trả về lỗi `503: Chưa cấu hình PostgreSQL chỉ đọc`** | Biến `NLQ_DATABASE_URL` trong `.env` đang để trống. | Cấu hình chuỗi kết nối của role `ai_nlq_reader`: `NLQ_DATABASE_URL=postgresql://ai_nlq_reader:secret_nlq_reader@localhost:5432/ai_assistant_demo`. |
+
+---
+
+## 📚 Tài Liệu Tham Khảo Thêm
+
+- [Kiến trúc chi tiết hệ thống](docs/architecture.md)
+- [Đặc tả RAG API & Server-Sent Events (SSE)](docs/rag_api.md)
+- [Hướng dẫn cấu hình NLQ API](docs/nlq_api.md)
+- [Mô hình đe dọa và An toàn CSDL NLQ](docs/threat_model_nlq.md)
+- [Kho lưu trữ dữ liệu lịch sử](docs/archive/)
+
+---
+
+## 📄 Bản Quyền (License)
+
+Dự án được phân phối theo giấy phép [MIT License](LICENSE).

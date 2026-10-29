@@ -3,37 +3,24 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
+import unicodedata
 from typing import Any, TypedDict
 
 import psycopg
-from psycopg_pool import PoolTimeout
 from langgraph.graph import END, START, StateGraph
 from sqlglot import exp, parse
+from sqlglot.optimizer.scope import traverse_scope
 
 from app.core.config import settings
 from app.core.llm import extract_message_text, get_llm, get_model_provider
-from app.core.nlq_schema import _SENSITIVE, _connect, load_schema, schema_catalog, select_relevant_tables
+from app.core.nlq_schema import _connect, load_schema, schema_catalog, select_relevant_tables
 from app.core.tracing import get_langfuse_handler, langfuse_observation, update_langfuse_observation
 
-_ALLOWED_FUNCTIONS = {
-    "abs", "avg", "coalesce", "concat", "count", "date_part", "extract",
-    "greatest", "least", "length", "lower", "max", "min", "nullif", "round",
-    "sum", "timestamp_trunc", "upper",
-}
+_SENSITIVE = re.compile(r"password|passwd|secret|token|email|phone|mobile|address|account_number|national_id|full_name", re.I)
+_FORBIDDEN_FUNCTIONS = {"pg_sleep", "pg_read_file", "pg_read_binary_file", "pg_ls_dir", "dblink", "lo_export", "lo_import"}
 logger = logging.getLogger(__name__)
-
-
-class NlqUnsafeQueryError(ValueError):
-    """The generated statement could not pass the NLQ read-only guard."""
-
-
-class NlqExecutionError(ValueError):
-    """A safe query could not be executed for this request."""
-
-
-class NlqDatabaseUnavailable(RuntimeError):
-    """The NLQ database is not reachable or is not configured."""
 
 
 class NlqState(TypedDict, total=False):
@@ -45,51 +32,34 @@ class NlqState(TypedDict, total=False):
     rows: list[dict]
     columns: list[str]
     answer: str
+    truncated: bool
+    out_of_scope: bool
+    deadline_monotonic: float
     repair_count: int
     error: str
     repaired: bool
-    truncated: bool
-    out_of_scope: bool
-    error_stage: str
+    model: Any
     callbacks: list[Any]
 
 
-def _invoke_model_response(llm, prompt: str, callbacks: list[Any]):
-    for attempt in range(settings.nlq_model_max_retries + 1):
-        try:
-            return llm.invoke(prompt, config={"callbacks": callbacks})
-        except Exception as exc:
-            if attempt >= settings.nlq_model_max_retries or not _is_retryable_provider_error(exc):
-                raise
-            logger.warning("Retrying transient NLQ provider error (%s)", type(exc).__name__)
-            time.sleep(0.5 * (attempt + 1))
-    raise RuntimeError("NLQ model call did not return")
+class NlqRequestTimeout(TimeoutError):
+    """Raised when the NLQ graph exceeds its request time budget."""
+
+
+def _asks_merchandise_revenue(question: str | None) -> bool:
+    if not question:
+        return False
+    folded = question.casefold().replace("đ", "d")
+    folded = "".join(
+        char for char in unicodedata.normalize("NFKD", folded)
+        if not unicodedata.combining(char)
+    )
+    return bool(re.search(r"\bdoanh\s+(?:thu|so)\b", folded))
 
 
 def _invoke_model(llm, prompt: str, callbacks: list[Any]) -> str:
-    return extract_message_text(_invoke_model_response(llm, prompt, callbacks))
-
-
-def _is_retryable_provider_error(exc: Exception) -> bool:
-    name = type(exc).__name__.casefold()
-    if "timeout" in name or "deadline" in name:
-        return False
-    status = getattr(exc, "status_code", None)
-    if status is None:
-        response = getattr(exc, "response", None)
-        status = getattr(response, "status_code", None)
-    code = getattr(exc, "code", None)
-    if callable(code):
-        try:
-            code = code()
-        except Exception:
-            code = None
-    if status is None:
-        status = getattr(code, "value", code)
-    try:
-        return int(status) in {429, 500, 502, 503, 504}
-    except (TypeError, ValueError):
-        return False
+    result = llm.invoke(prompt, config={"callbacks": callbacks})
+    return extract_message_text(result)
 
 
 def _extract_sql(value: str) -> str:
@@ -104,10 +74,69 @@ def _extract_sql(value: str) -> str:
     return text
 
 
+def _has_canceled_order_exclusion(root: exp.Select) -> bool:
+    order_aliases = {
+        table.alias_or_name.casefold()
+        for table in root.find_all(exp.Table)
+        if table.name.casefold() == "orders"
+    }
+    if not order_aliases:
+        return False
+
+    predicates = []
+    where = root.args.get("where")
+    if where is not None:
+        predicates.extend(where.walk())
+    for join in root.find_all(exp.Join):
+        on_clause = join.args.get("on")
+        if on_clause is not None:
+            predicates.extend(on_clause.walk())
+
+    def is_order_status(node: exp.Expression) -> bool:
+        if not isinstance(node, exp.Column) or node.name.casefold() != "status":
+            return False
+        return not node.table or node.table.casefold() in order_aliases
+
+    def is_canceled_literal(node: exp.Expression) -> bool:
+        return (
+            isinstance(node, exp.Literal)
+            and node.is_string
+            and str(node.this).casefold() == "đã hủy"
+        )
+
+    for predicate in predicates:
+        if isinstance(predicate, exp.NEQ):
+            if (
+                is_order_status(predicate.this) and is_canceled_literal(predicate.expression)
+            ) or (
+                is_order_status(predicate.expression) and is_canceled_literal(predicate.this)
+            ):
+                return True
+        if isinstance(predicate, exp.Not) and isinstance(predicate.this, exp.In):
+            inclusion = predicate.this
+            if is_order_status(inclusion.this) and any(
+                is_canceled_literal(value) for value in inclusion.expressions
+            ):
+                return True
+        if isinstance(predicate, exp.In) and not isinstance(getattr(predicate, "parent", None), exp.Not):
+            if is_order_status(predicate.this):
+                values = [
+                    str(value.this).casefold()
+                    for value in predicate.expressions
+                    if isinstance(value, exp.Literal) and value.is_string
+                ]
+                # Whitelist of valid active statuses that safely excludes 'đã hủy'
+                valid_active = {"mới", "đã xác nhận", "đang giao", "đã giao"}
+                if values and "đã hủy" not in values and set(values).issubset(valid_active):
+                    return True
+    return False
+
+
 def validate_sql(
     sql: str,
     allowed_tables: set[str],
-    allowed_columns: dict[str, set[str]] | None = None,
+    *,
+    question: str | None = None,
 ) -> str:
     """Accept one safe SELECT and impose a hard row cap before execution."""
     statements = [node for node in parse(sql, read="postgres") if node is not None and not isinstance(node, exp.Semicolon)]
@@ -122,61 +151,72 @@ def validate_sql(
         if isinstance(node, (exp.Insert, exp.Update, exp.Delete, exp.Drop, exp.Create, exp.Command, exp.Merge, exp.Transaction)):
             raise ValueError("Truy vấn chứa thao tác ghi hoặc lệnh không được phép.")
         if isinstance(node, exp.Func):
-            function_name = (
-                node.name if isinstance(node, exp.Anonymous) else node.sql_name()
-            ).casefold()
-            if function_name not in _ALLOWED_FUNCTIONS:
-                raise ValueError("Truy vấn gọi hàm ngoài danh sách cho phép.")
+            function_name = (getattr(node, "name", "") or node.sql_name()).casefold()
+            if function_name in _FORBIDDEN_FUNCTIONS:
+                raise ValueError("Truy vấn gọi hàm hệ thống không được phép.")
     cte_names = {cte.alias_or_name.casefold() for cte in root.find_all(exp.CTE)}
-    source_tables = [
-        table for table in root.find_all(exp.Table)
-        if table.name.casefold() not in cte_names
-    ]
-    referenced = {table.name.casefold() for table in source_tables}
+    table_or_alias_names = set()
+    referenced = set()
+
+    for scope in traverse_scope(root):
+        for name, source in scope.sources.items():
+            table_or_alias_names.add(name.casefold())
+            if isinstance(source, exp.Table):
+                table_or_alias_names.add(source.name.casefold())
+
+        for table in scope.tables:
+            if table.catalog:
+                raise ValueError("Truy vấn tham chiếu schema hoặc catalog không được phép.")
+            if table.db and table.db.casefold() not in ("", "public"):
+                raise ValueError("Truy vấn tham chiếu schema hoặc catalog không được phép.")
+
+            # Bảng có tiền tố schema (vd: public.rag_chunks) hoặc không trùng tên CTE là bảng thật
+            is_physical = bool(table.db) or (table.name.casefold() not in cte_names)
+            if is_physical:
+                referenced.add(table.name.casefold())
+
     allowed = {name.casefold() for name in allowed_tables}
     if not referenced or not referenced.issubset(allowed):
         raise ValueError("Truy vấn tham chiếu bảng ngoài schema được chọn.")
-    table_aliases = {
-        table.alias_or_name.casefold(): table.name.casefold()
-        for table in source_tables
-    }
-    table_aliases.update({name: name for name in referenced})
-    allowed_column_names = {
-        table.casefold(): {column.casefold() for column in columns}
-        for table, columns in (allowed_columns or {}).items()
-    }
-    output_aliases = {
-        projection.alias_or_name.casefold()
-        for select in root.find_all(exp.Select)
-        for projection in select.expressions
-        if projection.alias_or_name
-    }
+
+    # Cấm chọn trực tiếp toàn bộ dòng qua alias bảng hoặc tên bảng (e.g. SELECT c FROM customers c)
+    for scope in traverse_scope(root):
+        for col in scope.columns:
+            if not col.table and col.name.casefold() in table_or_alias_names:
+                parent = col.parent
+                while parent and parent != scope.expression:
+                    if parent in scope.expression.selects:
+                        raise ValueError("Không cho phép chọn trực tiếp cả dòng hoặc alias.")
+                    parent = parent.parent
+                if col in scope.expression.selects:
+                    raise ValueError("Không cho phép chọn trực tiếp cả dòng hoặc alias.")
+
     for select in root.find_all(exp.Select):
-        for projection in select.expressions:
-            if isinstance(projection, exp.Star) or (
-                isinstance(projection, exp.Column) and isinstance(projection.this, exp.Star)
-            ):
-                raise ValueError("Không cho phép SELECT *; hãy chọn cột cụ thể.")
-    for column in root.find_all(exp.Column):
-        name = column.name.casefold()
-        if _SENSITIVE.search(name):
-            raise ValueError("Truy vấn tham chiếu cột nhạy cảm.")
-        qualifier = column.table.casefold()
-        if qualifier and qualifier in cte_names:
-            continue
-        if qualifier:
-            table_name = table_aliases.get(qualifier)
-            if table_name is None:
-                raise ValueError("Truy vấn tham chiếu alias bảng không được xác định.")
-            if allowed_column_names and name not in allowed_column_names.get(table_name, set()):
-                raise ValueError("Truy vấn tham chiếu cột ngoài schema được chọn.")
-        elif name not in output_aliases and allowed_column_names:
-            if not any(name in allowed_column_names.get(table, set()) for table in referenced):
-                raise ValueError("Truy vấn tham chiếu cột ngoài schema được chọn.")
+        for expr in select.expressions:
+            for col in expr.find_all(exp.Column):
+                if _SENSITIVE.search(col.name):
+                    raise ValueError(f"Truy vấn chọn cột nhạy cảm '{col.name}' và đã bị chặn.")
+    uses_order_revenue = any(
+        isinstance(node, exp.Sum)
+        and any(
+            isinstance(product, exp.Mul)
+            and {column.name.casefold() for column in product.find_all(exp.Column)}
+            >= {"quantity", "unit_price"}
+            for product in node.find_all(exp.Mul)
+        )
+        for node in root.find_all(exp.Sum)
+    )
+    if uses_order_revenue and _asks_merchandise_revenue(question):
+        if "orders" not in referenced:
+            raise ValueError("Truy vấn doanh thu phải JOIN orders để loại đơn đã hủy.")
+        if not _has_canceled_order_exclusion(root):
+            raise ValueError("Truy vấn doanh thu phải loại orders.status = 'đã hủy'.")
     limit = root.args.get("limit")
     if limit is None or not isinstance(limit.expression, exp.Literal) or not limit.expression.is_int:
+        # Fetch one sentinel row beyond the public cap so execution can report
+        # whether the displayed result was truncated.
         root = root.limit(settings.nlq_max_rows + 1)
-    elif int(limit.expression.this) >= settings.nlq_max_rows:
+    elif int(limit.expression.this) > settings.nlq_max_rows:
         root = root.limit(settings.nlq_max_rows + 1)
     return root.sql(dialect="postgres")
 
@@ -195,14 +235,6 @@ def _run_readonly(sql: str) -> tuple[list[str], list[dict], bool]:
     return columns, rows, truncated
 
 
-def _safe_execution_error(exc: Exception) -> str:
-    """Avoid forwarding PostgreSQL error text that may include a bound value."""
-    if isinstance(exc, psycopg.Error):
-        sqlstate = getattr(exc, "sqlstate", None)
-        return f"PostgreSQL execution failed (SQLSTATE {sqlstate})." if sqlstate else "PostgreSQL execution failed."
-    return f"{type(exc).__name__}: truy vấn không thể thực thi."
-
-
 def _make_graph(llm):
     def load(state: NlqState) -> NlqState:
         with langfuse_observation(name="nlq-schema-introspection", input={"question": state["question"]}) as span:
@@ -211,41 +243,40 @@ def _make_graph(llm):
         return {"schema": tables}
 
     def link(state: NlqState) -> NlqState:
-        with langfuse_observation(name="nlq-scope-check", input={"question": state["question"]}) as span:
-            relevant = select_relevant_tables(state["question"], state["schema"])
-            # Keep lexical matching only as a cheap scope check. The schema has
-            # nine small tables, so give SQL generation the complete catalog.
-            update_langfuse_observation(
-                span,
-                output={"scope_match": bool(relevant), "schema_table_count": len(state["schema"])},
+        with langfuse_observation(name="nlq-schema-linking", input={"question": state["question"]}) as span:
+            selected = select_relevant_tables(
+                state["question"], state["schema"], llm=llm,
+                callbacks=state.get("callbacks", []),
             )
-        if not relevant:
-            return {
-                "selected_tables": [],
-                "schema_text": "",
-                "out_of_scope": True,
-                "answer": "Câu hỏi chưa khớp với dữ liệu hiện có; hãy hỏi về đơn hàng, khách hàng, sản phẩm, kho hoặc tồn kho.",
-            }
+            text = schema_catalog(selected)
+            update_langfuse_observation(span, output={"selected_tables": [t["name"] for t in selected]})
+        return {"selected_tables": selected, "schema_text": text, "out_of_scope": not selected}
+
+    def out_of_scope(state: NlqState) -> NlqState:
         return {
-            "selected_tables": state["schema"],
-            "schema_text": schema_catalog(state["schema"]),
-            "out_of_scope": False,
+            "sql": "",
+            "columns": [],
+            "rows": [],
+            "answer": "Câu hỏi không liên quan đến dữ liệu bán hàng có sẵn.",
+            "repaired": False,
+            "truncated": False,
+            "error": "",
         }
 
     def generate(state: NlqState) -> NlqState:
         prompt = (
             "Bạn là bộ sinh SQL PostgreSQL. Hãy tạo đúng một câu SELECT để trả lời câu hỏi. "
             "Chỉ dùng bảng/cột trong schema; không lấy thông tin cá nhân/nhạy cảm; không giải thích. "
-            "Chỉ trả các chiều dữ liệu và chỉ số được câu hỏi yêu cầu; không thêm cột không liên quan. "
-            "Làm tròn tiền tệ và giá trung bình đến 2 chữ số thập phân. Với truy vấn top-N, "
-            "thêm tiêu chí ORDER BY phụ ổn định theo tên hoặc mã hiển thị để xử lý đồng hạng. "
-            "Luôn đặt LIMIT phù hợp. Với doanh thu đơn hàng, loại đơn có status='đã hủy'; "
-            "dùng SUM(order_items.quantity * order_items.unit_price), JOIN orders với order_items "
-            "và thêm điều kiện orders.status <> 'đã hủy'; không dùng shipping_fee làm doanh thu. "
+            "Luôn đặt LIMIT phù hợp. Chỉ khi câu hỏi hỏi doanh thu/doanh số hàng hóa, dùng "
+            "SUM(order_items.quantity * order_items.unit_price), JOIN orders với order_items và loại "
+            "đơn status='đã hủy'; doanh thu gồm các trạng thái mới, đã xác nhận, đang giao, đã giao. "
+            "Không tự áp dụng điều kiện loại đơn hủy cho câu hỏi về tổng giá trị hàng đã đặt hoặc "
+            "giá trị trung bình đơn hàng; ở các câu đó hãy giữ đúng phạm vi câu hỏi. Không dùng "
+            "shipping_fee làm doanh thu hàng hóa. "
             "Ví dụ khi schema có orders/order_items: SELECT date_trunc('month', orders.order_date) AS month, "
             "SUM(order_items.quantity * order_items.unit_price) AS revenue FROM orders "
-            "JOIN order_items ON order_items.order_id = orders.order_id "
-            "WHERE orders.status <> 'đã hủy' GROUP BY month ORDER BY month LIMIT 100.\n"
+            "JOIN order_items ON order_items.order_id = orders.order_id WHERE orders.status <> 'đã hủy' "
+            "GROUP BY month ORDER BY month LIMIT 100.\n"
             "SCHEMA:\n" + state["schema_text"] +
             "\nQUESTION:\n" + state["question"]
         )
@@ -260,41 +291,39 @@ def _make_graph(llm):
                 safe_sql = validate_sql(
                     state["sql"],
                     {t["name"] for t in state["selected_tables"]},
-                    {
-                        table["name"]: {column["name"] for column in table["columns"]}
-                        for table in state["selected_tables"]
-                    },
+                    question=state["question"],
                 )
                 update_langfuse_observation(span, output={"accepted": True, "sql": safe_sql})
-                return {"sql": safe_sql, "error": "", "error_stage": ""}
+                return {"sql": safe_sql, "error": ""}
             except Exception as exc:
                 update_langfuse_observation(span, output={"accepted": False, "reason": str(exc)}, level="WARNING")
-                return {"error": str(exc), "error_stage": "validation"}
+                return {"error": str(exc)}
 
     def execute(state: NlqState) -> NlqState:
         with langfuse_observation(name="nlq-sql-execution", input={"sql": state["sql"]}) as span:
             try:
                 columns, rows, truncated = _run_readonly(state["sql"])
-                update_langfuse_observation(span, output={"row_count": len(rows), "columns": columns})
-                return {
-                    "columns": columns, "rows": rows, "truncated": truncated,
-                    "row_count": len(rows), "error": "", "error_stage": "",
-                }
-            except Exception as exc:
-                error = _safe_execution_error(exc)
-                update_langfuse_observation(span, output={"error": error}, level="ERROR")
-                error_stage = (
-                    "database_unavailable"
-                    if isinstance(exc, (psycopg.OperationalError, PoolTimeout))
-                    else "execution"
+                update_langfuse_observation(
+                    span,
+                    output={"row_count": len(rows), "columns": columns, "truncated": truncated},
                 )
-                return {"error": error, "error_stage": error_stage}
+                return {"columns": columns, "rows": rows, "truncated": truncated, "error": ""}
+            except Exception as exc:
+                error = f"{type(exc).__name__}: {exc}"[:1000]
+                update_langfuse_observation(span, output={"error": error}, level="ERROR")
+                return {"error": error}
 
     def repair(state: NlqState) -> NlqState:
         count = state.get("repair_count", 0) + 1
+        revenue_rule = (
+            "Vì câu hỏi hỏi doanh thu/doanh số hàng hóa, bắt buộc loại đơn status='đã hủy'. "
+            if _asks_merchandise_revenue(state["question"])
+            else "Không tự loại đơn hủy trừ khi câu hỏi yêu cầu; giữ đúng phạm vi câu hỏi. "
+        )
         prompt = (
             "Sửa câu SQL PostgreSQL để chỉ còn một truy vấn SELECT hợp lệ. "
-            "Chỉ dùng schema đã cung cấp. Trả đúng SQL, không giải thích.\nSCHEMA:\n" + state["schema_text"] +
+            "Chỉ dùng schema đã cung cấp. " + revenue_rule +
+            "Không tính shipping_fee là doanh thu hàng hóa. Trả đúng SQL, không giải thích.\nSCHEMA:\n" + state["schema_text"] +
             "\nQUESTION:\n" + state["question"] + "\nSQL lỗi:\n" + state["sql"] +
             "\nLỗi kiểm tra/thực thi:\n" + state["error"]
         )
@@ -303,17 +332,26 @@ def _make_graph(llm):
             update_langfuse_observation(span, output={"sql": sql})
         return {"sql": sql, "repair_count": count, "repaired": True, "error": ""}
 
+    _SAMPLE_ROWS = 25
+
     def interpret(state: NlqState) -> NlqState:
+        rows = state.get("rows", [])
+        sample_rows = rows[:_SAMPLE_ROWS]
+        is_partial = state.get("truncated") or len(rows) > _SAMPLE_ROWS
+        partial_note = (
+            f"\nLƯU Ý: Kết quả hiển thị mẫu {len(sample_rows)} trong tổng số {len(rows)} dòng lấy về; "
+            "không được tự suy ra tổng số hoặc kết luận tuyệt đối từ mẫu này."
+            if is_partial
+            else ""
+        )
         prompt = (
             "Trả lời ngắn gọn bằng tiếng Việt, dựa đúng vào kết quả SQL dưới đây. "
             "Nếu không có dòng nào, nói rõ không tìm thấy dữ liệu.\nCÂU HỎI:\n" + state["question"] +
             "\nCỘT:\n" + json.dumps(state.get("columns", []), ensure_ascii=False) +
-            "\nMẪU TỐI ĐA 25 DÒNG ĐẦU:\n" + json.dumps(state.get("rows", [])[:25], ensure_ascii=False, default=str) +
-            f"\nSỐ DÒNG TRẢ VỀ: {len(state.get('rows', []))}" +
-            ("\nLƯU Ý: Kết quả truy vấn đã bị giới hạn; mẫu trên chỉ gồm tối đa 25 dòng đầu, không được suy ra tổng từ mẫu."
-             if state.get("truncated") else "")
+            "\nKẾT QUẢ:\n" + json.dumps(sample_rows, ensure_ascii=False, default=str) +
+            partial_note
         )
-        with langfuse_observation(name="nlq-answer-interpretation", input={"row_count": len(state.get("rows", []))}) as span:
+        with langfuse_observation(name="nlq-answer-interpretation", input={"row_count": len(rows)}) as span:
             answer = _invoke_model(llm, prompt, state.get("callbacks", []))
             update_langfuse_observation(span, output={"answer": answer})
         return {"answer": answer}
@@ -322,6 +360,9 @@ def _make_graph(llm):
     def timed_node(name, fn):
         def run(state):
             started = time.perf_counter()
+            deadline = state.get("deadline_monotonic")
+            if deadline is not None and time.monotonic() >= deadline:
+                raise NlqRequestTimeout("NLQ request deadline exceeded before " + name)
             logger.info("NLQ stage started: %s", name)
             try:
                 result = fn(state)
@@ -331,12 +372,15 @@ def _make_graph(llm):
                     name, time.perf_counter() - started, type(exc).__name__,
                 )
                 raise
+            if deadline is not None and time.monotonic() >= deadline:
+                raise NlqRequestTimeout("NLQ request deadline exceeded during " + name)
             logger.info("NLQ stage completed: %s in %.2fs", name, time.perf_counter() - started)
             return result
         return run
 
     builder.add_node("load_schema", timed_node("load_schema", load))
     builder.add_node("schema_link", timed_node("schema_link", link))
+    builder.add_node("out_of_scope", timed_node("out_of_scope", out_of_scope))
     builder.add_node("generate_sql", timed_node("generate_sql", generate))
     builder.add_node("validate_sql", timed_node("validate_sql", validate))
     builder.add_node("execute_sql", timed_node("execute_sql", execute))
@@ -344,10 +388,12 @@ def _make_graph(llm):
     builder.add_node("interpret", timed_node("interpret", interpret))
     builder.add_edge(START, "load_schema")
     builder.add_edge("load_schema", "schema_link")
-    def after_link(state):
-        return END if state.get("out_of_scope") else "generate_sql"
-
-    builder.add_conditional_edges("schema_link", after_link, {"generate_sql": "generate_sql", END: END})
+    builder.add_conditional_edges(
+        "schema_link",
+        lambda state: "out_of_scope" if state.get("out_of_scope") else "generate_sql",
+        {"out_of_scope": "out_of_scope", "generate_sql": "generate_sql"},
+    )
+    builder.add_edge("out_of_scope", END)
     builder.add_edge("generate_sql", "validate_sql")
 
     def after_validation(state):
@@ -357,6 +403,9 @@ def _make_graph(llm):
 
     def after_execution(state):
         if state.get("error"):
+            # Lỗi mất kết nối CSDL (OperationalError, timeout vật lý...) thì kết thúc ngay, không repair
+            if "OperationalError" in state["error"] or "database_unavailable" in state["error"].lower():
+                return END
             return "repair_sql" if state.get("repair_count", 0) < settings.nlq_max_repairs else END
         return "interpret"
 
@@ -367,28 +416,28 @@ def _make_graph(llm):
     return builder.compile()
 
 
-def ask_nlq(question: str, *, session_id: str | None = None) -> dict:
+def ask_nlq(question: str, *, session_id: str | None = None, user_id: str | None = None) -> dict:
     model_options = (
         {"thinking_config": {"thinking_level": "low"}}
         if get_model_provider(settings.nlq_model) == "google_genai"
         else {}
     )
+    max_graph_model_calls = settings.nlq_max_repairs + 3  # link, generate, repairs, interpret
+    max_attempts = max_graph_model_calls * (settings.nlq_model_max_retries + 1)
+    per_call_budget = settings.nlq_request_deadline_seconds / max_attempts
+    model_timeout = min(settings.nlq_model_timeout_seconds, per_call_budget)
+    deadline = time.monotonic() + settings.nlq_request_deadline_seconds
     llm = get_llm(
         settings.nlq_model,
         temperature=0,
-        timeout=settings.nlq_model_timeout_seconds,
-        # Provider SDK retry policies may retry timeouts too; transient HTTP
-        # 429/5xx retries are handled narrowly in _invoke_model instead.
-        max_retries=0,
-        **({"num_ctx": settings.rag_num_ctx} if get_model_provider(settings.nlq_model) == "ollama" else {}),
+        timeout=model_timeout,
+        max_retries=settings.nlq_model_max_retries,
         **model_options,
     )
     handler = get_langfuse_handler()
     callbacks = [handler] if handler is not None else []
     from app.core.tracing import langfuse_context
-    # The API does not authenticate a person identity; never trust a client
-    # supplied user_id as an identity attribute in Langfuse.
-    with langfuse_context(session_id=session_id, tags=["nlq", "api"], metadata={"model_role": settings.nlq_model}):
+    with langfuse_context(session_id=session_id, user_id=user_id, tags=["nlq", "api"], metadata={"model_role": settings.nlq_model}):
         started = time.perf_counter()
         try:
             result = _make_graph(llm).invoke({
@@ -396,7 +445,10 @@ def ask_nlq(question: str, *, session_id: str | None = None) -> dict:
                 "repair_count": 0,
                 "repaired": False,
                 "callbacks": callbacks,
+                "deadline_monotonic": deadline,
             }, config={"callbacks": callbacks})
+            if time.monotonic() >= deadline:
+                raise NlqRequestTimeout("NLQ request deadline exceeded.")
         except Exception as exc:
             logger.warning(
                 "NLQ request failed after %.2fs (%s)",
@@ -405,20 +457,7 @@ def ask_nlq(question: str, *, session_id: str | None = None) -> dict:
             raise
         logger.info("NLQ request completed in %.2fs", time.perf_counter() - started)
     if result.get("error"):
-        if result.get("error_stage") == "validation":
-            raise NlqUnsafeQueryError("Không thể tạo câu SQL an toàn cho câu hỏi này.")
-        if result.get("error_stage") == "database_unavailable":
-            raise NlqDatabaseUnavailable("NLQ database is not reachable.")
-        raise NlqExecutionError("Không thể thực thi câu truy vấn cho yêu cầu này.")
-    if result.get("out_of_scope"):
-        return {
-            "sql": "",
-            "columns": [],
-            "rows": [],
-            "answer": result["answer"],
-            "repaired": False,
-            "truncated": False,
-        }
+        raise ValueError(f"Không thể chạy truy vấn an toàn: {result['error']}")
     return {
         "sql": result["sql"],
         "columns": result.get("columns", []),
