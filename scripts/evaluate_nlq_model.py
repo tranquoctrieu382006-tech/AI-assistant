@@ -116,23 +116,18 @@ def _execution_results_match(
 def _relaxed_execution_results_match(
     actual: list[dict], expected: list[dict], *, ordered: bool = False,
 ) -> bool:
-    """Allow extra projected columns, but require every golden value to be present.
+    """Allow extra projected columns while preserving column meaning.
 
-    Column aliases/order are ignored. Numeric values use a small tolerance and
-    month labels such as ``1``/``2026-01`` are normalized. Missing golden values
-    still fail, so omitting a requested metric is not scored as correct.
+    Expected columns must exist under the same output name; values are compared
+    within a small numeric tolerance. Alias changes and month-only/year-month
+    conversions are not inferred because doing so can hide semantic errors.
     """
-    from datetime import date, datetime
     from decimal import Decimal, InvalidOperation
 
     def equivalent(left, right):
         if left == right:
             return True
         left_text, right_text = str(left), str(right)
-        if re.fullmatch(r"\d{1,2}", left_text) and re.fullmatch(r"\d{4}-\d{2}", right_text):
-            return int(left_text) == int(right_text[-2:])
-        if re.fullmatch(r"\d{4}-\d{2}", left_text) and re.fullmatch(r"\d{1,2}", right_text):
-            return int(left_text[-2:]) == int(right_text)
         try:
             a, b = Decimal(left_text), Decimal(right_text)
             return abs(a - b) <= max(Decimal("0.01"), abs(b) * Decimal("1e-9"))
@@ -140,13 +135,10 @@ def _relaxed_execution_results_match(
             return False
 
     def row_matches(actual_row, expected_row):
-        remaining = list(actual_row.values())
-        for expected_value in expected_row.values():
-            match = next((i for i, value in enumerate(remaining) if equivalent(value, expected_value)), None)
-            if match is None:
-                return False
-            remaining.pop(match)
-        return True
+        return all(
+            key in actual_row and equivalent(actual_row[key], expected_value)
+            for key, expected_value in expected_row.items()
+        )
 
     if len(actual) != len(expected):
         return False

@@ -93,10 +93,10 @@ def test_model_sql_comparison_preserves_order_for_order_by_queries():
     assert _execution_results_match(actual, expected, ordered=False)
 
 
-def test_nlq_relaxed_score_allows_extra_columns_aliases_rounding_and_month_formats():
+def test_nlq_relaxed_score_allows_extra_columns_rounding_and_row_order():
     actual = [
-        {"warehouse_id": 1, "warehouse_name": "Kho A", "movement": "nhập", "units": 3188.004},
-        {"warehouse_id": 2, "warehouse_name": "Kho B", "movement": "xuất", "units": 3188},
+        {"warehouse_id": 1, "warehouse": "Kho A", "movement_type": "nhập", "moved_units": 3188.004},
+        {"warehouse_id": 2, "warehouse": "Kho B", "movement_type": "xuất", "moved_units": 3188},
     ]
     expected = [
         {"warehouse": "Kho B", "movement_type": "xuất", "moved_units": 3188},
@@ -104,9 +104,22 @@ def test_nlq_relaxed_score_allows_extra_columns_aliases_rounding_and_month_forma
     ]
     assert not _execution_results_match(actual, expected)
     assert _relaxed_execution_results_match(actual, expected)
-    assert _relaxed_execution_results_match(
-        [{"month": "1", "order_count": 8}],
-        [{"month": "2026-01", "count": 8}],
+    assert not _relaxed_execution_results_match(
+        [{"month": "1", "count": 8}], [{"month": "2026-01", "count": 8}]
+    )
+    assert not _relaxed_execution_results_match(
+        [{"month": "2025-01", "count": 8}], [{"month": "2026-01", "count": 8}]
+    )
+
+
+def test_nlq_relaxed_score_rejects_alias_or_column_role_mismatch():
+    assert not _relaxed_execution_results_match(
+        [{"warehouse_name": "Kho A", "units": 3188}],
+        [{"warehouse": "Kho A", "moved_units": 3188}],
+    )
+    assert not _relaxed_execution_results_match(
+        [{"warehouse": 3188, "moved_units": "Kho A"}],
+        [{"warehouse": "Kho A", "moved_units": 3188}],
     )
 
 
