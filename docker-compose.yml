@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ai-assistant-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-ai_assistant_demo}
+      NLQ_READER_PASSWORD: ${NLQ_READER_PASSWORD:-secret_nlq_reader}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init-db/01_init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      - ./data/demo_sales_warehouse/schema_seed.sql:/docker-entrypoint-initdb.d/02_schema_seed.sql:ro
+      - ./docker/init-db/03_create_reader_role.sh:/docker-entrypoint-initdb.d/03_create_reader_role.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-ai_assistant_demo}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ai-assistant-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollamadata:/root/.ollama
+    # Tải model embedding bge-m3 sau khi khởi động:
+    # docker compose exec ollama ollama pull bge-m3
+
+volumes:
+  pgdata:
+  ollamadata:
