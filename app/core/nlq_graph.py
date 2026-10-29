@@ -505,10 +505,10 @@ def ask_nlq(question: str, *, session_id: str | None = None, user_id: str | None
         else {}
     )
     max_graph_model_calls = settings.nlq_max_repairs + 3  # link, generate, repairs, interpret
-    max_attempts = max_graph_model_calls * (settings.nlq_model_max_retries + 1)
     deadline_seconds = getattr(settings, "nlq_request_deadline_seconds", 60.0)
-    per_call_budget = deadline_seconds / max_attempts
-    model_timeout = min(settings.nlq_model_timeout_seconds, per_call_budget)
+    # Google GenAI quy định deadline tối thiểu phải >= 10s. Tránh chia max_attempts làm timeout < 10s.
+    per_call_budget = max(10.0, deadline_seconds / max(1, max_graph_model_calls))
+    model_timeout = max(10.0, min(settings.nlq_model_timeout_seconds, per_call_budget))
     deadline = time.monotonic() + deadline_seconds
     llm = get_llm(
         settings.nlq_model,
