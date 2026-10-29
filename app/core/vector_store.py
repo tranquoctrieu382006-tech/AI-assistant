@@ -102,11 +102,24 @@ def ensure_vector_schema() -> None:
             chunk_index INTEGER NOT NULL,
             page_number INTEGER,
             section TEXT,
-            embedding VECTOR({settings.embedding_dimensions}) NOT NULL,
-            UNIQUE (source, chunk_index)
+            corpus TEXT NOT NULL DEFAULT 'demo',
+            display_name TEXT,
+            embedding VECTOR({settings.embedding_dimensions}) NOT NULL
         )""")
         conn.execute("ALTER TABLE rag_chunks ADD COLUMN IF NOT EXISTS page_number INTEGER")
         conn.execute("ALTER TABLE rag_chunks ADD COLUMN IF NOT EXISTS section TEXT")
+        conn.execute("ALTER TABLE rag_chunks ADD COLUMN IF NOT EXISTS corpus TEXT NOT NULL DEFAULT 'demo'")
+        conn.execute("ALTER TABLE rag_chunks ADD COLUMN IF NOT EXISTS display_name TEXT")
+        conn.execute("ALTER TABLE rag_chunks DROP CONSTRAINT IF EXISTS rag_chunks_source_chunk_index_key")
+        conn.execute("""DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint WHERE conname = 'rag_chunks_corpus_source_chunk_index_key'
+            ) THEN
+                ALTER TABLE rag_chunks ADD CONSTRAINT rag_chunks_corpus_source_chunk_index_key UNIQUE (corpus, source, chunk_index);
+            END IF;
+        END $$;""")
+        conn.execute("CREATE INDEX IF NOT EXISTS rag_chunks_corpus_idx ON rag_chunks(corpus)")
         column_type = conn.execute(
             """SELECT format_type(a.atttypid, a.atttypmod)
                FROM pg_attribute a
@@ -138,8 +151,8 @@ def _require_store_ready(conn) -> None:
     _register_vector_if_needed(conn)
 
 
-def replace_corpus_chunks(chunks: list[dict]) -> int:
-    """Atomically replace the indexed corpus, including removed/renamed sources."""
+def replace_corpus_chunks(chunks: list[dict], *, corpus: str = "demo") -> int:
+    """Atomically replace the indexed corpus, scoped to `corpus`."""
     if not chunks:
         raise ValueError("Refusing to replace the indexed corpus with an empty chunk list.")
     ensure_vector_schema()
@@ -159,17 +172,54 @@ def replace_corpus_chunks(chunks: list[dict]) -> int:
         )
     with _connect() as conn:
         _register_vector_if_needed(conn)
-        with conn.cursor() as cursor:
-            # Replace the one configured corpus atomically. Both previous
-            # predicates together selected every row, so one explicit delete is clearer.
-            cursor.execute("DELETE FROM rag_chunks")
-            cursor.executemany(
-                """INSERT INTO rag_chunks(content, source, chunk_index, page_number, section, embedding)
-                   VALUES (%s, %s, %s, %s, %s, %s)""",
-                [(item["content"], item["source"], item["chunk_index"], item.get("page_number"),
-                  item.get("section"), Vector(vector))
-                 for item, vector in zip(chunks, embeddings)],
-            )
+        with conn.transaction():
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM rag_chunks WHERE corpus = %s", (corpus,))
+                cursor.executemany(
+                    """INSERT INTO rag_chunks(content, source, chunk_index, page_number, section, corpus, display_name, embedding)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                    [(item["content"], item["source"], item["chunk_index"], item.get("page_number"),
+                      item.get("section"), corpus, item.get("display_name"), Vector(vector))
+                     for item, vector in zip(chunks, embeddings)],
+                )
+    return len(chunks)
+
+
+def upsert_document_chunks(
+    source: str,
+    chunks: list[dict],
+    embeddings: list[list[float]] | None = None,
+    *,
+    corpus: str = "user",
+    display_name: str | None = None,
+) -> int:
+    """Atomically upsert chunks for a specific document (source) within a given corpus."""
+    ensure_vector_schema()
+    if embeddings is None and chunks:
+        batch_size = settings.rag_embedding_batch_size
+        embeddings = []
+        for start in range(0, len(chunks), batch_size):
+            embeddings.extend(get_embeddings().embed_documents(
+                [item["content"] for item in chunks[start:start + batch_size]]))
+    if embeddings is not None and len(chunks) != len(embeddings):
+        raise ValueError("Length of chunks and embeddings must match")
+
+    with _connect() as conn:
+        _register_vector_if_needed(conn)
+        with conn.transaction():
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "DELETE FROM rag_chunks WHERE corpus = %s AND source = %s",
+                    (corpus, source),
+                )
+                if chunks and embeddings:
+                    cursor.executemany(
+                        """INSERT INTO rag_chunks(content, source, chunk_index, page_number, section, corpus, display_name, embedding)
+                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                        [(item["content"], source, item["chunk_index"], item.get("page_number"),
+                          item.get("section"), corpus, display_name or item.get("display_name"), Vector(vec))
+                         for item, vec in zip(chunks, embeddings)],
+                    )
     return len(chunks)
 
 
@@ -178,18 +228,42 @@ def similarity_search(
     k: int | None = None,
     *,
     embedding: list[float] | None = None,
+    corpus: str | None = None,
 ) -> list[dict]:
     vector = embedding if embedding is not None else embed_query(query)
     with _connect() as conn:
         _require_store_ready(conn)
-        rows = conn.execute(
-            """SELECT content, source, chunk_index, page_number, section,
-                      1 - (embedding <=> %s) AS score
-               FROM rag_chunks ORDER BY embedding <=> %s LIMIT %s""",
-            (Vector(vector), Vector(vector), k or settings.rag_top_k),
-        ).fetchall()
-    return [{"content": r[0], "source": r[1], "chunk_index": r[2],
-             "page_number": r[3], "section": r[4], "score": float(r[5])} for r in rows]
+        if corpus is not None:
+            rows = conn.execute(
+                """SELECT content, source, chunk_index, page_number, section,
+                          1 - (embedding <=> %s) AS score, corpus, display_name
+                   FROM rag_chunks WHERE corpus = %s ORDER BY embedding <=> %s LIMIT %s""",
+                (Vector(vector), corpus, Vector(vector), k or settings.rag_top_k),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT content, source, chunk_index, page_number, section,
+                          1 - (embedding <=> %s) AS score, corpus, display_name
+                   FROM rag_chunks ORDER BY embedding <=> %s LIMIT %s""",
+                (Vector(vector), Vector(vector), k or settings.rag_top_k),
+            ).fetchall()
+
+    results = []
+    for r in rows:
+        item = {
+            "content": r[0],
+            "source": r[1],
+            "chunk_index": r[2],
+            "page_number": r[3],
+            "section": r[4],
+            "score": float(r[5]),
+        }
+        if len(r) > 6:
+            item["corpus"] = r[6]
+        if len(r) > 7:
+            item["display_name"] = r[7]
+        results.append(item)
+    return results
 
 
 def score_chunks(
@@ -219,22 +293,48 @@ def score_chunks(
     return {(source, chunk_index): float(score) for source, chunk_index, score in rows}
 
 
-def get_corpus_revision() -> tuple[int, int]:
+def get_corpus_revision(*, corpus: str | None = None) -> tuple[int, int]:
     """Return a cheap revision token that changes after replace_corpus_chunks()."""
     with _connect() as conn:
         _require_store_ready(conn)
-        count, max_id = conn.execute(
-            "SELECT COUNT(*), COALESCE(MAX(id), 0) FROM rag_chunks"
-        ).fetchone()
+        if corpus is not None:
+            count, max_id = conn.execute(
+                "SELECT COUNT(*), COALESCE(MAX(id), 0) FROM rag_chunks WHERE corpus = %s",
+                (corpus,),
+            ).fetchone()
+        else:
+            count, max_id = conn.execute(
+                "SELECT COUNT(*), COALESCE(MAX(id), 0) FROM rag_chunks"
+            ).fetchone()
     return int(count), int(max_id)
 
 
-def get_all_chunks() -> list[dict]:
+def get_all_chunks(*, corpus: str | None = None) -> list[dict]:
     with _connect() as conn:
         _require_store_ready(conn)
-        rows = conn.execute(
-            """SELECT content, source, chunk_index, page_number, section
-               FROM rag_chunks ORDER BY source, chunk_index"""
-        ).fetchall()
-    return [{"content": r[0], "source": r[1], "chunk_index": r[2],
-             "page_number": r[3], "section": r[4]} for r in rows]
+        if corpus is not None:
+            rows = conn.execute(
+                """SELECT content, source, chunk_index, page_number, section, corpus, display_name
+                   FROM rag_chunks WHERE corpus = %s ORDER BY source, chunk_index""",
+                (corpus,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT content, source, chunk_index, page_number, section, corpus, display_name
+                   FROM rag_chunks ORDER BY source, chunk_index"""
+            ).fetchall()
+    results = []
+    for r in rows:
+        item = {
+            "content": r[0],
+            "source": r[1],
+            "chunk_index": r[2],
+            "page_number": r[3],
+            "section": r[4],
+        }
+        if len(r) > 5:
+            item["corpus"] = r[5]
+        if len(r) > 6:
+            item["display_name"] = r[6]
+        results.append(item)
+    return results

@@ -5,6 +5,7 @@ class RagAskRequest(BaseModel):
     question: str = Field(min_length=2, max_length=2000)
     top_k: int = Field(default=5, ge=1, le=20)
     session_id: str | None = Field(default=None, max_length=128)
+    corpus: str | None = Field(default=None, description="Tùy chọn lọc theo kho tài liệu: 'demo', 'user' hoặc None (tất cả)")
 
 
 class RagSource(BaseModel):
@@ -13,11 +14,21 @@ class RagSource(BaseModel):
     score: float
     page_number: int | None = None
     section: str | None = None
+    display_name: str | None = None
+    corpus: str | None = None
 
 
 class RagAskResponse(BaseModel):
     answer: str
     sources: list[RagSource]
+
+
+class RagUploadResponse(BaseModel):
+    status: str = Field(default="success")
+    filename: str
+    display_name: str
+    chunks_indexed: int
+    corpus: str = Field(default="user")
 
 
 class RagGeneratedAnswer(BaseModel):

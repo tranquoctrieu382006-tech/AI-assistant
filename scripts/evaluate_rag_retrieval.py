@@ -98,7 +98,7 @@ def evaluate(k: int = 5) -> dict:
     false_negative_counts = {}
     abstention_correct = 0
     for case in cases:
-        results = similarity_search(case["question"], k=max(k, 5))
+        results = similarity_search(case["question"], k=max(k, 5), corpus="demo")
         expected_sources = _source_targets(case)
         if expected_sources:
             context_recall = context_recall_at_k(case, results, k)

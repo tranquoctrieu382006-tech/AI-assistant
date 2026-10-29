@@ -1,0 +1,34 @@
+# Git & Version control
+.git
+.gitignore
+
+# Environment variables & secrets (CRITICAL: prevent leaking API keys into images)
+.env
+.env*
+*.env
+
+# Python bytecode & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Tests & Evaluation artifacts
+tests/
+eval/
+scratch/
+data/user_uploads/
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

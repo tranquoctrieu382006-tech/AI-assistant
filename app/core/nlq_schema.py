@@ -4,7 +4,6 @@ from __future__ import annotations
 import re
 import copy
 import hashlib
-import logging
 import threading
 import time
 import unicodedata
@@ -128,6 +127,9 @@ def _load_schema_from_database() -> list[dict]:
         return result
 
 
+_load_schema_uncached = _load_schema_from_database
+
+
 def load_schema() -> list[dict]:
     """Return a defensive copy of cached metadata, refreshing it after its TTL."""
     global _SCHEMA_CACHE
@@ -140,12 +142,12 @@ def load_schema() -> list[dict]:
             and _SCHEMA_CACHE[0] == fingerprint and now - _SCHEMA_CACHE[1] < ttl
         ):
             return copy.deepcopy(_SCHEMA_CACHE[2])
-        schema = _load_schema_from_database()
+        schema = _load_schema_uncached()
         if ttl > 0:
             _SCHEMA_CACHE = (fingerprint, time.monotonic(), copy.deepcopy(schema))
         else:
             _SCHEMA_CACHE = None
-        return schema
+        return copy.deepcopy(schema)
 
 
 def clear_schema_cache() -> None:

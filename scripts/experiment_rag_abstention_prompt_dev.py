@@ -74,7 +74,7 @@ def run(*, sample_counts: dict[str, int] | None = None, seed: int = 20261023,
     records = []
     try:
         for index, case in enumerate(cases):
-            retrieved = similarity_search(case["question"], k=settings.rag_top_k)
+            retrieved = similarity_search(case["question"], k=settings.rag_top_k, corpus="demo")
             context_matches = [
                 match for match in retrieved
                 if match["score"] >= settings.rag_min_relevance_score

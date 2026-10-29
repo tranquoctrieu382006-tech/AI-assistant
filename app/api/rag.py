@@ -4,8 +4,17 @@ import logging
 
 import httpx
 import psycopg
-from fastapi import APIRouter, HTTPException, Security
+import hashlib
+import io
+from pathlib import Path
+import re
+import time
+import unicodedata
+import zipfile
+
+from fastapi import APIRouter, File, HTTPException, Security, UploadFile, status
 from fastapi.responses import StreamingResponse
+import pypdf
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
@@ -17,7 +26,7 @@ from app.core.tracing import (
     update_langfuse_observation,
 )
 from app.core.security import require_api_key
-from app.schemas.rag import RagAskRequest, RagAskResponse, RagSource
+from app.schemas.rag import RagAskRequest, RagAskResponse, RagSource, RagUploadResponse
 from app.core import vector_store
 from app.core import session_store
 from app.core.question_rewriter import rewrite_question_if_needed
@@ -122,7 +131,184 @@ async def _retrieve_with_timeout(question: str, request: RagAskRequest):
             settings.use_reranker,
             request.top_k,
             max(request.top_k, settings.reranker_pool_size),
+            request.corpus,
         )
+
+
+@router.post(
+    "/rag/upload",
+    response_model=RagUploadResponse,
+    summary="Tải lên tài liệu người dùng và lập chỉ mục vào kho 'user'",
+)
+async def upload_document(
+    file: UploadFile = File(...),
+) -> RagUploadResponse:
+    # 1. Kích thước tệp (tối đa 5MB)
+    max_file_size = 5 * 1024 * 1024
+    content = await file.read()
+    if len(content) > max_file_size:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="Kích thước tệp vượt quá giới hạn cho phép (tối đa 5MB)",
+        )
+    if len(content) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tệp rỗng không có nội dung",
+        )
+
+    # 2. Định dạng tệp và chuẩn hóa Unicode NFC
+    raw_name = file.filename or "uploaded_document"
+    display_name = unicodedata.normalize("NFC", Path(raw_name).name)
+    suffix = Path(display_name).suffix.lower()
+
+    if suffix not in {".pdf", ".docx", ".txt", ".md"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Định dạng tệp không được hỗ trợ. Chỉ chấp nhận .pdf, .docx, .txt, .md",
+        )
+
+    # 3. Kiểm tra Magic Bytes và an toàn nội dung
+    if suffix == ".pdf":
+        if not content.startswith(b"%PDF-"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tệp PDF không hợp lệ (sai magic bytes %PDF-)",
+            )
+        try:
+            reader = pypdf.PdfReader(io.BytesIO(content))
+            num_pages = len(reader.pages)
+            if num_pages > 50:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Tài liệu PDF vượt quá giới hạn 50 trang (tệp có {num_pages} trang)",
+                )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Không thể đọc cấu trúc tệp PDF: {exc}",
+            )
+
+    elif suffix == ".docx":
+        if not content.startswith(b"PK\x03\x04"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tệp DOCX không hợp lệ (sai magic bytes PK)",
+            )
+        try:
+            with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                infolist = zf.infolist()
+                if len(infolist) > 500:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Tệp DOCX chứa quá nhiều phần tử nội bộ (> 500 entries)",
+                    )
+                total_uncompressed = sum(info.file_size for info in infolist)
+                if total_uncompressed > 25 * 1024 * 1024:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Tệp DOCX vượt quá giới hạn giải nén an toàn (tối đa 25MB)",
+                    )
+                names = set(zf.namelist())
+                if "[Content_Types].xml" not in names and "word/document.xml" not in names:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Tệp ZIP không phải là tài liệu DOCX hợp lệ",
+                    )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Không thể đọc cấu trúc tệp DOCX: {exc}",
+            )
+
+    elif suffix in {".txt", ".md"}:
+        if b"\x00" in content:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tệp văn bản chứa ký tự nhị phân không hợp lệ",
+            )
+        try:
+            text_str = content.decode("utf-8")
+        except UnicodeDecodeError:
+            try:
+                text_str = content.decode("utf-8-sig")
+            except UnicodeDecodeError:
+                try:
+                    text_str = content.decode("latin-1")
+                except Exception:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Không thể giải mã nội dung văn bản UTF-8",
+                    )
+        if not text_str.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tệp văn bản rỗng không có nội dung",
+            )
+
+    # 4. Lưu tệp an toàn vào data/user_uploads/
+    upload_dir = Path("data/user_uploads")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    file_hash = hashlib.sha256(content).hexdigest()[:12]
+    timestamp = int(time.time())
+    safe_stem = re.sub(r"[^\w\-.]", "_", Path(display_name).stem)[:40]
+    safe_filename = f"{timestamp}_{file_hash}_{safe_stem}{suffix}"
+    save_path = upload_dir / safe_filename
+    save_path.write_bytes(content)
+
+    # 5. Phân đoạn và lập chỉ mục trong threadpool
+    def _process_and_index() -> int:
+        from app.core.ingestion import load_document_blocks, chunk_document_blocks
+        from app.core.retriever import clear_bm25_cache
+
+        blocks = load_document_blocks(save_path)
+        chunks = chunk_document_blocks(blocks, strategy="heading")
+        if not chunks:
+            raise ValueError("Tệp rỗng hoặc không trích xuất được đoạn văn bản nào")
+
+        source_key = f"user_uploads/{safe_filename}"
+        formatted_chunks = []
+        for idx, chunk in enumerate(chunks):
+            formatted_chunks.append({
+                "source": source_key,
+                "chunk_index": idx,
+                "content": chunk["content"],
+                "page_number": chunk.get("page_number"),
+                "section": chunk.get("section"),
+                "display_name": display_name,
+            })
+
+        vector_store.upsert_document_chunks(
+            source=source_key,
+            chunks=formatted_chunks,
+            corpus="user",
+            display_name=display_name,
+        )
+        clear_bm25_cache()
+        return len(formatted_chunks)
+
+    try:
+        indexed_count = await run_in_threadpool(_process_and_index)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Lỗi khi lập chỉ mục tài liệu tải lên: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Lỗi hệ thống khi lập chỉ mục tài liệu",
+        )
+
+    return RagUploadResponse(
+        status="success",
+        filename=raw_name,
+        display_name=display_name,
+        chunks_indexed=indexed_count,
+        corpus="user",
+    )
 
 
 @router.post("/rag/ask", response_model=RagAskResponse, summary="Hỏi đáp dựa trên tài liệu đã nạp")
@@ -361,7 +547,8 @@ async def _answer_rag(request: RagAskRequest) -> RagAskResponse:
 
     sources = list({(m["source"], m["chunk_index"]): RagSource(
         source=m["source"], chunk_index=m["chunk_index"], score=m["score"],
-        page_number=m.get("page_number"), section=m.get("section")
+        page_number=m.get("page_number"), section=m.get("section"),
+        display_name=m.get("display_name"), corpus=m.get("corpus")
     ) for m in matches}.values())
 
     final_answer = answer or NO_ANSWER

@@ -99,7 +99,7 @@ def _ensure_dataset(client, dataset_name: str, cases: list[dict]):
                     "use a new dataset version/name instead of reusing stale data."
                 )
             continue
-        matches = similarity_search(case["question"], settings.rag_top_k)
+        matches = similarity_search(case["question"], settings.rag_top_k, corpus="demo")
         matches = [
             match for match in matches
             if match["score"] >= settings.rag_min_relevance_score

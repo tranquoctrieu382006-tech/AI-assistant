@@ -4,7 +4,7 @@ import ipaddress
 from secrets import compare_digest
 from threading import Lock
 from time import monotonic
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from fastapi import HTTPException, Security
 from fastapi.security import APIKeyHeader

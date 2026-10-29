@@ -16,7 +16,6 @@ import os
 import sys
 import uuid
 from pathlib import Path
-from typing import Any
 
 import httpx
 import pandas as pd
@@ -31,7 +30,6 @@ if str(ROOT_DIR) not in sys.path:
 from app.core.config import settings
 from app.core.router import route_question, RouteCategory
 from app.core.tracing import get_langfuse_client, flush_langfuse
-from app.core.ingestion import ingest_directory
 
 
 # ---------------------------------------------------------
@@ -179,7 +177,7 @@ with st.sidebar:
                 file_bytes = uploaded_file.getvalue()
                 uploaded_via_api = False
 
-                # 1. Thử gửi qua endpoint /api/rag/upload của Backend
+                # 1. Gửi qua endpoint /api/rag/upload của Backend (cô lập corpus 'user')
                 try:
                     upload_resp = httpx.post(
                         f"{BACKEND_URL}/api/rag/upload",
@@ -189,32 +187,27 @@ with st.sidebar:
                     )
                     if upload_resp.status_code == 200:
                         data = upload_resp.json()
+                        chunks = data.get("chunks_indexed") or data.get("chunks", 0)
+                        fname = data.get("display_name") or data.get("filename") or uploaded_file.name
                         st.success(
-                            f"✅ Đã nạp thành công **{data.get('chunks')} chunks** "
-                            f"từ **{data.get('files')} tài liệu** qua API!"
+                            f"✅ Đã nạp thành công **{chunks} chunks** "
+                            f"cho tài liệu **{fname}** (kho 'user')!"
                         )
                         st.info("Bây giờ bạn có thể đặt câu hỏi về tài liệu này ngay lập tức.")
                         uploaded_via_api = True
-                except Exception:
-                    pass
+                    else:
+                        try:
+                            err_msg = upload_resp.json().get("detail", upload_resp.text)
+                        except Exception:
+                            err_msg = upload_resp.text
+                        st.error(f"❌ Backend từ chối tải tệp ({upload_resp.status_code}): {err_msg}")
+                        uploaded_via_api = True
+                except Exception as ex:
+                    st.warning(f"⚠️ Không thể kết nối tới Backend API ({ex}).")
 
-                # 2. Fallback nạp trực tiếp nếu backend offline
+                # 2. Thông báo nếu không qua được API
                 if not uploaded_via_api:
-                    try:
-                        target_dir = Path(settings.rag_document_dir).resolve()
-                        target_dir.mkdir(parents=True, exist_ok=True)
-                        save_path = target_dir / uploaded_file.name
-                        with open(save_path, "wb") as f:
-                            f.write(file_bytes)
-
-                        result = ingest_directory(directory=target_dir)
-                        st.success(
-                            f"✅ Đã nạp trực tiếp thành công **{result.get('chunks')} chunks** "
-                            f"từ **{result.get('files')} tài liệu**!"
-                        )
-                        st.info("Bây giờ bạn có thể đặt câu hỏi về tài liệu này.")
-                    except Exception as ex:
-                        st.error(f"Lỗi nạp tài liệu: {ex}")
+                    st.error("Không thể tải tài liệu lên backend. Vui lòng kiểm tra lại dịch vụ backend.")
 
     st.divider()
     st.caption(f"Default model: `{settings.default_model}`")

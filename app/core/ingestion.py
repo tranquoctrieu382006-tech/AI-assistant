@@ -102,7 +102,8 @@ def _split_long(text: str, size: int, overlap: int) -> list[str]:
     for word in words:
         if len(word) > size:
             if current:
-                chunks.append(" ".join(current)); current = []
+                chunks.append(" ".join(current))
+                current = []
             # A single pathological token is the only case where a word must be split.
             for start in range(0, len(word), size - overlap):
                 part = word[start:start + size]

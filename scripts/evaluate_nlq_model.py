@@ -109,7 +109,8 @@ def _execution_results_match(
     expected_rows = [{str(i): value for i, value in enumerate(row.values())} for row in expected]
     if ordered:
         return results_match(actual_rows, expected_rows)
-    key = lambda row: json.dumps(row, ensure_ascii=False, sort_keys=True, default=str)
+    def key(row):
+        return json.dumps(row, ensure_ascii=False, sort_keys=True, default=str)
     return results_match(sorted(actual_rows, key=key), sorted(expected_rows, key=key))
 
 

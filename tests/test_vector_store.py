@@ -29,7 +29,8 @@ def test_replace_corpus_removes_stale_sources_and_replaces_current_sources(monke
     assert stored == 1
     register.assert_called_once_with(connection)
     assert connection._vector_adapter_registered is True
-    assert cursor.execute.call_args_list[0].args[0] == "DELETE FROM rag_chunks"
+    assert cursor.execute.call_args_list[0].args[0] == "DELETE FROM rag_chunks WHERE corpus = %s"
+    assert cursor.execute.call_args_list[0].args[1] == ("demo",)
     assert cursor.execute.call_count == 1
     cursor.executemany.assert_called_once()
 
@@ -199,3 +200,30 @@ def test_get_corpus_revision_uses_count_and_latest_chunk_id():
         revision = vector_store.get_corpus_revision()
 
     assert revision == (12, 98)
+
+
+def test_upsert_document_chunks_scoped_to_source_and_corpus(monkeypatch):
+    monkeypatch.setattr(vector_store.settings, "embedding_dimensions", 2)
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    cursor_context = connection.cursor.return_value
+    cursor = cursor_context.__enter__.return_value
+    chunks = [{"content": "user doc text", "chunk_index": 0}]
+    embeddings = [[0.1, 0.2]]
+
+    with (patch.object(vector_store, "ensure_vector_schema"),
+          patch.object(vector_store, "_connect", return_value=connection),
+          patch.object(vector_store, "register_vector"),
+          patch.object(vector_store, "Vector", side_effect=lambda value: value)):
+        stored = vector_store.upsert_document_chunks(
+            source="user_uploads/doc.pdf",
+            chunks=chunks,
+            embeddings=embeddings,
+            corpus="user",
+            display_name="Tài liệu mẫu.pdf",
+        )
+
+    assert stored == 1
+    assert cursor.execute.call_args_list[0].args[0] == "DELETE FROM rag_chunks WHERE corpus = %s AND source = %s"
+    assert cursor.execute.call_args_list[0].args[1] == ("user", "user_uploads/doc.pdf")
+    cursor.executemany.assert_called_once()

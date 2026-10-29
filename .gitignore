@@ -40,3 +40,7 @@ coverage.xml
 
 # Database
 *.db
+
+# User uploads (temporary / runtime)
+data/user_uploads/*
+!data/user_uploads/.gitkeep

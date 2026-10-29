@@ -4,10 +4,10 @@ services:
     container_name: ai-assistant-postgres
     restart: unless-stopped
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Vui lòng cấu hình POSTGRES_PASSWORD trong file .env}
       POSTGRES_DB: ${POSTGRES_DB:-ai_assistant_demo}
       NLQ_READER_PASSWORD: ${NLQ_READER_PASSWORD:-secret_nlq_reader}
     volumes:
@@ -26,11 +26,48 @@ services:
     container_name: ai-assistant-ollama
     restart: unless-stopped
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollamadata:/root/.ollama
     # Tải model embedding bge-m3 sau khi khởi động:
     # docker compose exec ollama ollama pull bge-m3
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-assistant-backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ai_assistant_demo}
+      NLQ_DATABASE_URL: postgresql://ai_nlq_reader:${NLQ_READER_PASSWORD:-secret_nlq_reader}@postgres:5432/${POSTGRES_DB:-ai_assistant_demo}
+      OLLAMA_BASE_URL: http://ollama:11434
+      APP_API_KEY: ${APP_API_KEY:-dev-api-key}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-assistant-ui
+    restart: unless-stopped
+    command: ["streamlit", "run", "app/streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+    ports:
+      - "127.0.0.1:8501:8501"
+    environment:
+      BACKEND_URL: http://app:8000
+      APP_API_KEY: ${APP_API_KEY:-dev-api-key}
+    depends_on:
+      - app
 
 volumes:
   pgdata:

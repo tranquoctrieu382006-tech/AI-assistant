@@ -8,7 +8,6 @@ import time
 import unicodedata
 from typing import Any, TypedDict
 
-import psycopg
 from langgraph.graph import END, START, StateGraph
 from sqlglot import exp, parse
 from sqlglot.optimizer.scope import traverse_scope
@@ -19,7 +18,12 @@ from app.core.nlq_schema import _connect, load_schema, schema_catalog, select_re
 from app.core.tracing import get_langfuse_handler, langfuse_observation, update_langfuse_observation
 
 _SENSITIVE = re.compile(r"password|passwd|secret|token|email|phone|mobile|address|account_number|national_id|full_name", re.I)
-_FORBIDDEN_FUNCTIONS = {"pg_sleep", "pg_read_file", "pg_read_binary_file", "pg_ls_dir", "dblink", "lo_export", "lo_import"}
+_ALLOWED_FUNCTIONS = {
+    "abs", "avg", "coalesce", "concat", "count", "date_part", "extract",
+    "greatest", "least", "length", "lower", "max", "min", "nullif", "round",
+    "sum", "timestamp_trunc", "upper", "to_char", "date_trunc", "time_to_str",
+    "cast", "trim", "and", "or", "not", "date",
+}
 logger = logging.getLogger(__name__)
 
 
@@ -57,9 +61,42 @@ def _asks_merchandise_revenue(question: str | None) -> bool:
     return bool(re.search(r"\bdoanh\s+(?:thu|so)\b", folded))
 
 
+def _is_retryable_provider_error(exc: Exception) -> bool:
+    name = type(exc).__name__.casefold()
+    if "timeout" in name or "deadline" in name:
+        return False
+    status = getattr(exc, "status_code", None)
+    if status is None:
+        response = getattr(exc, "response", None)
+        status = getattr(response, "status_code", None)
+    code = getattr(exc, "code", None)
+    if callable(code):
+        try:
+            code = code()
+        except Exception:
+            code = None
+    if status is None:
+        status = getattr(code, "value", code)
+    try:
+        return int(status) in {429, 500, 502, 503, 504}
+    except (TypeError, ValueError):
+        return False
+
+
+def _invoke_model_response(llm, prompt: str, callbacks: list[Any]):
+    for attempt in range(settings.nlq_model_max_retries + 1):
+        try:
+            return llm.invoke(prompt, config={"callbacks": callbacks})
+        except Exception as exc:
+            if attempt >= settings.nlq_model_max_retries or not _is_retryable_provider_error(exc):
+                raise
+            logger.warning("Retrying transient NLQ provider error (%s)", type(exc).__name__)
+            time.sleep(0.5 * (attempt + 1))
+    raise RuntimeError("NLQ model call did not return")
+
+
 def _invoke_model(llm, prompt: str, callbacks: list[Any]) -> str:
-    result = llm.invoke(prompt, config={"callbacks": callbacks})
-    return extract_message_text(result)
+    return extract_message_text(_invoke_model_response(llm, prompt, callbacks))
 
 
 def _extract_sql(value: str) -> str:
@@ -135,6 +172,7 @@ def _has_canceled_order_exclusion(root: exp.Select) -> bool:
 def validate_sql(
     sql: str,
     allowed_tables: set[str],
+    allowed_columns: dict[str, set[str]] | None = None,
     *,
     question: str | None = None,
 ) -> str:
@@ -151,9 +189,11 @@ def validate_sql(
         if isinstance(node, (exp.Insert, exp.Update, exp.Delete, exp.Drop, exp.Create, exp.Command, exp.Merge, exp.Transaction)):
             raise ValueError("Truy vấn chứa thao tác ghi hoặc lệnh không được phép.")
         if isinstance(node, exp.Func):
-            function_name = (getattr(node, "name", "") or node.sql_name()).casefold()
-            if function_name in _FORBIDDEN_FUNCTIONS:
-                raise ValueError("Truy vấn gọi hàm hệ thống không được phép.")
+            function_name = (
+                node.name if isinstance(node, exp.Anonymous) else node.sql_name()
+            ).casefold()
+            if function_name not in _ALLOWED_FUNCTIONS:
+                raise ValueError("Truy vấn gọi hàm ngoài danh sách cho phép.")
     cte_names = {cte.alias_or_name.casefold() for cte in root.find_all(exp.CTE)}
     table_or_alias_names = set()
     referenced = set()
@@ -196,6 +236,48 @@ def validate_sql(
             for col in expr.find_all(exp.Column):
                 if _SENSITIVE.search(col.name):
                     raise ValueError(f"Truy vấn chọn cột nhạy cảm '{col.name}' và đã bị chặn.")
+
+    if allowed_columns:
+        allowed_column_names = {
+            table.casefold(): {column.casefold() for column in columns}
+            for table, columns in allowed_columns.items()
+        }
+        output_aliases = {
+            projection.alias.casefold()
+            for select in root.find_all(exp.Select)
+            for projection in select.expressions
+            if isinstance(projection, exp.Alias) and projection.alias
+        }
+        for select in root.find_all(exp.Select):
+            for projection in select.expressions:
+                if isinstance(projection, exp.Star) or (
+                    isinstance(projection, exp.Column) and isinstance(projection.this, exp.Star)
+                ):
+                    raise ValueError("Không cho phép SELECT *; hãy chọn cột cụ thể.")
+        table_aliases = {}
+        for scope in traverse_scope(root):
+            for alias, source in scope.sources.items():
+                if isinstance(source, exp.Table):
+                    table_aliases[alias.casefold()] = source.name.casefold()
+                elif hasattr(source, "alias_or_name"):
+                    table_aliases[alias.casefold()] = source.alias_or_name.casefold()
+        for name in referenced:
+            table_aliases[name.casefold()] = name.casefold()
+
+        for column in root.find_all(exp.Column):
+            name = column.name.casefold()
+            qualifier = column.table.casefold()
+            if qualifier and qualifier in cte_names:
+                continue
+            if qualifier:
+                table_name = table_aliases.get(qualifier)
+                if table_name is None:
+                    raise ValueError("Truy vấn tham chiếu alias bảng không được xác định.")
+                if name not in allowed_column_names.get(table_name, set()):
+                    raise ValueError("Truy vấn tham chiếu cột ngoài schema được chọn.")
+            elif name not in output_aliases:
+                if not any(name in allowed_column_names.get(table, set()) for table in referenced):
+                    raise ValueError("Truy vấn tham chiếu cột ngoài schema được chọn.")
     uses_order_revenue = any(
         isinstance(node, exp.Sum)
         and any(

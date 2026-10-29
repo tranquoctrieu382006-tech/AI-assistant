@@ -4,6 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import time
 
+import psycopg
 import pytest
 from fastapi import HTTPException
 
@@ -227,6 +228,17 @@ def test_nlq_http_returns_503_when_database_is_not_configured(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         ask_database(NlqAskRequest(question="Có bao nhiêu đơn hàng?"))
     assert exc.value.status_code == 503
+
+
+def test_nlq_http_returns_503_on_database_operational_error(monkeypatch):
+    monkeypatch.setattr(settings, "nlq_database_url", "postgresql://readonly/test")
+    def db_error(*args, **kwargs):
+        raise psycopg.OperationalError("connection refused")
+    monkeypatch.setattr("app.api.nlq.ask_nlq", db_error)
+    with pytest.raises(HTTPException) as exc:
+        ask_database(NlqAskRequest(question="Có bao nhiêu đơn hàng?"))
+    assert exc.value.status_code == 503
+    assert "unavailable" in exc.value.detail.lower()
 
 
 def test_nlq_http_returns_graph_response(monkeypatch):

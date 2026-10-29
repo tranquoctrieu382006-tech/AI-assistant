@@ -4,10 +4,8 @@ Ghi nhận phản hồi đánh giá chất lượng (👍 / 👎) từ người 
 """
 
 import logging
-import uuid
-from typing import Any
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, Security
+from fastapi import APIRouter, HTTPException, Security, status
 
 from app.core.security import require_api_key
 from app.core.tracing import get_langfuse_client, flush_langfuse
@@ -28,10 +26,17 @@ class FeedbackResponse(BaseModel):
     recorded: bool
     score: float
     trace_id: str | None = None
+    session_id: str | None = None
 
 
 @router.post("/feedback", response_model=FeedbackResponse, summary="Ghi nhận phản hồi người dùng")
 def record_feedback(request: FeedbackRequest) -> FeedbackResponse:
+    if not request.trace_id and not request.session_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Ít nhất một trong trace_id hoặc session_id phải được cung cấp.",
+        )
+
     recorded = False
     client = get_langfuse_client()
 
@@ -54,16 +59,21 @@ def record_feedback(request: FeedbackRequest) -> FeedbackResponse:
                 )
                 recorded = True
             flush_langfuse()
-            logger.info("Feedback recorded successfully for trace_id=%s score=%s", request.trace_id, request.score)
+            logger.info("Feedback recorded successfully for trace_id=%s session_id=%s score=%s",
+                        request.trace_id, request.session_id, request.score)
         except Exception as exc:
             logger.warning("Không thể gửi phản hồi lên Langfuse: %s", exc)
     else:
-        logger.info("Langfuse chưa cấu hình; feedback được ghi nhận cục bộ (trace_id=%s, score=%s)", request.trace_id, request.score)
-        recorded = True
+        logger.info(
+            "Langfuse chưa cấu hình; feedback không thể gửi về cloud (trace_id=%s, session_id=%s, score=%s)",
+            request.trace_id, request.session_id, request.score
+        )
+        recorded = False
 
     return FeedbackResponse(
         status="ok",
         recorded=recorded,
         score=request.score,
         trace_id=request.trace_id,
+        session_id=request.session_id,
     )

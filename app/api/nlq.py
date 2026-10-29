@@ -2,6 +2,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, HTTPException, Security
+import psycopg
 
 from app.core.config import settings
 from app.core.nlq_graph import NlqRequestTimeout, ask_nlq
@@ -26,6 +27,9 @@ def ask_database(request: NlqAskRequest) -> NlqAskResponse:
         return NlqAskResponse(**result, trace_id=trace_id)
     except NlqRequestTimeout as exc:
         raise HTTPException(status_code=504, detail="NLQ request timed out.") from exc
+    except (psycopg.OperationalError, psycopg.Error) as exc:
+        logger.exception("NLQ database connection failure")
+        raise HTTPException(status_code=503, detail="NLQ database is unavailable.") from exc
     except RuntimeError as exc:
         if "NLQ_DATABASE_URL" in str(exc):
             raise HTTPException(status_code=503, detail="NLQ chưa được cấu hình tài khoản PostgreSQL chỉ đọc.") from exc

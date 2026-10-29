@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     nlq_statement_timeout_ms: int = Field(default=5000, ge=100, le=60000)
     nlq_max_repairs: int = Field(default=2, ge=0, le=2)
     nlq_schema_dictionary_path: str = "data/demo_sales_warehouse/data_dictionary.md"
+    nlq_schema_cache_ttl_seconds: float = Field(default=300.0, ge=0, le=3600)
     database_connection_timeout_seconds: float = Field(default=3.0, gt=0)
     rag_document_dir: str = "data/demo_sales_warehouse"
     rag_exclude_files: list[str] = ["README.md", "data_dictionary.md", "nguon_dataset.md"]

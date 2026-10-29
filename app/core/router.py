@@ -11,10 +11,10 @@ from enum import Enum
 import json
 import re
 from typing import Any
+import unicodedata
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from app.core.config import settings
 from app.core.llm import get_llm
 
 
@@ -51,8 +51,110 @@ Hãy trả về JSON:
 {"category": "rag" | "nlq" | "out_of_scope", "reasoning": "giải thích"}
 """
 
+# 1. Tiền tố lịch sự cần bóc tách trước khi phân tích ý định
+POLITE_PREFIXES = [
+    r"^(?:cho\s+hỏi|cho\s+mình\s+hỏi|cho\s+em\s+hỏi|làm\s+phiền\s+bạn|giúp\s+tôi|giúp\s+mình|hãy\s+cho\s+biết|vui\s+lòng\s+cho\s+biết|làm\s+ơn)\s+",
+    r"^(?:cho\s+hoi|cho\s+minh\s+hoi|cho\s+em\s+hoi|lam\s+phien\s+ban|giup\s+toi|giup\s+minh|hay\s+cho\s+biet|vui\s+long\s+cho\s+biet|lam\s+on)\s+",
+]
 
-import unicodedata
+# 2. Dấu hiệu định lượng / tổng hợp (thường xuất hiện trong câu truy vấn CSDL)
+QUANTITATIVE_PATTERNS = [
+    r"\bbao\s+nhiêu\b", r"\bbao\s+nhieu\b",
+    r"\btổng(?:\s+số|\s+giá\s+trị|\s+tiền)?\b", r"\btong(?:\s+so|\s+gia\s+tri|\s+tien)?\b",
+    r"\btrung\s+bình\b", r"\btrung\s+binh\b",
+    r"\btop\s+\d+\b",
+    r"\bdanh\s+sách\b", r"\bdanh\s+sach\b",
+    r"\bliệt\s+kê\b", r"\bliet\s+ke\b",
+    r"\bthống\s+kê\b", r"\bthong\s+ke\b",
+    r"\btheo\s+tháng\b", r"\btheo\s+thang\b",
+    r"\btheo\s+năm\b", r"\btheo\s+nam\b",
+    r"\btheo\s+quý\b", r"\btheo\s+quy\b",
+    r"\btheo\s+trạng\s+thái\b", r"\btheo\s+trang\s+thai\b",
+    r"\bđếm\b", r"\bdem\b",
+    r"\bcao\s+nhất\b", r"\bcao\s+nhat\b",
+    r"\bthấp\s+nhất\b", r"\bthap\s+nhat\b",
+    r"\blớn\s+nhất\b", r"\blon\s+nhat\b",
+    r"\bnhỏ\s+nhất\b", r"\bnho\s+nhat\b",
+    r"\bnhiều\s+nhất\b", r"\bnhieu\s+nhat\b",
+    r"\bít\s+nhất\b", r"\bit\s+nhat\b",
+    r"\bgiá\s+trị\b", r"\bgia\s+tri\b",
+    r"\bsố\s+lượng\b", r"\bso\s+luong\b",
+]
+
+# 3. Thực thể dữ liệu trong CSDL quan hệ
+DB_ENTITY_PATTERNS = [
+    r"\bđơn\s+hàng\b", r"\bdon\s+hang\b",
+    r"\bsản\s+phẩm\b", r"\bsan\s+pham\b",
+    r"\bkhách\s+hàng\b", r"\bkhach\s+hang\b",
+    r"\bnhà\s+cung\s+cấp\b", r"\bnha\s+cung\s+cap\b",
+    r"\bkho(?:\s+hàng)?\b", r"\bkho(?:\s+hang)?\b",
+    r"\btồn\s+kho\b", r"\bton\s+kho\b",
+    r"\bdoanh\s+thu\b", r"\bdoanh\s+so\b", r"\bdoanh\s+số\b",
+    r"\bchi\s+tiêu\b", r"\bchi\s+tieu\b",
+    r"\bgiá\s+bán\b", r"\bgia\s+ban\b",
+    r"\bhàng\s+hóa\b", r"\bhang\s+hoa\b",
+]
+
+# 4. Chỉ số định lượng nghiệp vụ thuần túy (gần như chắc chắn sang NLQ)
+PURE_DB_METRIC_PATTERNS = [
+    r"\bdoanh\s+thu\b", r"\bdoanh\s+so\b", r"\bdoanh\s+số\b",
+    r"\btồn\s+kho\b", r"\bton\s+kho\b",
+    r"\bbán\s+chạy\b", r"\bban\s+chay\b",
+    r"\bđắt\s+nhất\b", r"\bdat\s+nhat\b",
+    r"\brẻ\s+nhất\b", r"\bre\s+nhat\b",
+    r"\bchi\s+tiêu\s+cao\s+nhất\b", r"\bchi\s+tieu\s+cao\s+nhat\b",
+    r"\bmua\s+nhiều\s+nhất\b", r"\bmua\s+nhieu\s+nhat\b",
+]
+
+# 5. Từ khóa tài liệu, quy chế, chính sách (RAG)
+POLICY_PATTERNS = [
+    r"\bchính\s+sách\b", r"\bchinh\s+sach\b",
+    r"\bquy\s+định\b", r"\bquy\s+dinh\b",
+    r"\bquy\s+trình\b", r"\bquy\s+trinh\b",
+    r"\bquy\s+chế\b", r"\bquy\s+che\b",
+    r"\bhướng\s+dẫn\b", r"\bhuong\s+dan\b",
+    r"\bđiều\s+khoản\b", r"\bdieu\s+khoan\b",
+    r"\bđiều\s+kiện\b", r"\bdieu\s+kien\b",
+    r"\bthủ\s+tục\b", r"\bthu\s+tuc\b",
+    r"\bbảo\s+hành\b", r"\bbao\s+hanh\b",
+    r"\bđổi\s+trả\b", r"\bdoi\s+tra\b",
+    r"\bvận\s+chuyển\b", r"\bvan\s+chuyen\b",
+    r"\bhợp\s+đồng\b", r"\bhop\s+dong\b",
+    r"\btài\s+liệu\b", r"\btai\s+lieu\b",
+    r"\bbảo\s+mật\b", r"\bbao\s+mat\b",
+    r"\bphụ\s+cấp\b", r"\bphu\s+cap\b",
+    r"\bcông\s+tác\s+phí\b", r"\bcong\s+tac\s+phi\b",
+    r"\bkhen\s+thưởng\b", r"\bkhen\s+thuong\b",
+    r"\bkỷ\s+luật\b", r"\bky\s+luat\b",
+    r"\bngày\s+phép\b", r"\bngay\s+phep\b",
+    r"\bthời\s+hạn\b", r"\bthoi\s+han\b",
+    r"\bhạn\s+mức\b", r"\bhan\s+muc\b",
+    r"\blàm\s+sao\s+để\b", r"\blam\s+sao\s+de\b",
+    r"\bnhư\s+thế\s+nào\b", r"\bnhu\s+the\s+nao\b",
+    r"\btiêu\s+chuẩn\b", r"\btieu\s+chuan\b",
+]
+
+# 6. Chào hỏi và xã giao
+GREETING_PATTERNS = [
+    r"^xin\s+chào\b", r"^xin\s+chao\b",
+    r"^chào\b", r"^chao\b",
+    r"^(?:hello|hi|hey)\b",
+    r"^(?:tạm\s+biệt|tam\s+biet|bye|goodbye)\b",
+    r"^(?:cảm\s+ơn|cam\s+on|thank\s+you|thanks)\b",
+    r"\bbạn\s+là\s+ai\b", r"\bban\s+la\s+ai\b",
+    r"\bbạn\s+tên\s+gì\b", r"\bban\s+ten\s+gi\b",
+    r"^(?:chúc\s+bạn|chuc\s+ban)\b",
+]
+
+# 7. Lạc đề ngoài phạm vi
+OFF_TOPIC_PATTERNS = [
+    r"\bthời\s+tiết\b", r"\bthoi\s+tiet\b",
+    r"\blàm\s+thơ\b", r"\blam\s+tho\b",
+    r"\bkể\s+chuyện\b", r"\bke\s+chuyen\b",
+    r"\bchuyện\s+cười\b", r"\bchuyen\s+cuoi\b",
+    r"\bhôm\s+nay\s+là\s+thứ\b", r"\bhom\s+nay\s+la\s+thu\b",
+    r"\bhát\b", r"\bhat\b",
+]
 
 
 def strip_accents(text: str) -> str:
@@ -62,78 +164,109 @@ def strip_accents(text: str) -> str:
 
 
 def _rule_based_classify(question: str) -> RouteDecision:
-    """Fallback rule-based heuristic classification khi không có LLM."""
+    """
+    Ma trận phân loại 2 trục (Two-axis classification):
+    - Trục 1: Thực thể CSDL vs Từ khóa chính sách/văn bản.
+    - Trục 2: Nhu cầu định lượng/tổng hợp vs Nhu cầu định tính/thủ tục.
+
+    Đặc biệt xử lý các câu bẫy:
+    - 'Chính sách bảo hành sản phẩm thế nào?' -> RAG (chính sách, dù có 'sản phẩm')
+    - 'Quy trình đổi trả đơn hàng' -> RAG (quy trình, dù có 'đơn hàng')
+    - 'Thời hạn thanh toán hợp đồng nhà cung cấp là bao nhiêu ngày?' -> RAG (điều khoản hợp đồng)
+    - 'Có bao nhiêu đơn hàng đổi trả tháng này?' -> NLQ (định lượng + thực thể CSDL)
+    - Fallback mặc định về RAG (để cổng retrieval gate và LLM abstain kiểm soát, không từ chối vội).
+    """
     raw_q = (question or "").strip()
-    q = raw_q.lower()
-    if not q:
+    if not raw_q:
         return RouteDecision(category=RouteCategory.OUT_OF_SCOPE, reasoning="Câu hỏi rỗng")
 
-    # Chuẩn hóa bỏ dấu câu và chuẩn hóa không dấu
-    q_clean = re.sub(r"[^\w\s]", " ", q).strip()
+    q_clean = re.sub(r"[^\w\s]", " ", raw_q).strip().lower()
     q_no_accents = strip_accents(q_clean)
 
-    if len(q_no_accents) < 3:
-        return RouteDecision(category=RouteCategory.OUT_OF_SCOPE, reasoning="Câu hỏi quá ngắn/vô nghĩa")
+    # Bóc tách tiền tố lịch sự
+    for p in POLITE_PREFIXES:
+        q_clean = re.sub(p, "", q_clean, flags=re.I).strip()
+        q_no_accents = re.sub(p, "", q_no_accents, flags=re.I).strip()
 
-    # 1. Kiểm tra chào hỏi xã giao hoặc ngoài phạm vi (hỗ trợ cả có dấu và không dấu: "chao ban", "chào bạn",...)
-    greeting_keywords = [
-        "xin chao", "chao ban", "chao buoi", "chao", "hello", "hi", "ban la ai",
-        "thoi tiet", "ke chuyen", "lam tho", "abc", "test", "alo", "tro ly",
-        "cam on", "thanks", "thank you", "bye", "tam biet", "giup toi", "cho hoi"
-    ]
-    for gk in greeting_keywords:
-        pattern = rf"\b{re.escape(gk)}\b"
-        if q_no_accents == gk or q_no_accents.startswith(gk + " ") or (len(q_no_accents) < 25 and re.search(pattern, q_no_accents)):
-            return RouteDecision(category=RouteCategory.OUT_OF_SCOPE, reasoning=f"Khớp mẫu chào hỏi/xã giao: {gk}")
+    has_quantitative = any(
+        re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
+        for p in QUANTITATIVE_PATTERNS
+    )
+    has_db_entity = any(
+        re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
+        for p in DB_ENTITY_PATTERNS
+    )
+    has_pure_db_metric = any(
+        re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
+        for p in PURE_DB_METRIC_PATTERNS
+    )
+    has_policy = any(
+        re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
+        for p in POLICY_PATTERNS
+    )
+    is_greeting = any(
+        re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
+        for p in GREETING_PATTERNS
+    )
+    is_off_topic = any(
+        re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
+        for p in OFF_TOPIC_PATTERNS
+    )
 
-    # 2. Kiểm tra từ khóa tài liệu/chính sách (RAG) (hỗ trợ cả có dấu và không dấu)
-    rag_patterns = [
-        r"chinh sach", r"quy dinh", r"bao hanh", r"doi tra", r"van chuyen",
-        r"huong dan", r"thu tuc", r"dieu kien", r"hop dong", r"tai lieu",
-        r"bao mat", r"thoi han", r"lam sao de", r"nhu the nao", r"quy trinh",
-        r"chính sách", r"quy định", r"bảo hành", r"đổi trả", r"vận chuyển",
-        r"hướng dẫn", r"thủ tục", r"điều kiện", r"hợp đồng", r"tài liệu"
-    ]
-    for pattern in rag_patterns:
-        if re.search(pattern, q_clean) or re.search(pattern, q_no_accents):
-            return RouteDecision(category=RouteCategory.RAG, reasoning=f"Khớp từ khóa tài liệu/chính sách: {pattern}")
+    # 1. Câu hỏi quá ngắn, vô nghĩa (< 5 ký tự) không chứa thực thể hay chính sách
+    if len(q_no_accents) <= 5 and not has_policy and not has_db_entity and not has_pure_db_metric:
+        return RouteDecision(category=RouteCategory.OUT_OF_SCOPE, reasoning="Câu hỏi quá ngắn hoặc vô nghĩa")
 
-    # 3. Từ khóa NLQ (truy vấn CSDL số liệu) (hỗ trợ cả có dấu và không dấu)
-    nlq_patterns = [
-        r"doanh thu", r"bao nhieu", r"tong so", r"top \d+", r"khach hang",
-        r"san pham", r"don hang", r"ton kho", r"ban chay", r"dat nhat",
-        r"chi phi", r"thang \d+", r"nam \d{4}", r"luong ban", r"trung binh",
-        r"so luong", r"đơn hàng", r"khách hàng", r"sản phẩm", r"tồn kho",
-        r"bao nhiêu", r"tổng", r"kho hang", r"nha cung cap", r"danh muc",
-        r"kho hàng", r"nhà cung cấp", r"danh mục", r"gia ban", r"giá bán",
-        r"doanh so", r"doanh số", r"nhap kho", r"xuat kho", r"nhập kho", r"xuất kho"
-    ]
-    for pattern in nlq_patterns:
-        if re.search(pattern, q_clean) or re.search(pattern, q_no_accents):
-            return RouteDecision(category=RouteCategory.NLQ, reasoning=f"Khớp từ khóa số liệu: {pattern}")
+    # 2. Chào hỏi hoặc lạc đề thuần túy (không chứa từ khóa nghiệp vụ)
+    if (is_greeting or is_off_topic) and not has_policy and not (has_quantitative and has_db_entity) and not has_pure_db_metric:
+        return RouteDecision(category=RouteCategory.OUT_OF_SCOPE, reasoning="Chào hỏi xã giao hoặc ngoài phạm vi nghiệp vụ")
 
-    # Nếu câu hỏi ngắn (< 15 ký tự) mà không khớp RAG hay NLQ -> xếp vào ngoài phạm vi
-    if len(q_no_accents) < 15:
-        return RouteDecision(category=RouteCategory.OUT_OF_SCOPE, reasoning="Câu hỏi ngắn ngoài phạm vi tài liệu/số liệu")
+    # 3. Câu hỏi văn bản chính sách/thủ tục (kể cả khi nhắc đến thực thể CSDL như đơn hàng/sản phẩm)
+    if has_policy:
+        if any(
+            re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
+            for p in [
+                r"\bthời\s+hạn\b", r"\bhợp\s+đồng\b", r"\bquy\s+trình\b", r"\bhướng\s+dẫn\b",
+                r"\btiêu\s+chuẩn\b", r"\bchính\s+sách\b", r"\bquy\s+định\b", r"\bđiều\s+khoản\b",
+            ]
+        ):
+            if not (has_quantitative and has_db_entity and not any(
+                re.search(p, q_clean, re.I)
+                for p in [r"\bhướng\s+dẫn\b", r"\btiêu\s+chuẩn\b", r"\bthời\s+hạn\b", r"\bquy\s+trình\b", r"\bchính\s+sách\b"]
+            )):
+                return RouteDecision(category=RouteCategory.RAG, reasoning="Hỏi về quy trình/chính sách/hướng dẫn tài liệu")
 
-    return RouteDecision(category=RouteCategory.RAG, reasoning="Mặc định tra cứu tài liệu")
+    # 4. Định lượng + Thực thể CSDL -> NLQ
+    if has_quantitative and has_db_entity:
+        return RouteDecision(category=RouteCategory.NLQ, reasoning="Yêu cầu định lượng hoặc thống kê thực thể CSDL")
+
+    # 5. Chỉ số CSDL thuần túy (doanh thu, tồn kho, bán chạy) -> NLQ
+    if has_pure_db_metric:
+        return RouteDecision(category=RouteCategory.NLQ, reasoning="Hỏi chỉ số thống kê cơ sở dữ liệu")
+
+    # 6. Có từ khóa chính sách -> RAG
+    if has_policy:
+        return RouteDecision(category=RouteCategory.RAG, reasoning="Khớp từ khóa chính sách/văn bản")
+
+    # 7. Fallback an toàn sang RAG
+    return RouteDecision(category=RouteCategory.RAG, reasoning="Fallback an toàn sang RAG")
 
 
 def route_question(question: str, *, llm: Any = None) -> RouteDecision:
     """
     Phân loại câu hỏi của người dùng.
-    
+
     Hỗ trợ cả Rule-based Heuristic siêu tốc và LLM (thật hoặc FakeListChatModel).
     """
     clean_q = (question or "").strip()
     if not clean_q:
         return RouteDecision(category=RouteCategory.OUT_OF_SCOPE, reasoning="Câu hỏi rỗng")
 
-    # 1. Ưu tiên phân loại siêu tốc qua rule-based cho chào hỏi và từ khóa rõ ràng
+    # 1. Phân loại siêu tốc qua rule-based
     rule_decision = _rule_based_classify(clean_q)
     if rule_decision.category == RouteCategory.OUT_OF_SCOPE:
         return rule_decision
-    if "Khớp từ khóa" in rule_decision.reasoning and llm is None:
+    if llm is None:
         return rule_decision
 
     # 2. Nếu truyền LLM cụ thể (ví dụ FakeListChatModel trong test)
@@ -141,7 +274,7 @@ def route_question(question: str, *, llm: Any = None) -> RouteDecision:
         try:
             msg = llm.invoke([
                 SystemMessage(content=ROUTER_SYSTEM_PROMPT),
-                HumanMessage(content=clean_q)
+                HumanMessage(content=clean_q),
             ])
             text = getattr(msg, "content", str(msg)).strip()
 
@@ -154,7 +287,7 @@ def route_question(question: str, *, llm: Any = None) -> RouteDecision:
                     if cat in ("rag", "nlq", "out_of_scope"):
                         return RouteDecision(
                             category=RouteCategory(cat),
-                            reasoning=data.get("reasoning", "Phân loại từ JSON model")
+                            reasoning=data.get("reasoning", "Phân loại từ JSON model"),
                         )
             except Exception:
                 pass

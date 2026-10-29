@@ -137,7 +137,7 @@ def main() -> int:
 
         result = score_cases(
             cases,
-            lambda question, k: similarity_search(question, k=k),
+            lambda question, k: similarity_search(question, k=k, corpus="demo"),
             k=manifest["top_k"],
             cutoff=manifest["relevance_cutoff"],
         )

@@ -90,7 +90,7 @@ def main() -> int:
             if sources is None:
                 sources = [case["source"]] if case.get("source") else []
             group = "answerable" if sources else case["category"]
-            results = similarity_search(case["question"], k=5)
+            results = similarity_search(case["question"], k=5, corpus="demo")
             records.append({
                 "group": group,
                 "top_score": results[0]["score"] if results else None,

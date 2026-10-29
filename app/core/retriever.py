@@ -148,6 +148,7 @@ def retrieve_and_gate(
     use_reranker: bool = False,
     reranker_top_n: int = 5,
     reranker_pool_size: int | None = None,
+    corpus: str | None = None,
 ) -> tuple[list[dict], bool]:
     """Retrieve evidence, enforce per-chunk cosine gating, and optionally rerank."""
     if mode not in {"vector", "hybrid"}:
@@ -155,14 +156,15 @@ def retrieve_and_gate(
 
     configured_pool_size = reranker_pool_size or settings.reranker_pool_size
     candidate_k = max(top_k, configured_pool_size) if use_reranker else top_k
+    search_kwargs = {"corpus": corpus} if corpus is not None else {}
     if mode == "hybrid":
         query_vector = vector_store.embed_query(query)
         vector_matches = vector_store.similarity_search(
-            query, k=candidate_k, embedding=query_vector
+            query, k=candidate_k, embedding=query_vector, **search_kwargs
         )
     else:
         query_vector = None
-        vector_matches = vector_store.similarity_search(query, k=candidate_k)
+        vector_matches = vector_store.similarity_search(query, k=candidate_k, **search_kwargs)
     gated_vector_matches = [
         match for match in vector_matches
         if match["score"] >= settings.rag_min_relevance_score

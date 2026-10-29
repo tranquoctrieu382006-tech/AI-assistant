@@ -6,8 +6,44 @@ on:
   workflow_dispatch:
 
 jobs:
-  tests:
+  lint:
+    name: Lint with Ruff
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Ruff
+        run: python -m pip install ruff
+      - name: Run Ruff Check
+        run: ruff check .
+
+  tests:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test_password_123
+          POSTGRES_DB: ai_assistant_test
+          NLQ_READER_PASSWORD: secret_nlq_reader
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:test_password_123@localhost:5432/ai_assistant_test
+      NLQ_DATABASE_URL: postgresql://ai_nlq_reader:secret_nlq_reader@localhost:5432/ai_assistant_test
+      APP_API_KEY: ci-test-key-with-more-than-32-characters
+      APP_WORKERS: 1
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -15,5 +51,26 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: requirements.lock
-      - run: python -m pip install -r requirements.lock
-      - run: python -m pytest -q
+      - name: Install dependencies
+        run: python -m pip install -r requirements.lock
+      - name: Initialize PostgreSQL schema & roles
+        run: |
+          PGPASSWORD=test_password_123 psql -h localhost -U postgres -d ai_assistant_test -f docker/init-db/01_init.sql
+          PGPASSWORD=test_password_123 psql -h localhost -U postgres -d ai_assistant_test -f data/demo_sales_warehouse/schema_seed.sql
+          POSTGRES_USER=postgres POSTGRES_DB=ai_assistant_test NLQ_READER_PASSWORD=secret_nlq_reader PGPASSWORD=test_password_123 bash docker/init-db/03_create_reader_role.sh
+      - name: Run test suite
+        run: python -m pytest -v
+
+  docker:
+    name: Docker Build & Health Probe
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker Image
+        run: docker build -t ai-assistant:ci .
+      - name: Test Container Startup & Health Probe
+        run: |
+          docker run -d --name app-smoke -p 8000:8000 -e APP_API_KEY=ci-test-key-with-more-than-32-characters ai-assistant:ci
+          sleep 6
+          curl --fail http://localhost:8000/api/health/live || (docker logs app-smoke && exit 1)
+          docker stop app-smoke

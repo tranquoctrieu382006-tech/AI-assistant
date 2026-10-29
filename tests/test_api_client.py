@@ -96,8 +96,9 @@ async def test_rag_ask_endpoint_success():
 
 
 @pytest.mark.asyncio
-async def test_nlq_ask_endpoint_success():
+async def test_nlq_ask_endpoint_success(monkeypatch):
     """Kiểm tra POST /api/nlq/ask trả về đúng schema kết quả truy vấn."""
+    monkeypatch.setattr(settings, "nlq_database_url", "postgresql://ai_nlq_reader:secret@localhost:5432/demo")
     mock_nlq_result = {
         "sql": "SELECT COUNT(*) FROM orders;",
         "columns": ["count"],
@@ -151,6 +152,36 @@ async def test_feedback_endpoint_success():
 
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
+async def test_feedback_endpoint_missing_identifiers_returns_422():
+    """Kiểm tra POST /api/feedback trả về HTTP 422 khi thiếu cả trace_id lẫn session_id."""
+    res = await api_request(
+        "POST",
+        "/api/feedback",
+        json={"score": 0.5, "comment": "Không có id"},
+        headers={"X-API-Key": settings.app_api_key},
+    )
+    assert res.status_code == 422
+    assert "trace_id hoặc session_id" in res.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_feedback_endpoint_with_session_id():
+    """Kiểm tra POST /api/feedback tiếp nhận phản hồi hợp lệ khi chỉ có session_id."""
+    with patch("app.api.feedback.get_langfuse_client", return_value=None):
+        res = await api_request(
+            "POST",
+            "/api/feedback",
+            json={"score": 1.0, "session_id": "sess-xyz-789", "comment": "Rất hài lòng"},
+            headers={"X-API-Key": settings.app_api_key},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "ok"
+        assert data["session_id"] == "sess-xyz-789"
+        assert data["recorded"] is False
+
+
 async def test_router_classify_endpoint():
     """Kiểm tra POST /api/router/classify phân loại intent qua HTTP mà không gọi LLM ngoài."""
     from app.core.router import RouteDecision, RouteCategory

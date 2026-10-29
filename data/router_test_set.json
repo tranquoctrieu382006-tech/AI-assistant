@@ -1,0 +1,492 @@
+[
+  {
+    "id": "router-dev-01",
+    "split": "dev",
+    "question": "Chính sách đổi trả hàng hóa áp dụng trong bao lâu?",
+    "category": "rag",
+    "note": "Hỏi chính sách văn bản có từ bao lâu nhưng không truy vấn CSDL"
+  },
+  {
+    "id": "router-dev-02",
+    "split": "dev",
+    "question": "Quy định về thời hạn bảo hành sản phẩm điện tử",
+    "category": "rag",
+    "note": "Bẫy: Có thực thể sản phẩm nhưng là hỏi quy định bảo hành"
+  },
+  {
+    "id": "router-dev-03",
+    "split": "dev",
+    "question": "Quy trình xử lý khiếu nại của khách hàng",
+    "category": "rag",
+    "note": "Bẫy: Có thực thể khách hàng nhưng là hỏi quy trình văn bản"
+  },
+  {
+    "id": "router-dev-04",
+    "split": "dev",
+    "question": "Cho hỏi chính sách bảo mật thông tin khách hàng như thế nào?",
+    "category": "rag",
+    "note": "Tiền tố lịch sự 'Cho hỏi' + chính sách văn bản"
+  },
+  {
+    "id": "router-dev-05",
+    "split": "dev",
+    "question": "Giúp tôi tra cứu hướng dẫn đóng gói đơn hàng xuất kho",
+    "category": "rag",
+    "note": "Tiền tố lịch sự 'Giúp tôi' + hướng dẫn văn bản"
+  },
+  {
+    "id": "router-dev-06",
+    "split": "dev",
+    "question": "Có bao nhiêu ngày phép năm cho nhân viên chính thức?",
+    "category": "rag",
+    "note": "Bẫy: Có 'bao nhiêu' nhưng hỏi ngày phép văn bản nhân sự"
+  },
+  {
+    "id": "router-dev-07",
+    "split": "dev",
+    "question": "Điều kiện để trở thành khách hàng thân thiết là gì?",
+    "category": "rag",
+    "note": "Hỏi điều kiện chính sách khách hàng"
+  },
+  {
+    "id": "router-dev-08",
+    "split": "dev",
+    "question": "Quy định đổi trả hàng bị móp méo khi vận chuyển",
+    "category": "rag",
+    "note": "Quy định vận chuyển đổi trả"
+  },
+  {
+    "id": "router-dev-09",
+    "split": "dev",
+    "question": "Hợp đồng nguyên tắc với nhà cung cấp có thời hạn bao lâu?",
+    "category": "rag",
+    "note": "Thời hạn hợp đồng trong tài liệu"
+  },
+  {
+    "id": "router-dev-10",
+    "split": "dev",
+    "question": "Chính sách chiết khấu thanh toán đơn hàng bán buôn",
+    "category": "rag",
+    "note": "Chính sách chiết khấu bán buôn"
+  },
+  {
+    "id": "router-dev-11",
+    "split": "dev",
+    "question": "chinh sach bao hanh san pham",
+    "category": "rag",
+    "note": "Tiếng Việt không dấu chính sách"
+  },
+  {
+    "id": "router-dev-12",
+    "split": "dev",
+    "question": "quy dinh thoi gian doi tra",
+    "category": "rag",
+    "note": "Tiếng Việt không dấu quy định"
+  },
+  {
+    "id": "router-dev-13",
+    "split": "dev",
+    "question": "Làm thế nào để yêu cầu cấp lại hóa đơn GTGT?",
+    "category": "rag",
+    "note": "Hướng dẫn thủ tục hóa đơn"
+  },
+  {
+    "id": "router-dev-14",
+    "split": "dev",
+    "question": "Tiêu chuẩn kiểm định chất lượng hàng nhập kho",
+    "category": "rag",
+    "note": "Tiêu chuẩn kiểm định văn bản"
+  },
+  {
+    "id": "router-dev-15",
+    "split": "dev",
+    "question": "Quy chế làm việc và phân ca trực kho",
+    "category": "rag",
+    "note": "Quy chế làm việc nội bộ"
+  },
+  {
+    "id": "router-dev-16",
+    "split": "dev",
+    "question": "Có bao nhiêu khách hàng tại Hà Nội?",
+    "category": "nlq",
+    "note": "Định lượng + thực thể khách hàng"
+  },
+  {
+    "id": "router-dev-17",
+    "split": "dev",
+    "question": "Tổng doanh thu tháng 10 năm 2026 là bao nhiêu?",
+    "category": "nlq",
+    "note": "Định lượng + thực thể doanh thu"
+  },
+  {
+    "id": "router-dev-18",
+    "split": "dev",
+    "question": "Top 5 sản phẩm bán chạy nhất quý 3",
+    "category": "nlq",
+    "note": "Top N + thực thể sản phẩm bán chạy"
+  },
+  {
+    "id": "router-dev-19",
+    "split": "dev",
+    "question": "Số lượng hàng tồn kho của sản phẩm P001",
+    "category": "nlq",
+    "note": "Số lượng tồn kho sản phẩm cụ thể"
+  },
+  {
+    "id": "router-dev-20",
+    "split": "dev",
+    "question": "Thống kê đơn hàng theo từng trạng thái",
+    "category": "nlq",
+    "note": "Thống kê đơn hàng theo trạng thái"
+  },
+  {
+    "id": "router-dev-21",
+    "split": "dev",
+    "question": "Có bao nhiêu đơn hàng đổi trả trong tháng này?",
+    "category": "nlq",
+    "note": "Bẫy: Có từ 'đổi trả' nhưng có 'bao nhiêu đơn hàng' -> CSDL orders"
+  },
+  {
+    "id": "router-dev-22",
+    "split": "dev",
+    "question": "Danh sách các nhà cung cấp tại Thành phố Hồ Chí Minh",
+    "category": "nlq",
+    "note": "Danh sách thực thể nhà cung cấp"
+  },
+  {
+    "id": "router-dev-23",
+    "split": "dev",
+    "question": "Giá trị trung bình của mỗi đơn hàng đã giao",
+    "category": "nlq",
+    "note": "Tính toán trung bình giá trị đơn hàng"
+  },
+  {
+    "id": "router-dev-24",
+    "split": "dev",
+    "question": "tong so don hang da huy",
+    "category": "nlq",
+    "note": "Không dấu: Tổng số đơn hàng đã hủy"
+  },
+  {
+    "id": "router-dev-25",
+    "split": "dev",
+    "question": "so luong ton kho con lai",
+    "category": "nlq",
+    "note": "Không dấu: Số lượng tồn kho còn lại"
+  },
+  {
+    "id": "router-dev-26",
+    "split": "dev",
+    "question": "Bao nhiêu đơn hàng có tổng tiền trên 10 triệu?",
+    "category": "nlq",
+    "note": "Đếm đơn hàng theo ngưỡng tiền"
+  },
+  {
+    "id": "router-dev-27",
+    "split": "dev",
+    "question": "Doanh thu thuần hôm nay",
+    "category": "nlq",
+    "note": "Từ khóa số đo CSDL thuần túy: Doanh thu thuần"
+  },
+  {
+    "id": "router-dev-28",
+    "split": "dev",
+    "question": "Xin chào trợ lý ảo",
+    "category": "out_of_scope",
+    "note": "Chào hỏi thông thường"
+  },
+  {
+    "id": "router-dev-29",
+    "split": "dev",
+    "question": "Hello bạn nhé",
+    "category": "out_of_scope",
+    "note": "Chào hỏi tiếng Anh"
+  },
+  {
+    "id": "router-dev-30",
+    "split": "dev",
+    "question": "Thời tiết hôm nay ở Đà Nẵng thế nào?",
+    "category": "out_of_scope",
+    "note": "Lạc đề thời tiết"
+  },
+  {
+    "id": "router-dev-31",
+    "split": "dev",
+    "question": "Bạn có biết làm thơ tình không?",
+    "category": "out_of_scope",
+    "note": "Yêu cầu làm thơ giải trí"
+  },
+  {
+    "id": "router-dev-32",
+    "split": "dev",
+    "question": "Tạm biệt, hẹn gặp lại ngày mai",
+    "category": "out_of_scope",
+    "note": "Chào tạm biệt"
+  },
+  {
+    "id": "router-dev-33",
+    "split": "dev",
+    "question": "Kể cho tôi nghe một câu chuyện cười",
+    "category": "out_of_scope",
+    "note": "Tán gẫu chuyện cười"
+  },
+  {
+    "id": "router-dev-34",
+    "split": "dev",
+    "question": "Hôm nay là thứ mấy?",
+    "category": "out_of_scope",
+    "note": "Hỏi ngày giờ chung"
+  },
+  {
+    "id": "router-dev-35",
+    "split": "dev",
+    "question": "Chúc bạn một ngày làm việc vui vẻ",
+    "category": "out_of_scope",
+    "note": "Lời chúc xã giao thuần túy"
+  },
+  {
+    "id": "router-test-01",
+    "split": "test",
+    "question": "Chính sách bảo hành sản phẩm thế nào?",
+    "category": "rag",
+    "note": "Bẫy: Có thực thể sản phẩm nhưng là hỏi chính sách bảo hành"
+  },
+  {
+    "id": "router-test-02",
+    "split": "test",
+    "question": "Quy định đối với khách hàng VIP và thẻ thành viên",
+    "category": "rag",
+    "note": "Bẫy: Có thực thể khách hàng nhưng hỏi quy định thẻ VIP"
+  },
+  {
+    "id": "router-test-03",
+    "split": "test",
+    "question": "Quy trình đổi trả đơn hàng khi phát hiện lỗi kỹ thuật",
+    "category": "rag",
+    "note": "Bẫy: Có 'đơn hàng' và 'đổi trả' nhưng là hỏi quy trình xử lý lỗi"
+  },
+  {
+    "id": "router-test-04",
+    "split": "test",
+    "question": "Có bao nhiêu ngày phép một năm?",
+    "category": "rag",
+    "note": "Bẫy: Có 'bao nhiêu' nhưng hỏi ngày phép theo luật lao động/quy chế"
+  },
+  {
+    "id": "router-test-05",
+    "split": "test",
+    "question": "Thời gian bảo hành thiết bị gia dụng là bao lâu?",
+    "category": "rag",
+    "note": "Bẫy: Có 'bao lâu' nhưng hỏi thời hạn bảo hành tài liệu"
+  },
+  {
+    "id": "router-test-06",
+    "split": "test",
+    "question": "Cho hỏi chính sách đổi trả thế nào?",
+    "category": "rag",
+    "note": "Bẫy tiền tố 'Cho hỏi' không được gán nhầm sang out_of_scope"
+  },
+  {
+    "id": "router-test-07",
+    "split": "test",
+    "question": "Giúp tôi tra cứu quy định bảo hành",
+    "category": "rag",
+    "note": "Bẫy tiền tố 'Giúp tôi' không được gán nhầm sang out_of_scope"
+  },
+  {
+    "id": "router-test-08",
+    "split": "test",
+    "question": "Làm phiền bạn cho tôi biết quy định xuất hóa đơn đỏ",
+    "category": "rag",
+    "note": "Tiền tố lịch sự 'Làm phiền bạn' + quy định văn bản"
+  },
+  {
+    "id": "router-test-09",
+    "split": "test",
+    "question": "Quy định mức phụ cấp công tác phí cho nhân viên thị trường",
+    "category": "rag",
+    "note": "Quy định công tác phí"
+  },
+  {
+    "id": "router-test-10",
+    "split": "test",
+    "question": "Thời hạn thanh toán hợp đồng nhà cung cấp là bao nhiêu ngày?",
+    "category": "rag",
+    "note": "Bẫy: Có 'bao nhiêu ngày' nhưng hỏi điều khoản hợp đồng"
+  },
+  {
+    "id": "router-test-11",
+    "split": "test",
+    "question": "chinh sach van chuyen va giao nhan",
+    "category": "rag",
+    "note": "Không dấu chính sách vận chuyển"
+  },
+  {
+    "id": "router-test-12",
+    "split": "test",
+    "question": "quy trinh xu ly don hang khieu nai",
+    "category": "rag",
+    "note": "Không dấu quy trình xử lý đơn hàng"
+  },
+  {
+    "id": "router-test-13",
+    "split": "test",
+    "question": "Hạn mức bảo lãnh thanh toán của đại lý cấp 1",
+    "category": "rag",
+    "note": "Hạn mức bảo lãnh trong điều khoản"
+  },
+  {
+    "id": "router-test-14",
+    "split": "test",
+    "question": "Quy trình kiểm kê kho định kỳ cuối tháng",
+    "category": "rag",
+    "note": "Quy trình văn bản kiểm kê kho"
+  },
+  {
+    "id": "router-test-15",
+    "split": "test",
+    "question": "Chính sách khen thưởng nhân viên xuất sắc",
+    "category": "rag",
+    "note": "Chính sách nhân sự"
+  },
+  {
+    "id": "router-test-16",
+    "split": "test",
+    "question": "Có bao nhiêu đơn hàng đổi trả tháng này?",
+    "category": "nlq",
+    "note": "Bẫy đối kháng: Có định lượng 'Bao nhiêu đơn hàng' + 'đổi trả' -> NLQ CSDL orders"
+  },
+  {
+    "id": "router-test-17",
+    "split": "test",
+    "question": "Top 3 khách hàng mua nhiều nhất",
+    "category": "nlq",
+    "note": "Top N khách hàng doanh số"
+  },
+  {
+    "id": "router-test-18",
+    "split": "test",
+    "question": "Doanh thu quý này là bao nhiêu?",
+    "category": "nlq",
+    "note": "Định lượng doanh thu CSDL"
+  },
+  {
+    "id": "router-test-19",
+    "split": "test",
+    "question": "Sản phẩm nào bán chạy nhất trong năm 2026?",
+    "category": "nlq",
+    "note": "Truy vấn CSDL sản phẩm bán chạy nhất"
+  },
+  {
+    "id": "router-test-20",
+    "split": "test",
+    "question": "Số lượng tồn kho của từng kho hàng",
+    "category": "nlq",
+    "note": "Tổng hợp tồn kho CSDL"
+  },
+  {
+    "id": "router-test-21",
+    "split": "test",
+    "question": "Tổng giá trị các đơn hàng hôm nay là bao nhiêu?",
+    "category": "nlq",
+    "note": "Tổng giá trị đơn hàng CSDL"
+  },
+  {
+    "id": "router-test-22",
+    "split": "test",
+    "question": "Khách hàng nào có tổng chi tiêu cao nhất?",
+    "category": "nlq",
+    "note": "Tìm khách hàng theo chi tiêu"
+  },
+  {
+    "id": "router-test-23",
+    "split": "test",
+    "question": "Liệt kê danh sách các đơn hàng đang giao",
+    "category": "nlq",
+    "note": "Liệt kê đơn hàng theo trạng thái"
+  },
+  {
+    "id": "router-test-24",
+    "split": "test",
+    "question": "co bao nhieu khach hang o da nang",
+    "category": "nlq",
+    "note": "Không dấu: đếm khách hàng"
+  },
+  {
+    "id": "router-test-25",
+    "split": "test",
+    "question": "top 5 san pham ton kho nhieu nhat",
+    "category": "nlq",
+    "note": "Không dấu: top 5 sản phẩm tồn kho"
+  },
+  {
+    "id": "router-test-26",
+    "split": "test",
+    "question": "Có bao nhiêu nhà cung cấp đang cung cấp linh kiện?",
+    "category": "nlq",
+    "note": "Đếm nhà cung cấp"
+  },
+  {
+    "id": "router-test-27",
+    "split": "test",
+    "question": "Doanh số bán hàng theo từng nhân viên kinh doanh",
+    "category": "nlq",
+    "note": "Thống kê doanh số bán hàng"
+  },
+  {
+    "id": "router-test-28",
+    "split": "test",
+    "question": "Xin chào, bạn tên gì?",
+    "category": "out_of_scope",
+    "note": "Chào hỏi giới thiệu bản thân"
+  },
+  {
+    "id": "router-test-29",
+    "split": "test",
+    "question": "Chào buổi sáng trợ lý",
+    "category": "out_of_scope",
+    "note": "Chào buổi sáng"
+  },
+  {
+    "id": "router-test-30",
+    "split": "test",
+    "question": "Hello bot",
+    "category": "out_of_scope",
+    "note": "Chào tiếng Anh ngắn"
+  },
+  {
+    "id": "router-test-31",
+    "split": "test",
+    "question": "Thời tiết hôm nay thế nào?",
+    "category": "out_of_scope",
+    "note": "Hỏi thời tiết lạc đề"
+  },
+  {
+    "id": "router-test-32",
+    "split": "test",
+    "question": "Tạm biệt bạn nhé",
+    "category": "out_of_scope",
+    "note": "Chào tạm biệt"
+  },
+  {
+    "id": "router-test-33",
+    "split": "test",
+    "question": "Kể cho tôi nghe một câu chuyện cười",
+    "category": "out_of_scope",
+    "note": "Kể chuyện cười giải trí"
+  },
+  {
+    "id": "router-test-34",
+    "split": "test",
+    "question": "Bạn có biết làm thơ không?",
+    "category": "out_of_scope",
+    "note": "Yêu cầu làm thơ"
+  },
+  {
+    "id": "router-test-35",
+    "split": "test",
+    "question": "Chúc bạn một ngày tốt lành",
+    "category": "out_of_scope",
+    "note": "Chúc mừng ngày mới xã giao"
+  }
+]
