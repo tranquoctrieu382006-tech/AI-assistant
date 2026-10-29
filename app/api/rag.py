@@ -277,6 +277,10 @@ async def upload_document(
             ) from exc
 
     # 4. Phân vùng corpus theo session (cô lập mềm)
+    if not session_id:
+        logger.warning(
+            "Upload không có session_id: tài liệu được lưu vào corpus 'user' dùng chung."
+        )
     corpus = f"session_{session_id}" if session_id else "user"
     file_hash = hashlib.sha256(content).hexdigest()[:12]
     timestamp = int(time.time())
@@ -284,6 +288,10 @@ async def upload_document(
     safe_filename = f"{timestamp}_{file_hash}_{safe_stem}{suffix}"
 
     # 5. Phân đoạn và lập chỉ mục an toàn qua NamedTemporaryFile tự hủy
+    # Register before writing rows so a concurrent startup sweep cannot mistake
+    # this brand-new session corpus for an orphan.
+    session_store.touch_session(session_id)
+
     tmp_file = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
     tmp_path = Path(tmp_file.name)
     try:
@@ -316,7 +324,7 @@ async def upload_document(
                 chunks=formatted_chunks,
                 corpus=corpus,
             )
-            clear_bm25_cache()
+            clear_bm25_cache(corpus=corpus)
             return len(formatted_chunks)
 
         indexed_count = await run_in_threadpool(_process_and_index)
@@ -401,10 +409,10 @@ async def ask_rag_stream(request: RagAskRequest):
         input={"question": request.question, "session_id": request.session_id},
     )
     root_span_id = getattr(stream_root, "id", None)
-    history = session_store.get_history(request.session_id)
-    standalone_question = await rewrite_question_if_needed(request.question, history)
 
     try:
+        history = session_store.get_history(request.session_id)
+        standalone_question = await rewrite_question_if_needed(request.question, history)
         with langfuse_observation(
             name="rag-stream-retrieval",
             trace_id=trace_id,
@@ -454,65 +462,65 @@ async def ask_rag_stream(request: RagAskRequest):
         full_answer = []
         pending = ""
         sources_sent = False
+        gen_obs = start_langfuse_observation(
+            "rag-stream-generation",
+            trace_id=trace_id,
+            parent_span_id=root_span_id,
+        )
         try:
-            with langfuse_observation(
-                name="rag-stream-generation",
-                trace_id=trace_id,
-                parent_span_id=root_span_id,
-            ) as gen_obs:
-                prompt_template = build_rag_text_prompt()
-                llm = get_rag_llm(temperature=0)
-                chain = prompt_template | llm
-                generation_span_id = getattr(gen_obs, "id", None) or root_span_id
-                handler = get_langfuse_handler(
-                    trace_context=(
-                        {"trace_id": trace_id, "parent_span_id": generation_span_id}
-                        if trace_id and generation_span_id
-                        else None
-                    )
+            prompt_template = build_rag_text_prompt()
+            llm = get_rag_llm(temperature=0)
+            chain = prompt_template | llm
+            generation_span_id = getattr(gen_obs, "id", None) or root_span_id
+            handler = get_langfuse_handler(
+                trace_context=(
+                    {"trace_id": trace_id, "parent_span_id": generation_span_id}
+                    if trace_id and generation_span_id
+                    else None
                 )
-                callbacks = [handler] if handler else []
-                with langfuse_context(session_id=request.session_id, tags=["rag", "streaming"]):
-                    stream = chain.astream(
-                        {"question": standalone_question, "context": context},
-                        config={"callbacks": callbacks},
-                    )
-                    iterator = aiter(stream)
-                    first_token = True
-                    while True:
-                        try:
-                            wait_seconds = (
-                                settings.rag_stream_first_token_timeout_seconds
-                                if first_token else settings.rag_stream_idle_timeout_seconds
+            )
+            callbacks = [handler] if handler else []
+            with langfuse_context(session_id=request.session_id, tags=["rag", "streaming"]):
+                stream = chain.astream(
+                    {"question": standalone_question, "context": context},
+                    config={"callbacks": callbacks},
+                )
+                iterator = aiter(stream)
+                first_token = True
+                while True:
+                    try:
+                        wait_seconds = (
+                            settings.rag_stream_first_token_timeout_seconds
+                            if first_token else settings.rag_stream_idle_timeout_seconds
+                        )
+                        async with asyncio.timeout(wait_seconds):
+                            chunk = await anext(iterator)
+                    except StopAsyncIteration:
+                        break
+                    first_token = False
+                    token = extract_message_text(chunk, strip=False)
+                    if not token:
+                        continue
+                    full_answer.append(token)
+                    if not sources_sent:
+                        pending += token
+                        candidate = pending.strip()
+                        if (
+                            candidate
+                            and (
+                                NO_ANSWER.startswith(candidate)
+                                or candidate.startswith(NO_ANSWER)
                             )
-                            async with asyncio.timeout(wait_seconds):
-                                chunk = await anext(iterator)
-                        except StopAsyncIteration:
-                            break
-                        first_token = False
-                        token = extract_message_text(chunk, strip=False)
-                        if not token:
+                        ):
                             continue
-                        full_answer.append(token)
-                        if not sources_sent:
-                            pending += token
-                            candidate = pending.strip()
-                            if (
-                                candidate
-                                and (
-                                    NO_ANSWER.startswith(candidate)
-                                    or candidate.startswith(NO_ANSWER)
-                                )
-                            ):
-                                continue
-                            yield f"data: {json.dumps({'type': 'sources', 'sources': sources_payload, 'trace_id': trace_id}, ensure_ascii=False)}\n\n"
-                            sources_sent = True
-                            yield f"data: {json.dumps({'type': 'token', 'token': pending}, ensure_ascii=False)}\n\n"
-                            pending = ""
-                        else:
-                            yield f"data: {json.dumps({'type': 'token', 'token': token}, ensure_ascii=False)}\n\n"
-                if gen_obs:
-                    update_langfuse_observation(gen_obs, output={"answer": "".join(full_answer).strip()})
+                        yield f"data: {json.dumps({'type': 'sources', 'sources': sources_payload, 'trace_id': trace_id}, ensure_ascii=False)}\n\n"
+                        sources_sent = True
+                        yield f"data: {json.dumps({'type': 'token', 'token': pending}, ensure_ascii=False)}\n\n"
+                        pending = ""
+                    else:
+                        yield f"data: {json.dumps({'type': 'token', 'token': token}, ensure_ascii=False)}\n\n"
+            if gen_obs:
+                update_langfuse_observation(gen_obs, output={"answer": "".join(full_answer).strip()})
         except Exception as exc:
             logger.exception("Error during answer streaming")
             detail = "Answer generation timed out" if _is_timeout_error(exc) else "Answer generation failed"
@@ -528,6 +536,10 @@ async def ask_rag_stream(request: RagAskRequest):
                     f"[Câu trả lời bị ngắt, chưa hoàn tất]\n{partial_answer}",
                 )
             raise
+        finally:
+            # End the generation span in every exit path, including client
+            # disconnects that close this async generator mid-yield.
+            end_langfuse_observation(gen_obs)
 
         complete_answer = "".join(full_answer).strip() or NO_ANSWER
         if not sources_sent:

@@ -7,7 +7,7 @@ import re
 import threading
 import time
 import unicodedata
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 
 from langchain_core.documents import Document
 
@@ -20,8 +20,11 @@ _BM25_INSTANCE = None
 _BM25_REVISION: tuple[int, int] | None = None
 # Corpus-specific indexes are keyed by the normalised corpus selector. The
 # None key keeps the legacy all-corpus index in the two globals above.
-_BM25_INSTANCES: dict[tuple[str, ...], object] = {}
+_BM25_INSTANCES: OrderedDict[tuple[str, ...], object] = OrderedDict()
 _BM25_REVISIONS: dict[tuple[str, ...], tuple[int, int]] = {}
+# A per-session selector embeds copies of demo/user documents. Bound the number
+# of selectors kept warm so a long-lived process cannot grow without limit.
+_BM25_MAX_CACHED_SELECTORS = 32
 _BM25_LOCK = threading.RLock()
 _REVISION_LOCK = threading.Lock()
 _REVISION_CACHE_TTL_SECONDS = settings.bm25_revision_ttl_seconds
@@ -44,7 +47,11 @@ def _cached_bm25(
 ) -> tuple[object | None, tuple[int, int] | None]:
     if key is None:
         return _BM25_INSTANCE, _BM25_REVISION
-    return _BM25_INSTANCES.get(key), _BM25_REVISIONS.get(key)
+    with _BM25_LOCK:
+        instance = _BM25_INSTANCES.get(key)
+        if instance is not None:
+            _BM25_INSTANCES.move_to_end(key)
+        return instance, _BM25_REVISIONS.get(key)
 
 
 def _store_bm25(
@@ -56,12 +63,17 @@ def _store_bm25(
     if key is None:
         _BM25_INSTANCE = instance
         _BM25_REVISION = revision
+        return
+
+    if instance is None:
+        _BM25_INSTANCES.pop(key, None)
     else:
-        if instance is None:
-            _BM25_INSTANCES.pop(key, None)
-        else:
-            _BM25_INSTANCES[key] = instance
-        _BM25_REVISIONS[key] = revision
+        _BM25_INSTANCES[key] = instance
+        _BM25_INSTANCES.move_to_end(key)
+        while len(_BM25_INSTANCES) > _BM25_MAX_CACHED_SELECTORS:
+            evicted_key, _ = _BM25_INSTANCES.popitem(last=False)
+            _BM25_REVISIONS.pop(evicted_key, None)
+    _BM25_REVISIONS[key] = revision
 
 
 def _bm25_tokens(text: str) -> list[str]:
@@ -127,14 +139,32 @@ def get_bm25_retriever(
     return per_call
 
 
-def clear_bm25_cache() -> None:
-    """Clear cached BM25 state, for tests and explicit in-process reindexing."""
+def clear_bm25_cache(corpus: str | list[str] | tuple[str, ...] | None = None) -> None:
+    """Clear cached BM25 state.
+
+    With no argument every cached selector is dropped (tests and explicit full
+    reindexing). When a corpus is supplied, only selectors containing that
+    corpus are removed, so uploading one document does not invalidate every
+    unrelated session index.
+    """
     global _BM25_INSTANCE, _BM25_REVISION
+    targets = set(_corpus_key(corpus) or ())
     with _BM25_LOCK:
-        _BM25_INSTANCE = None
-        _BM25_REVISION = None
-        _BM25_INSTANCES.clear()
-        _BM25_REVISIONS.clear()
+        if corpus is None:
+            _BM25_INSTANCE = None
+            _BM25_REVISION = None
+            _BM25_INSTANCES.clear()
+            _BM25_REVISIONS.clear()
+        else:
+            # The legacy all-corpus index includes every corpus.
+            _BM25_INSTANCE = None
+            _BM25_REVISION = None
+            for cached_key in list(_BM25_INSTANCES):
+                if targets & set(cached_key):
+                    _BM25_INSTANCES.pop(cached_key, None)
+            for cached_key in list(_BM25_REVISIONS):
+                if targets & set(cached_key):
+                    _BM25_REVISIONS.pop(cached_key, None)
     with _REVISION_LOCK:
         _REVISION_CACHE.clear()
 

@@ -4,6 +4,7 @@ FastAPI application entrypoint.
 
 from contextlib import asynccontextmanager
 from importlib.util import find_spec
+import asyncio
 import logging
 import os
 
@@ -11,6 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import feedback, health, nlq, rag, router_api
+from app.core import session_store
 from app.core.config import settings
 from app.core.llm import MODEL_REGISTRY, check_ollama_status_async
 from app.core.tracing import init_tracing, flush_langfuse
@@ -22,6 +24,18 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("ai_assistant")
+_background_tasks: set[asyncio.Task] = set()
+
+
+async def _sweep_orphan_session_corpora() -> None:
+    """Best-effort startup cleanup; never block or fail application startup."""
+    try:
+        removed = await asyncio.to_thread(session_store.sweep_orphan_session_corpora)
+    except Exception as exc:
+        logger.warning("Không thể quét corpus session mồ côi khi khởi động: %s", exc)
+        return
+    if removed:
+        logger.info("Đã xoá %d corpus session mồ côi khi khởi động.", removed)
 
 
 def validate_optional_dependencies() -> None:
@@ -73,6 +87,12 @@ async def lifespan(app: FastAPI):
     # Khởi tạo tracing environment tường minh
     init_tracing()
 
+    # Session ownership only exists in memory, so corpora left by a previous
+    # process are orphaned. Sweep them in the background to keep startup fast.
+    sweep_task = asyncio.create_task(_sweep_orphan_session_corpora())
+    _background_tasks.add(sweep_task)
+    sweep_task.add_done_callback(_background_tasks.discard)
+
     logger.info("Default model: %s", settings.default_model)
     logger.info("Configured roles: %s", list(MODEL_REGISTRY.keys()))
 
@@ -85,6 +105,11 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("Shutting down %s... Flushing remaining traces.", settings.app_name)
+    for task in list(_background_tasks):
+        task.cancel()
+    if _background_tasks:
+        await asyncio.gather(*list(_background_tasks), return_exceptions=True)
+    await asyncio.to_thread(session_store.wait_for_pending_cleanups, 5.0)
     flush_langfuse()
     close_pool()
 

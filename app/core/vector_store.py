@@ -233,6 +233,24 @@ def delete_corpus(corpus: str) -> int:
             return cursor.rowcount
 
 
+def list_corpora(*, prefix: str | None = None) -> list[str]:
+    """Return the distinct corpus names, optionally restricted to a prefix."""
+    with _connect() as conn:
+        _require_store_ready(conn)
+        if prefix:
+            rows = conn.execute(
+                """SELECT DISTINCT corpus FROM rag_chunks
+                   WHERE substr(corpus, 1, %s) = %s
+                   ORDER BY corpus""",
+                (len(prefix), prefix),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT DISTINCT corpus FROM rag_chunks ORDER BY corpus"
+            ).fetchall()
+    return [str(row[0]) for row in rows]
+
+
 def similarity_search(
     query: str,
     k: int | None = None,

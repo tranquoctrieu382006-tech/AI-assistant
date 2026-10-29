@@ -318,6 +318,30 @@ def test_bm25_cache_is_partitioned_by_corpus():
     clear_bm25_cache()
 
 
+def test_bm25_cache_is_bounded_and_invalidates_only_matching_corpora():
+    """Per-session selectors are capped and a session delete keeps other indexes."""
+    retriever_module.clear_bm25_cache()
+    original_limit = retriever_module._BM25_MAX_CACHED_SELECTORS
+    retriever_module._BM25_MAX_CACHED_SELECTORS = 2
+    try:
+        with retriever_module._BM25_LOCK:
+            for key in (("demo",), ("demo", "user"), ("demo", "user", "session_x")):
+                retriever_module._store_bm25(key, object(), (1, 1))
+
+        assert list(retriever_module._BM25_INSTANCES) == [
+            ("demo", "user"),
+            ("demo", "user", "session_x"),
+        ]
+
+        retriever_module.clear_bm25_cache(corpus="session_x")
+
+        assert list(retriever_module._BM25_INSTANCES) == [("demo", "user")]
+        assert ("demo", "user", "session_x") not in retriever_module._BM25_REVISIONS
+    finally:
+        retriever_module._BM25_MAX_CACHED_SELECTORS = original_limit
+        retriever_module.clear_bm25_cache()
+
+
 def test_type_error_from_similarity_search_is_not_swallowed():
     """Lỗi lập trình (sai chữ ký) phải nổi lên thay vì âm thầm gọi lại API cũ."""
     with patch(

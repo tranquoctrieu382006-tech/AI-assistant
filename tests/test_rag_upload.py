@@ -16,6 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
+from app.core import session_store
 from app.main import app
 
 
@@ -187,6 +188,9 @@ def test_upload_with_session_id_isolates_corpus(client):
     mock_upsert.assert_called_once()
     call_kwargs = mock_upsert.call_args.kwargs
     assert call_kwargs.get("corpus") == "session_test_session_123"
+    # Upload-only sessions must be registered so TTL cleanup can find the corpus.
+    assert "test_session_123" in session_store._SESSIONS
+    session_store.clear_all_sessions()
 
 
 def test_session_corpus_isolation_logic():

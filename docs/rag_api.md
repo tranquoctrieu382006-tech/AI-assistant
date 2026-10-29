@@ -125,22 +125,28 @@ Cho phép tải trực tiếp file tài liệu mới lên để chunking, embedd
 
 #### Request: `multipart/form-data`
 - `file`: File nhị phân (hỗ trợ `.pdf`, `.docx`, `.md`, `.txt`).
+- `session_id` *(string, tùy chọn)*: Nếu có, tài liệu được lập chỉ mục vào corpus riêng `session_<session_id>`. Nếu bỏ trống, tài liệu rơi vào corpus `user` **dùng chung**.
+
+> **Lưu ý về corpus `user`:** mọi client có API key đều có thể truy vấn corpus `user`. Chỉ bỏ trống `session_id` khi tài liệu thực sự được phép chia sẻ công khai. UI luôn gửi `session_id`, nên tài liệu tải lên từ UI luôn được cô lập theo phiên.
 
 #### Response (`HTTP 200 OK`):
 ```json
 {
   "status": "success",
   "filename": "chinh_sach_moi.pdf",
+  "display_name": "chinh_sach_moi.pdf",
   "chunks_indexed": 14,
-  "strategy": "heading"
+  "corpus": "session_session-12345"
 }
 ```
+
+`corpus` cho biết tài liệu đã được ghi vào corpus riêng của phiên hay corpus `user` dùng chung. Tài liệu thuộc `session_*` sẽ bị xoá khi phiên hết TTL hoặc bị đẩy khỏi LRU; corpus `session_*` còn sót sau khi tiến trình khởi động lại cũng được quét dọn khi ứng dụng khởi động.
 
 ---
 
 ## 4. Quản Lý Phiên Hội Thoại & Viết Lại Câu Hỏi (`session_id`)
 
-- **Bộ nhớ hội thoại:** Hệ thống duy trì tối đa 40 tin nhắn gần nhất cho mỗi `session_id`, lưu trong bộ nhớ LRU với thời gian hết hạn TTL (mặc định 60 phút).
+- **Bộ nhớ hội thoại:** Hệ thống duy trì tối đa 40 tin nhắn gần nhất cho mỗi `session_id`, lưu trong bộ nhớ LRU với thời gian hết hạn TTL (mặc định 30 phút).
 - **Coreference Rewriter:**  
   Khi người dùng hỏi tiếp các câu hỏi tỉnh lược (ví dụ: *"Còn điều kiện thì sao?"* sau câu *"Chính sách bảo hành là gì?"*), module `question_rewriter` sẽ tự động hợp nhất ngữ cảnh thành: *"Điều kiện bảo hành sản phẩm là gì?"* trước khi thực hiện truy xuất tài liệu.
 

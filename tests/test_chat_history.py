@@ -1,11 +1,13 @@
 """Unit tests for multi-turn chat history and question rewriter (TASK-AI11)."""
 import asyncio
+import threading
+import time
 import pytest
 from unittest.mock import AsyncMock, patch
 
 from app.core import session_store
-from app.core.question_rewriter import rewrite_question_if_needed, trim_history
 from app.core import question_rewriter
+from app.core.question_rewriter import rewrite_question_if_needed, trim_history
 
 
 def test_session_store_crud():
@@ -25,7 +27,8 @@ def test_session_store_crud():
     history = session_store.get_history(session_id)
     assert len(history) == 4
 
-    session_store.clear_session(session_id)
+    with patch("app.core.vector_store.delete_corpus", return_value=0):
+        session_store.clear_session(session_id)
     assert session_store.get_history(session_id) == []
 
 
@@ -75,7 +78,68 @@ def test_session_eviction_clears_bm25_cache_when_corpus_had_rows(monkeypatch):
         patch("app.core.retriever.clear_bm25_cache") as clear_cache,
     ):
         session_store.add_turn("b", "q", "a")
+    clear_cache.assert_called_once_with(corpus="session_a")
+
+
+def test_touch_session_registers_upload_only_session():
+    """Upload-only sessions must be known to the TTL/LRU cleanup hooks."""
+    session_store.clear_all_sessions()
+
+    session_store.touch_session("upload-only")
+
+    assert "upload-only" in session_store._SESSIONS
+    assert session_store._SESSION_LAST_ACTIVITY["upload-only"] > 0
+    assert session_store.get_history("upload-only") == []
+
+
+def test_sweep_orphan_session_corpora_keeps_active_sessions(monkeypatch):
+    session_store.clear_all_sessions()
+    session_store.add_turn("active", "q", "a")
+    deleted: list[str] = []
+
+    with (
+        patch(
+            "app.core.vector_store.list_corpora",
+            return_value=["session_active", "session_left_over"],
+        ),
+        patch(
+            "app.core.vector_store.delete_corpus",
+            side_effect=lambda corpus: deleted.append(corpus) or 1,
+        ),
+        patch("app.core.retriever.clear_bm25_cache") as clear_cache,
+    ):
+        removed = session_store.sweep_orphan_session_corpora()
+
+    assert removed == 1
+    assert deleted == ["session_left_over"]
     clear_cache.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+async def test_session_expiry_dispatches_delete_off_event_loop(monkeypatch):
+    """A slow PostgreSQL DELETE must not run inside the request event loop."""
+    session_store.clear_all_sessions()
+    monkeypatch.setattr(session_store, "_SESSION_TTL_SECONDS", 0)
+    session_store.add_turn("expired", "q", "a")
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def blocking_delete(corpus: str) -> int:
+        started.set()
+        release.wait(5)
+        return 0
+
+    try:
+        with patch("app.core.vector_store.delete_corpus", side_effect=blocking_delete):
+            before = time.monotonic()
+            assert session_store.get_history("expired") == []
+            elapsed = time.monotonic() - before
+            assert elapsed < 1.0
+            assert await asyncio.to_thread(started.wait, 2)
+    finally:
+        release.set()
+        session_store.wait_for_pending_cleanups(5)
 
 
 def test_trim_history_preserves_most_recent_turns():

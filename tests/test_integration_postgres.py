@@ -48,6 +48,9 @@ def live_conn():
         yield conn
     finally:
         conn.close()
+        from app.core.vector_store import close_pool
+
+        close_pool()
 
 
 def test_postgres_pgvector_extension_exists(live_conn):
@@ -104,6 +107,64 @@ def test_postgres_vector_similarity_search_live(live_conn):
         assert top_match is not None
         assert top_match[0] == "doc1"
         assert top_match[2] >= 0.9999  # Chính xác tuyệt đối
+
+
+def test_postgres_session_corpus_isolation(live_conn):
+    """Session A must not retrieve chunks that belong to session B."""
+    from uuid import uuid4
+
+    from app.core import vector_store
+
+    if not settings.database_url.strip():
+        pytest.skip("DATABASE_URL chưa được nạp vào settings cho vector store.")
+
+    vector_store.ensure_vector_schema()
+    suffix = uuid4().hex
+    corpus_a = f"session_a_{suffix}"
+    corpus_b = f"session_b_{suffix}"
+    dim = settings.embedding_dimensions
+    embedding_a = get_deterministic_embedding(f"session-a-{suffix}", dim)
+    embedding_b = get_deterministic_embedding(f"session-b-{suffix}", dim)
+
+    def vector_literal(values: list[float]) -> str:
+        return "[" + ",".join(f"{value:.8f}" for value in values) + "]"
+
+    with live_conn.cursor() as cur:
+        for corpus, content, embedding in (
+            (corpus_a, "Tài liệu riêng của phiên A", embedding_a),
+            (corpus_b, "Tài liệu riêng của phiên B", embedding_b),
+        ):
+            cur.execute(
+                """INSERT INTO rag_chunks
+                       (content, source, chunk_index, corpus, embedding)
+                   VALUES (%s, %s, 0, %s, %s::vector)""",
+                (content, f"isolation_{suffix}.txt", corpus, vector_literal(embedding)),
+            )
+    live_conn.commit()
+
+    try:
+        hits_a = vector_store.similarity_search(
+            "phiên A", k=5, embedding=embedding_a, corpus=corpus_a
+        )
+        assert [hit["content"] for hit in hits_a] == ["Tài liệu riêng của phiên A"]
+        assert {hit["corpus"] for hit in hits_a} == {corpus_a}
+
+        hits_b = vector_store.similarity_search(
+            "phiên B", k=5, embedding=embedding_b, corpus=corpus_b
+        )
+        assert [hit["content"] for hit in hits_b] == ["Tài liệu riêng của phiên B"]
+        assert {hit["corpus"] for hit in hits_b} == {corpus_b}
+
+        chunks_a = vector_store.get_all_chunks(corpus=corpus_a)
+        assert {chunk["corpus"] for chunk in chunks_a} == {corpus_a}
+        assert all(chunk["content"] == "Tài liệu riêng của phiên A" for chunk in chunks_a)
+    finally:
+        with live_conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM rag_chunks WHERE corpus IN (%s, %s)",
+                (corpus_a, corpus_b),
+            )
+        live_conn.commit()
 
 
 def test_nlq_reader_role_security_boundaries():

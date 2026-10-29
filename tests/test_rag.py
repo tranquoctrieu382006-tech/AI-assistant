@@ -5,7 +5,7 @@ import types
 import httpx
 import pytest
 from contextlib import contextmanager
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
@@ -301,6 +301,9 @@ async def test_stream_disconnect_persists_partial_turn_for_followup():
         yield
 
     request = RagAskRequest(question="Question?", session_id="disconnected-stream")
+    root_span = MagicMock()
+    generation_span = MagicMock()
+    spans = iter([root_span, generation_span])
     with (
         patch.object(rag, "rewrite_question_if_needed", no_rewrite),
         patch.object(rag, "run_in_threadpool", inline_threadpool),
@@ -311,6 +314,7 @@ async def test_stream_disconnect_persists_partial_turn_for_followup():
         patch.object(rag, "build_rag_text_prompt", return_value=FakePrompt()),
         patch.object(rag, "get_rag_llm", return_value=object()),
         patch.object(rag, "get_langfuse_handler", return_value=None),
+        patch.object(rag, "start_langfuse_observation", side_effect=lambda *a, **k: next(spans)),
         patch.object(rag, "langfuse_observation", no_trace),
         patch.object(rag, "update_langfuse_observation"),
         patch.object(rag, "langfuse_context", no_trace),
@@ -323,12 +327,31 @@ async def test_stream_disconnect_persists_partial_turn_for_followup():
         assert '"type": "sources"' in sources_event
         await stream.aclose()
 
+    root_span.end.assert_called_once()
+    generation_span.end.assert_called_once()
+
     history = session_store.get_history("disconnected-stream")
     assert history[-2]["content"] == "Question?"
     assert history[-1]["content"] == (
         "[Câu trả lời bị ngắt, chưa hoàn tất]\nPartial answer"
     )
     session_store.clear_all_sessions()
+
+
+@pytest.mark.asyncio
+async def test_stream_root_span_closed_when_history_load_fails():
+    """A failure before the old try block must still end the root span."""
+    root_span = MagicMock()
+    with (
+        patch.object(rag, "start_langfuse_observation", return_value=root_span),
+        patch.object(rag, "end_langfuse_observation") as end_span,
+        patch.object(rag.session_store, "get_history", side_effect=RuntimeError("history down")),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await rag.ask_rag_stream(RagAskRequest(question="Question?", session_id="session"))
+
+    assert exc_info.value.status_code == 503
+    end_span.assert_called_once_with(root_span)
 
 
 def test_rag_reports_retrieval_failure_without_leaking_exception_details():
