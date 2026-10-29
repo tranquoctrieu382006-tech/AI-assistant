@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     nlq_model: str = "fast"
     nlq_model_timeout_seconds: float = Field(default=60.0, gt=0)
     nlq_model_max_retries: int = Field(default=1, ge=0, le=2)
+    nlq_request_deadline_seconds: float = Field(default=60.0, gt=0)
     nlq_max_rows: int = Field(default=200, ge=1, le=1000)
     nlq_statement_timeout_ms: int = Field(default=5000, ge=100, le=60000)
     nlq_max_repairs: int = Field(default=2, ge=0, le=2)

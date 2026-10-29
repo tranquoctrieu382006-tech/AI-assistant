@@ -306,6 +306,9 @@ def test_nlq_graph_with_langchain_fake_list_chat_model(monkeypatch):
         "orders, products",
         "```sql\nSELECT COUNT(*) FROM products;\n```",
         "Hiện tại hệ thống có 150 sản phẩm.",
+        "orders, products",
+        "```sql\nSELECT COUNT(*) FROM products;\n```",
+        "Hiện tại hệ thống có 150 sản phẩm.",
     ])
 
     result = _make_graph(fake_llm).invoke({
@@ -318,3 +321,9 @@ def test_nlq_graph_with_langchain_fake_list_chat_model(monkeypatch):
     assert result["answer"] == "Hiện tại hệ thống có 150 sản phẩm."
     assert "products" in result["sql"]
     assert result["repaired"] is False
+
+    # Kiểm tra trực tiếp hàm điểm vào ask_nlq (đảm bảo đọc đúng settings và không lỗi AttributeError)
+    monkeypatch.setattr(nlq_graph, "get_llm", lambda *a, **kw: fake_llm)
+    ask_result = nlq_graph.ask_nlq("Có bao nhiêu sản phẩm?")
+    assert ask_result["rows"] == [{"product_count": 150}]
+    assert ask_result["answer"] == "Hiện tại hệ thống có 150 sản phẩm."

@@ -139,6 +139,8 @@ app.add_middleware(
 
 # Routers
 app.include_router(health.router, prefix="/api", tags=["Health"])
+# Hỗ trợ cả /health và /health/live trực tiếp (phục vụ docker healthcheck / load balancers)
+app.include_router(health.router, tags=["Health"])
 app.include_router(rag.router, prefix="/api", tags=["RAG"])
 app.include_router(nlq.router, prefix="/api", tags=["NLQ"])
 app.include_router(feedback.router, prefix="/api", tags=["Feedback"])
