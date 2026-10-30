@@ -7,7 +7,12 @@ from unittest.mock import AsyncMock, patch
 
 from app.core import session_store
 from app.core import question_rewriter
-from app.core.question_rewriter import rewrite_question_if_needed, trim_history
+from app.core.question_rewriter import (
+    RewriteResult,
+    rewrite_question,
+    rewrite_question_if_needed,
+    trim_history,
+)
 
 
 def test_session_store_crud():
@@ -92,6 +97,31 @@ def test_touch_session_registers_upload_only_session():
     assert session_store.get_history("upload-only") == []
 
 
+def test_sweep_orphan_session_corpora_keeps_unverifiable_corpora(monkeypatch):
+    """Không xoá dữ liệu khi không kiểm tra được last_seen."""
+    session_store.clear_all_sessions()
+    deleted: list[str] = []
+
+    with (
+        patch(
+            "app.core.vector_store.list_corpora",
+            return_value=["session_left_over"],
+        ),
+        patch(
+            "app.core.vector_store.filter_stale_corpora",
+            side_effect=RuntimeError("activity table unavailable"),
+        ),
+        patch(
+            "app.core.vector_store.delete_corpus",
+            side_effect=lambda corpus: deleted.append(corpus) or 1,
+        ),
+    ):
+        removed = session_store.sweep_orphan_session_corpora()
+
+    assert removed == 0
+    assert deleted == []
+
+
 def test_sweep_orphan_session_corpora_keeps_active_sessions(monkeypatch):
     session_store.clear_all_sessions()
     session_store.add_turn("active", "q", "a")
@@ -101,6 +131,10 @@ def test_sweep_orphan_session_corpora_keeps_active_sessions(monkeypatch):
         patch(
             "app.core.vector_store.list_corpora",
             return_value=["session_active", "session_left_over"],
+        ),
+        patch(
+            "app.core.vector_store.filter_stale_corpora",
+            return_value=["session_left_over"],
         ),
         patch(
             "app.core.vector_store.delete_corpus",
@@ -290,6 +324,67 @@ async def test_unaccented_followup_cue_triggers_rewrite():
         rewritten = await rewrite_question_if_needed("the con hang loi thi sao", history)
         build_mock.assert_called_once()
         assert "hàng lỗi" in rewritten
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Hiện nay công ty có bao nhiêu nhân viên?",
+        "Dùng chung tài khoản được không?",
+        "Do lỗi giao hàng nên tôi muốn đổi trả",
+    ],
+)
+@pytest.mark.asyncio
+async def test_ambiguous_cue_does_not_trigger_rewrite(question):
+    """Các phản ví dụ có dấu không được coi là câu nối tiếp chỉ vì chứa cue."""
+    history = [
+        {"role": "user", "content": "Chính sách đổi trả thế nào?"},
+        {"role": "assistant", "content": "Trong 7 ngày."},
+    ]
+    with patch("app.core.question_rewriter.build_rewriter_chain") as build_chain:
+        result = await rewrite_question(question, history)
+    build_chain.assert_not_called()
+    assert result == RewriteResult(text=question)
+
+
+@pytest.mark.asyncio
+async def test_strong_cue_still_triggers_rewrite_for_accented_followup():
+    history = [
+        {"role": "user", "content": "Chính sách đổi trả thế nào?"},
+        {"role": "assistant", "content": "Trong 7 ngày."},
+    ]
+    mock_chain = AsyncMock()
+    mock_chain.ainvoke.return_value = "Chính sách đổi trả đối với hàng lỗi như thế nào?"
+    with patch("app.core.question_rewriter.build_rewriter_chain", return_value=mock_chain):
+        result = await rewrite_question("Thế còn hàng lỗi?", history)
+    assert result.text.startswith("Chính sách đổi trả")
+    assert result.accent_restored is False
+    assert result.coref_resolved is True
+
+
+@pytest.mark.asyncio
+async def test_rewrite_flags_accent_only_change_is_not_coref():
+    """Khôi phục dấu thuần túy không được coi là giải quyết đại từ."""
+    raw = "quy trinh tra hang nhu the nao"
+    mock_chain = AsyncMock()
+    # Khác hoa/thường và dấu câu, nhưng nội dung từ không đổi.
+    mock_chain.ainvoke.return_value = "Quy trình trả hàng như thế nào?"
+    with patch("app.core.question_rewriter.build_rewriter_chain", return_value=mock_chain):
+        result = await rewrite_question(raw, history=[])
+    assert result.accent_restored is True
+    assert result.coref_resolved is False
+    assert result.failed is False
+
+
+@pytest.mark.asyncio
+async def test_rewrite_flags_coref_when_content_changes():
+    raw = "quy trinh tra hang nhu the nao"
+    mock_chain = AsyncMock()
+    mock_chain.ainvoke.return_value = "Quy trình trả hàng cho đơn hàng mua online như thế nào?"
+    with patch("app.core.question_rewriter.build_rewriter_chain", return_value=mock_chain):
+        result = await rewrite_question(raw, history=[])
+    assert result.accent_restored is True
+    assert result.coref_resolved is True
 
 
 def test_text_utils_and_unaccented_detection():

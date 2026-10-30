@@ -179,11 +179,14 @@ def clear_all_sessions() -> None:
 
 
 def sweep_orphan_session_corpora() -> int:
-    """Delete session corpora that no in-memory session owns.
+    """Delete session corpora that no live session owns and that are stale.
 
     Session ownership lives only in process memory, so after a restart every
-    ``session_*`` corpus is orphaned by definition. Running this best-effort
-    sweep at startup prevents those rows from accumulating forever.
+    ``session_*`` corpus looks orphaned. A persisted ``last_seen`` row keeps
+    data safe when another instance is still serving that session; only
+    corpora older than the session TTL are removed. Missing activity rows are
+    backfilled by the store, so the first sweep after upgrading does not delete
+    data it cannot date.
     """
     try:
         from app.core import vector_store
@@ -194,9 +197,21 @@ def sweep_orphan_session_corpora() -> int:
         return 0
 
     active = {f"session_{session_id}" for session_id in list(_SESSIONS)}
+    candidates = [corpus for corpus in corpora if corpus not in active]
+    if not candidates:
+        return 0
+    try:
+        stale = set(vector_store.filter_stale_corpora(
+            candidates, max_age_seconds=_SESSION_TTL_SECONDS
+        ))
+    except Exception as exc:
+        # Fail safe: never delete when the age cannot be verified.
+        logger.warning("Không thể kiểm tra last_seen của corpus session: %s", exc)
+        return 0
+
     removed = 0
     for corpus in corpora:
-        if corpus in active:
+        if corpus not in stale:
             continue
         try:
             if vector_store.delete_corpus(corpus):

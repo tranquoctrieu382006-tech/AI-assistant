@@ -28,7 +28,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from app.core.config import settings
-from app.core.router import route_question, RouteCategory
+# Router logic được điều phối tập trung tại backend (/api/ask)
 
 
 # ---------------------------------------------------------
@@ -296,74 +296,95 @@ if prompt:
         st.markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-    # B. Xác định luồng xử lý
-    target_pipeline = "rag"
-    route_info_str = None
-
-    if "Tự động thông minh" in mode:
-        decision = route_question(prompt)
-        if decision.category == RouteCategory.UNSUPPORTED_ACTION:
-            target_pipeline = "unsupported_action"
-            route_info_str = f"Từ chối: Thao tác không được hỗ trợ ({decision.reasoning})"
-        elif decision.category == RouteCategory.OUT_OF_SCOPE:
-            target_pipeline = "out_of_scope"
-            route_info_str = f"Phân loại: Ngoài phạm vi kinh doanh ({decision.reasoning})" 
-        elif decision.category == RouteCategory.NLQ:
-            target_pipeline = "nlq"
-            route_info_str = f"Tự động định tuyến: **Truy vấn CSDL (NLQ)** – {decision.reasoning}"
-        else:
-            target_pipeline = "rag"
-            route_info_str = f"Tự động định tuyến: **Hỏi đáp tài liệu (RAG)** – {decision.reasoning}"
-    elif "NLQ" in mode:
-        target_pipeline = "nlq"
-        route_info_str = "Chế độ thủ công: **Truy vấn CSDL (NLQ)**"
-    else:
-        target_pipeline = "rag"
-        route_info_str = "Chế độ thủ công: **Hỏi đáp tài liệu (RAG)**"
-
-    # C. Xử lý từng luồng phản hồi của trợ lý
+    # B. Xử lý phản hồi từ trợ lý
     headers = {
         "Content-Type": "application/json",
         "X-API-Key": API_KEY,
     }
 
     # -------------------------------------------------
-    # LUỒNG 0: NGOÀI PHẠM VI (Chào hỏi / Hướng dẫn)
+    # LUỒNG 1: TỰ ĐỘNG THÔNG MINH QUA BACKEND ORCHESTRATOR (/api/ask)
     # -------------------------------------------------
-    if target_pipeline == "out_of_scope":
-        out_of_scope_reply = (
-            "Xin chào! Tôi là trợ lý AI chuyên về:\n"
-            "- 📑 **Hỏi đáp tài liệu nội bộ (RAG)**: Chính sách bán hàng, đổi trả, bảo hành, lưu kho, vận chuyển.\n"
-            "- 📊 **Truy vấn số liệu bán hàng (NLQ)**: Thống kê doanh thu, số lượng đơn hàng, top sản phẩm, khách hàng.\n\n"
-            "Bạn hãy nhập câu hỏi liên quan đến tài liệu hoặc số liệu kinh doanh để được hỗ trợ tốt nhất nhé!"
-        )
-        assistant_msg = {
-            "role": "assistant",
-            "content": out_of_scope_reply,
-            "route_info": route_info_str,
+    if "Tự động thông minh" in mode:
+        payload = {
+            "question": prompt,
+            "session_id": st.session_state.session_id,
+            "user_id": "streamlit_user",
+            "mode": "auto",
+            "top_k": 5,
         }
         with st.chat_message("assistant"):
-            render_chat_message(assistant_msg, idx=len(st.session_state.messages))
-        st.session_state.messages.append(assistant_msg)
+            with st.status("🎯 Đang phân tích và điều phối xử lý qua Backend...", expanded=True) as status_box:
+                try:
+                    resp = httpx.post(f"{BACKEND_URL}/api/ask", json=payload, headers=headers, timeout=60.0)
+                    if resp.status_code != 200:
+                        err_msg = f"Lỗi máy chủ (HTTP {resp.status_code}): {resp.text}"
+                        status_box.update(label="❌ Lỗi xử lý", state="error", expanded=False)
+                        st.error(err_msg)
+                        assistant_msg = {"role": "assistant", "content": err_msg}
+                    else:
+                        data = resp.json()
+                        route = data.get("route")
+                        status_val = data.get("status", "ok")
+                        ans = data.get("answer", "")
+                        sql_query = data.get("sql", "")
+                        columns = data.get("columns", [])
+                        rows = data.get("rows", [])
+                        sources_captured = data.get("sources", [])
+                        fallback_from = data.get("fallback_from")
+                        trace_id = data.get("trace_id")
+                        reasoning = data.get("reasoning", "")
 
-    # -------------------------------------------------
-    # LUỒNG -1: THAO TÁC GHI KHÔNG HỖ TRỢ (READ-ONLY GUARD)
-    # -------------------------------------------------
-    elif target_pipeline == "unsupported_action":
-        unsupported_reply = (
-            "⚠️ **Thao tác không được hỗ trợ**\n\n"
-            "Hệ thống trợ lý AI hoạt động ở chế độ **chỉ đọc (Read-only)** để bảo vệ tính toàn vẹn của dữ liệu.\n"
-            "Tôi không thể thực hiện các thao tác thêm, sửa, xóa, hoặc thay đổi cơ sở dữ liệu.\n\n"
-            "💡 *Gợi ý: Nếu bạn cần thống kê hoặc xem dữ liệu, hãy đặt câu hỏi dạng truy vấn thông tin (ví dụ: 'Có bao nhiêu đơn hàng đã hủy?').*"
-        )
-        assistant_msg = {
-            "role": "assistant",
-            "content": unsupported_reply,
-            "route_info": route_info_str,
-        }
-        with st.chat_message("assistant"):
-            render_chat_message(assistant_msg, idx=len(st.session_state.messages))
-        st.session_state.messages.append(assistant_msg)
+                        df = None
+                        if columns and rows:
+                            df = pd.DataFrame(rows, columns=columns)
+
+                        if fallback_from == "nlq":
+                            status_box.update(label="ℹ️ Đã tự động chuyển sang tra cứu tài liệu (RAG)", state="complete", expanded=False)
+                            st.info("ℹ️ CSDL không có dữ liệu này. Hệ thống đã tự động chuyển sang tra cứu tài liệu quy định.")
+                        elif status_val == "restricted":
+                            status_box.update(label="🔒 Dữ liệu bị hạn chế quyền riêng tư", state="complete", expanded=False)
+                        elif status_val == "unsupported_action":
+                            status_box.update(label="⚠️ Thao tác không được hỗ trợ", state="complete", expanded=False)
+                        elif status_val == "out_of_scope":
+                            status_box.update(label="ℹ️ Câu hỏi ngoài phạm vi", state="complete", expanded=False)
+                        elif route == "nlq":
+                            status_box.update(label="✅ Hoàn tất truy vấn CSDL", state="complete", expanded=False)
+                        else:
+                            status_box.update(label="✅ Hoàn tất câu trả lời", state="complete", expanded=False)
+
+                        st.markdown(ans)
+                        if sql_query:
+                            with st.expander("🔍 Xem câu lệnh SQL đã thực thi"):
+                                st.code(sql_query, language="sql")
+                        if df is not None and not df.empty:
+                            with st.expander("📋 Bảng số liệu chi tiết", expanded=True):
+                                st.dataframe(df, use_container_width=True)
+                        if sources_captured:
+                            with st.expander(f"📚 Nguồn trích dẫn ({len(sources_captured)} đoạn trích)"):
+                                for s_idx, src in enumerate(sources_captured, start=1):
+                                    sec = f" | Mục: *{src.get('section')}*" if src.get("section") else ""
+                                    page = f" | Trang: *{src.get('page_number')}*" if src.get("page_number") else ""
+                                    st.markdown(f"**{s_idx}. `{src.get('source')}`** (Độ tương đồng: `{src.get('score', 0):.3f}`){page}{sec}")
+
+                        route_label = f"Tự động: {route.upper()}" + (f" (Fallback từ {fallback_from.upper()})" if fallback_from else "")
+                        assistant_msg = {
+                            "role": "assistant",
+                            "content": ans,
+                            "sql": sql_query,
+                            "data": df,
+                            "sources": sources_captured,
+                            "trace_id": trace_id,
+                            "route_info": f"{route_label} – {reasoning}" if reasoning else route_label,
+                        }
+                except Exception as e:
+                    err_text = f"Không thể kết nối API ({BACKEND_URL}): {e}"
+                    status_box.update(label="❌ Lỗi kết nối", state="error", expanded=False)
+                    st.error(err_text)
+                    assistant_msg = {"role": "assistant", "content": err_text}
+
+            if assistant_msg:
+                st.session_state.messages.append(assistant_msg)
 
     # -------------------------------------------------
     # LUỒNG 1: HỎI ĐÁP TÀI LIỆU (RAG - STREAMING SSE)

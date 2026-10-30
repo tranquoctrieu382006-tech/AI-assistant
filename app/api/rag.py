@@ -33,7 +33,7 @@ from app.core.security import require_api_key
 from app.schemas.rag import RagAskRequest, RagAskResponse, RagSource, RagUploadResponse, SESSION_ID_PATTERN
 from app.core import vector_store
 from app.core import session_store
-from app.core.question_rewriter import rewrite_question_if_needed
+from app.core.question_rewriter import RewriteResult, rewrite_question
 from app.core.retriever import retrieve_and_gate
 from app.core.rag_prompt import (
     NO_ANSWER,
@@ -44,18 +44,15 @@ from app.core.rag_prompt import (
 
 router = APIRouter(dependencies=[Security(require_api_key)])
 
-# Một nguồn chỉ hiển thị một lần; chỉ giữ các nguồn sát điểm cao nhất và tối đa
-# MAX_SOURCES để danh sách "nguồn tham khảo" không lặp và không loãng.
-MAX_SOURCES = 3
-SOURCE_SCORE_MARGIN = 0.10
-
-
+# Một tài liệu chỉ hiển thị một lần (giữ chunk điểm cao nhất). Danh sách nguồn
+# phản chiếu đúng những tài liệu đã đưa vào ngữ cảnh; UI tự giới hạn khi cần.
 def _select_sources(matches: list[dict]) -> list[dict]:
     """Collapse chunks into one row per document, best chunk only.
 
-    Keeps sources within ``SOURCE_SCORE_MARGIN`` of the top score and caps the
-    list at ``MAX_SOURCES``. Used by both the JSON and the SSE endpoints so the
-    two paths cannot drift apart.
+    Every distinct document present in the retrieved context is reported, so
+    the source list cannot claim less evidence than the model actually saw.
+    Used by both the JSON and the SSE endpoints so the two paths cannot drift
+    apart.
     """
     if not matches:
         return []
@@ -63,9 +60,9 @@ def _select_sources(matches: list[dict]) -> list[dict]:
     best_by_source: dict[str, dict] = {}
     for match in ranked:
         best_by_source.setdefault(match["source"], match)
-    selected = list(best_by_source.values())[:MAX_SOURCES]
-    floor = selected[0]["score"] - SOURCE_SCORE_MARGIN
-    return [match for match in selected if match["score"] >= floor]
+    return list(best_by_source.values())
+
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_CORPORA = ("demo", "user")
@@ -447,14 +444,40 @@ async def ask_rag_stream(request: RagAskRequest):
 
     try:
         history = session_store.get_history(request.session_id)
-        standalone_question = await rewrite_question_if_needed(request.question, history)
+        rewrite = await rewrite_question(
+            request.question,
+            history,
+            trace_id=trace_id,
+            parent_span_id=root_span_id,
+        )
+        standalone_question = rewrite.text
+        dual_query = (
+            request.question
+            if rewrite.accent_restored and not rewrite.coref_resolved
+            else None
+        )
+        update_langfuse_observation(
+            stream_root,
+            metadata={
+                "standalone_question": standalone_question,
+                "accent_restored": rewrite.accent_restored,
+                "coref_resolved": rewrite.coref_resolved,
+                "rewrite_failed": rewrite.failed,
+                "used_dual_retrieval": dual_query is not None,
+            },
+        )
         with langfuse_observation(
             name="rag-stream-retrieval",
             trace_id=trace_id,
             parent_span_id=root_span_id,
+            input={
+                "question": standalone_question,
+                "original_question": request.question,
+                "dual_query": dual_query,
+            },
         ) as observation:
             matches, is_refused = await _retrieve_with_timeout(
-                standalone_question, request, trace_id=trace_id, raw_question=request.question
+                standalone_question, request, trace_id=trace_id, raw_question=dual_query
             )
             context = format_context(matches)
             update_langfuse_observation(
@@ -622,7 +645,17 @@ async def ask_rag_stream(request: RagAskRequest):
 async def _answer_rag(request: RagAskRequest, trace_id: str | None = None) -> RagAskResponse:
     # 1. Multi-turn session context & question rewriting (TASK-AI11)
     history = session_store.get_history(request.session_id)
-    standalone_question = await rewrite_question_if_needed(request.question, history)
+    rewrite = await rewrite_question(
+        request.question,
+        history,
+        trace_id=trace_id,
+    )
+    standalone_question = rewrite.text
+    dual_query = (
+        request.question
+        if rewrite.accent_restored and not rewrite.coref_resolved
+        else None
+    )
 
     # 2. Retrieval & Gating (TASK-AI09, TASK-AI10)
     try:
@@ -632,11 +665,15 @@ async def _answer_rag(request: RagAskRequest, trace_id: str | None = None) -> Ra
             input={
                 "question": standalone_question,
                 "original_question": request.question,
+                "dual_query": dual_query,
+                "accent_restored": rewrite.accent_restored,
+                "coref_resolved": rewrite.coref_resolved,
+                "rewrite_failed": rewrite.failed,
                 "top_k": request.top_k,
             },
         ) as observation:
             matches, is_refused = await _retrieve_with_timeout(
-                standalone_question, request, trace_id=trace_id, raw_question=request.question
+                standalone_question, request, trace_id=trace_id, raw_question=dual_query
             )
             context = format_context(matches)
             update_langfuse_observation(

@@ -22,6 +22,15 @@ async def request(
         return await client.request(method, path, headers=headers)
 
 
+def test_root_health_aliases_stay_out_of_openapi_schema():
+    """Alias /health cho docker healthcheck không được làm nhiễu /docs."""
+    paths = app.openapi()["paths"]
+    assert "/health" not in paths
+    assert "/health/live" not in paths
+    assert "/api/health" in paths
+    assert "/api/health/live" in paths
+
+
 def test_database_readiness_checks_pgvector(monkeypatch):
     monkeypatch.setattr(settings, "database_url", "postgresql://test/db")
     connection = MagicMock()

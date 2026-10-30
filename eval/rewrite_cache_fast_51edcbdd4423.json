@@ -1,0 +1,526 @@
+{
+  "model_role": "fast",
+  "prompt_version": "51edcbdd4423",
+  "entries": {
+    "rag-001": {
+      "input": "nhan vien lam viec vao khung gio nao?",
+      "output": "Nhân viên làm việc vào khung giờ nào?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 2298.6,
+      "failed": false
+    },
+    "rag-002": {
+      "input": "nhan vien can gui de nghi nghi phep truoc bao lau?",
+      "output": "Nhân viên cần gửi đề nghị nghỉ phép trước bao lâu?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1096.1,
+      "failed": false
+    },
+    "rag-003": {
+      "input": "quy trinh nhap kho can doi chieu chung tu nao?",
+      "output": "Quy trình nhập kho cần đối chiếu chứng từ nào?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 868.6,
+      "failed": false
+    },
+    "rag-004": {
+      "input": "khach duoc yeu cau doi hoac tra trong thoi han bao lau ke tu khi giao thanh cong?",
+      "output": "Khách được yêu cầu đổi hoặc trả trong thời hạn bao lâu kể từ khi giao thành công?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 2124.7,
+      "failed": false
+    },
+    "rag-005": {
+      "input": "cong ty co van phong tai da nang khong?",
+      "output": "Công ty có văn phòng tại Đà Nẵng không?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1157.2,
+      "failed": false
+    },
+    "rag-006": {
+      "input": "nhan vien duoc nghi phep nam bao nhieu ngay sau thu viec?",
+      "output": "Nhân viên được nghỉ phép năm bao nhiêu ngày sau thử việc?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 882.6,
+      "failed": false
+    },
+    "rag-007": {
+      "input": "nhan vien nghi trua vao gio nao?",
+      "output": "Nhân viên nghỉ trưa vào giờ nào?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 842.4,
+      "failed": false
+    },
+    "rag-008": {
+      "input": "nhan vien phai cham cong truoc may gio?",
+      "output": "Nhân viên phải chấm công trước mấy giờ?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 742.1,
+      "failed": false
+    },
+    "rag-009": {
+      "input": "co duoc tai danh sach khach hang ve thiet bi ca nhan khong?",
+      "output": "Có được tải danh sách khách hàng về thiết bị cá nhân không?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1192.9,
+      "failed": false
+    },
+    "rag-010": {
+      "input": "su co du lieu phai duoc bao trong thoi han nao?",
+      "output": "Sự cố dữ liệu phải được báo trong thời hạn nào?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 803.3,
+      "failed": false
+    },
+    "rag-011": {
+      "input": "luong duoc thanh toan vao ngay nao?",
+      "output": "Lương được thanh toán vào ngày nào?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 814.4,
+      "failed": false
+    },
+    "rag-012": {
+      "input": "muc luu tru toi da trong cong tac phi noi dia la bao nhieu?",
+      "output": "Mức lưu trú tối đa trong công tác phí nội địa là bao nhiêu?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 726.8,
+      "failed": false
+    },
+    "rag-013": {
+      "input": "muc an uong toi da trong cong tac phi noi dia la bao nhieu?",
+      "output": "Mức ăn uống tối đa trong công tác phí nội địa là bao nhiêu?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 748.9,
+      "failed": false
+    },
+    "rag-014": {
+      "input": "can de nghi tam ung cong tac phi truoc chuyen di bao lau?",
+      "output": "Cần đề nghị tạm ứng công tác phí trước chuyến đi bao lâu?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1548.1,
+      "failed": false
+    },
+    "rag-015": {
+      "input": "sau chuyen cong tac, han quyet toan la bao lau?",
+      "output": "Sau chuyến công tác, hạn quyết toán là bao lâu?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 799.4,
+      "failed": false
+    },
+    "rag-016": {
+      "input": "hang loi do nha san xuat duoc tiep nhan trong bao lau?",
+      "output": "Hàng lỗi do nhà sản xuất được tiếp nhận trong bao lâu?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1061.8,
+      "failed": false
+    },
+    "rag-017": {
+      "input": "thoi gian chan doan bao hanh toi da la bao lau?",
+      "output": "Thời gian chẩn đoán bảo hành tối đa là bao lâu?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 721.2,
+      "failed": false
+    },
+    "rag-018": {
+      "input": "thoi gian sua chua bao hanh du kien toi da la bao lau?",
+      "output": "Thời gian sửa chữa bảo hành dự kiến tối đa là bao lâu?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 848.2,
+      "failed": false
+    },
+    "rag-019": {
+      "input": "phi giao hang co ban la bao nhieu?",
+      "output": "Phí giao hàng cơ bản là bao nhiêu?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1369.9,
+      "failed": false
+    },
+    "rag-020": {
+      "input": "don hang tu gia tri nao duoc mien phi giao hang?",
+      "output": "Đơn hàng từ giá trị nào được miễn phí giao hàng?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1063.7,
+      "failed": false
+    },
+    "rag-021": {
+      "input": "thoi gian giao noi thanh du kien la bao lau?",
+      "output": "Thời gian giao nội thành dự kiến là bao lâu?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1072.0,
+      "failed": false
+    },
+    "rag-022": {
+      "input": "khi giao that bai, don vi van chuyen lien he khach toi da bao nhieu lan?",
+      "output": "Khi giao hàng thất bại, đơn vị vận chuyển liên hệ với khách hàng tối đa bao nhiêu lần?",
+      "accent_restored": true,
+      "coref_resolved": true,
+      "latency_ms": 889.7,
+      "failed": false
+    },
+    "rag-023": {
+      "input": "hang kim cuong duoc giam bao nhieu phan tram?",
+      "output": "Hàng kim cương được giảm bao nhiêu phần trăm?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 930.8,
+      "failed": false
+    },
+    "rag-024": {
+      "input": "khach can chi tieu tich luy bao nhieu de dat hang bac?",
+      "output": "Khách hàng cần chỉ tiêu tích lũy bao nhiêu để đạt hạng bạc?",
+      "accent_restored": true,
+      "coref_resolved": true,
+      "latency_ms": 806.9,
+      "failed": false
+    },
+    "rag-025": {
+      "input": "mot don hang co the ap dung bao nhieu ma khuyen mai?",
+      "output": "Một đơn hàng có thể áp dụng bao nhiêu mã khuyến mãi?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 791.8,
+      "failed": false
+    },
+    "rag-026": {
+      "input": "ai duyet phieu nhap kho va thoi han duyet la khi nao?",
+      "output": "Ai duyệt phiếu nhập kho và thời hạn duyệt là khi nào?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 690.5,
+      "failed": false
+    },
+    "rag-027": {
+      "input": "hang loi khi nhap kho duoc xu ly the nao voi ton co the ban?",
+      "output": "Hàng lỗi khi nhập kho được xử lý thế nào với tồn có thể bán?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1055.2,
+      "failed": false
+    },
+    "rag-028": {
+      "input": "kho nen dung nguyen tac nao cho hang co han dung?",
+      "output": "Kho nên dùng nguyên tắc nào cho hàng có hạn dùng?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 723.4,
+      "failed": false
+    },
+    "rag-029": {
+      "input": "kiem ke luan phien duoc thuc hien voi tan suat nao?",
+      "output": "Kiểm kê luân phiên được thực hiện với tần suất nào?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 950.9,
+      "failed": false
+    },
+    "rag-030": {
+      "input": "kiem ke toan bo phai thuc hien toi thieu bao lau mot lan?",
+      "output": "Kiểm kê toàn bộ phải thực hiện tối thiểu bao lâu một lần?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 809.9,
+      "failed": false
+    },
+    "rag-031": {
+      "input": "don moi can xac nhan ton kho va dia chi trong bao lau?",
+      "output": "Đơn mới cần xác nhận tồn kho và địa chỉ trong bao lâu?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 977.2,
+      "failed": false
+    },
+    "rag-032": {
+      "input": "khieu nai can duoc phan hoi lan dau trong bao lau?",
+      "output": "Khiếu nại cần được phản hồi lần đầu trong bao lâu?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 836.3,
+      "failed": false
+    },
+    "rag-033": {
+      "input": "khach tra cuu don hang bang thong tin nao?",
+      "output": "Khách tra cứu đơn hàng bằng thông tin nào?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 686.6,
+      "failed": false
+    },
+    "rag-034": {
+      "input": "sau khi duyet, tien hoan duoc xu ly trong bao lau?",
+      "output": "Sau khi được duyệt, tiền hoàn được xử lý trong bao lâu?",
+      "accent_restored": true,
+      "coref_resolved": true,
+      "latency_ms": 787.6,
+      "failed": false
+    },
+    "rag-035": {
+      "input": "khach co van phong nao o da nang?",
+      "output": "Khách có văn phòng nào ở Đà Nẵng?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1026.8,
+      "failed": false
+    },
+    "rag-036": {
+      "input": "toi muon xin nghi phep thuong le thi phai gui yeu cau truoc it nhat may ngay?",
+      "output": "Tôi muốn xin nghỉ phép thường lệ thì phải gửi yêu cầu trước ít nhất mấy ngày?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1231.0,
+      "failed": false
+    },
+    "rag-037": {
+      "input": "mot ngay lam viec bat dau va ket thuc luc nao, khoang nghi giua ngay la may gio?",
+      "output": "Một ngày làm việc bắt đầu và kết thúc lúc nào, khoảng nghỉ giữa ngày là mấy giờ?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 830.6,
+      "failed": false
+    },
+    "rag-038": {
+      "input": "neu giao hang khong thanh cong thi ben van chuyen goi lai cho khach nhieu nhat may luot?",
+      "output": "Nếu giao hàng không thành công thì bên vận chuyển gọi lại cho khách nhiều nhất mấy lượt?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 916.4,
+      "failed": false
+    },
+    "rag-039": {
+      "input": "don mua tu muc gia tri nao se duoc mien phi giao hang?",
+      "output": "Đơn mua từ mức giá trị nào sẽ được miễn phí giao hàng?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 900.7,
+      "failed": false
+    },
+    "rag-040": {
+      "input": "nhan vien can gui don xin nghi phep truoc bao lau, va khi phat hien su co du lieu phai bao trong han nao?",
+      "output": "Nhân viên cần gửi đơn xin nghỉ phép trước bao lâu, và khi phát hiện sự cố dữ liệu phải báo trong hạn nào?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 999.2,
+      "failed": false
+    },
+    "rag-041": {
+      "input": "khach co the yeu cau doi tra trong bao lau sau khi nhan hang, va don tu gia tri nao duoc mien phi giao?",
+      "output": "Khách hàng có thể yêu cầu đổi trả trong bao lâu sau khi nhận hàng, và đơn từ giá trị nào được miễn phí giao?",
+      "accent_restored": true,
+      "coref_resolved": true,
+      "latency_ms": 1029.0,
+      "failed": false
+    },
+    "rag-042": {
+      "input": "nhan vien duoc nghi thai san bao nhieu ngay theo chinh sach cong ty?",
+      "output": "Nhân viên được nghỉ thai sản bao nhiêu ngày theo chính sách công ty?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 981.9,
+      "failed": false
+    },
+    "rag-043": {
+      "input": "so dien thoai tong dai cham soc khach hang la bao nhieu?",
+      "output": "Số điện thoại tổng đài chăm sóc khách hàng là bao nhiêu?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 969.6,
+      "failed": false
+    },
+    "rag-044": {
+      "input": "muc luong co ban hang thang cua nhan vien kinh doanh la bao nhieu?",
+      "output": "Mức lương cơ bản hàng tháng của nhân viên kinh doanh là bao nhiêu?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1134.0,
+      "failed": false
+    },
+    "rag-045": {
+      "input": "doanh thu cong ty trong thang 9 nam 2026 la bao nhieu?",
+      "output": "Doanh thu công ty trong tháng 9 năm 2026 là bao nhiêu?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1117.2,
+      "failed": false
+    },
+    "rag-046": {
+      "input": "cong ty co bao nhieu nhan vien dang lam viec tai chi nhanh da nang?",
+      "output": "cong ty co bao nhieu nhan vien dang lam viec tai chi nhanh da nang?",
+      "accent_restored": false,
+      "coref_resolved": false,
+      "latency_ms": 509.3,
+      "failed": true
+    },
+    "rag-047": {
+      "input": "ma so bao hiem xa hoi cua nhan vien nguyen van an la gi?",
+      "output": "Mã số bảo hiểm xã hội của nhân viên Nguyễn Văn An là gì?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1323.0,
+      "failed": false
+    },
+    "rag-048": {
+      "input": "faq nhan vien quy dinh ai duyet phieu nhap kho?",
+      "output": "Quy định về việc ai là người duyệt phiếu nhập kho cho nhân viên như thế nào?",
+      "accent_restored": true,
+      "coref_resolved": true,
+      "latency_ms": 753.8,
+      "failed": false
+    },
+    "rag-049": {
+      "input": "khach tra cuu don hang bang thong tin nao?",
+      "output": "Khách tra cứu đơn hàng bằng thông tin nào?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 793.3,
+      "failed": false
+    },
+    "rag-050": {
+      "input": "chinh sach co quy dinh nhan vien lam viec tu xa toi da bao nhieu ngay moi tuan khong?",
+      "output": "Chính sách có quy định nhân viên làm việc từ xa tối đa bao nhiêu ngày mỗi tuần không?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 780.6,
+      "failed": false
+    },
+    "rag-051": {
+      "input": "nhan vien thu viec duoc huong bao nhieu phan tram luong chinh thuc?",
+      "output": "Nhân viên thử việc được hưởng bao nhiêu phần trăm lương chính thức?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1923.7,
+      "failed": false
+    },
+    "rag-052": {
+      "input": "muc phu cap an trua hang thang cua nhan vien la bao nhieu?",
+      "output": "Mức phụ cấp ăn trưa hằng tháng của nhân viên là bao nhiêu?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 773.2,
+      "failed": false
+    },
+    "rag-053": {
+      "input": "khach co the thanh toan don hang bang vi dien tu nao?",
+      "output": "Khách hàng có thể thanh toán đơn hàng bằng ví điện tử nào?",
+      "accent_restored": true,
+      "coref_resolved": true,
+      "latency_ms": 779.1,
+      "failed": false
+    },
+    "rag-054": {
+      "input": "don hang co ho tro giao hoa toc trong ngay khong?",
+      "output": "Đơn hàng có hỗ trợ giao hỏa tốc trong ngày không?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 854.8,
+      "failed": false
+    },
+    "rag-055": {
+      "input": "khach can gui yeu cau doi tra qua kenh nao?",
+      "output": "khach can gui yeu cau doi tra qua kenh nao?",
+      "accent_restored": false,
+      "coref_resolved": false,
+      "latency_ms": 463.6,
+      "failed": true
+    },
+    "rag-056": {
+      "input": "san pham dien tu duoc bao hanh bao nhieu thang sau khi het thoi han tieu chuan?",
+      "output": "Sản phẩm điện tử được bảo hành bao nhiêu tháng sau khi hết thời hạn tiêu chuẩn?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 790.8,
+      "failed": false
+    },
+    "rag-057": {
+      "input": "cong ty hoan tien qua ngan hang nao va co mat phi khong?",
+      "output": "Công ty hoàn tiền qua ngân hàng nào và có mất phí không?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 758.1,
+      "failed": false
+    },
+    "rag-058": {
+      "input": "nhan vien duoc nghi phep khi con om toi da bao nhieu ngay?",
+      "output": "Nhân viên được nghỉ phép khi con ốm tối đa bao nhiêu ngày?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 869.6,
+      "failed": false
+    },
+    "rag-059": {
+      "input": "ai can ky xac nhan bien ban chenh lech khi hang nhap thuc te khong khop chung tu?",
+      "output": "Ai cần ký xác nhận biên bản chênh lệch khi hàng nhập thực tế không khớp chứng từ?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 871.3,
+      "failed": false
+    },
+    "rag-060": {
+      "input": "khach hang than thiet duoc cong diem vao thoi diem nao sau khi thanh toan?",
+      "output": "Khách hàng thân thiết được cộng điểm vào thời điểm nào sau khi thanh toán?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1110.2,
+      "failed": false
+    },
+    "rag-061": {
+      "input": "thoi tiet ha noi ngay mai se the nao?",
+      "output": "Thời tiết Hà Nội ngày mai sẽ thế nào?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 835.2,
+      "failed": false
+    },
+    "rag-062": {
+      "input": "cho toi cong thuc nau bun bo hue.",
+      "output": "cho tôi công thức nấu bún bò huế.",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1332.9,
+      "failed": false
+    },
+    "rag-063": {
+      "input": "doi tuyen nao vo dich world cup 2022?",
+      "output": "Đội tuyển nào vô địch World Cup 2022?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1020.8,
+      "failed": false
+    },
+    "rag-064": {
+      "input": "viet giup ham python sap xep danh sach so theo thu tu tang dan.",
+      "output": "Viết giúp hàm Python sắp xếp danh sách số theo thứ tự tăng dần.",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 869.2,
+      "failed": false
+    },
+    "rag-065": {
+      "input": "chuyen bay tu ha noi den bangkok thuong mat bao lau?",
+      "output": "Chuyến bay từ Hà Nội đến Bangkok thường mất bao lâu?",
+      "accent_restored": true,
+      "coref_resolved": false,
+      "latency_ms": 1134.8,
+      "failed": false
+    }
+  }
+}

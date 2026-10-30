@@ -151,6 +151,61 @@ def _require_store_ready(conn) -> None:
     _register_vector_if_needed(conn)
 
 
+def _ensure_corpus_activity_schema(conn) -> None:
+    """Create the small corpus-activity table used to age out session corpora.
+
+    It lives beside ``rag_chunks`` because it must be transactional with the
+    corpus it describes: deleting a corpus also deletes its activity row.
+    """
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS rag_corpus_activity (
+            corpus TEXT PRIMARY KEY,
+            last_seen TIMESTAMPTZ NOT NULL DEFAULT now()
+        )"""
+    )
+
+
+def touch_corpus(corpus: str) -> None:
+    """Record that a corpus was written/used, for orphan sweeps after restart."""
+    if not corpus:
+        raise ValueError("corpus must not be empty")
+    with _connect() as conn:
+        _ensure_corpus_activity_schema(conn)
+        conn.execute(
+            """INSERT INTO rag_corpus_activity (corpus, last_seen)
+               VALUES (%s, now())
+               ON CONFLICT (corpus) DO UPDATE SET last_seen = now()""",
+            (corpus,),
+        )
+
+
+def filter_stale_corpora(corpora: list[str], *, max_age_seconds: float) -> list[str]:
+    """Return the subset whose persisted ``last_seen`` is older than the cutoff.
+
+    Corpora with no activity row are backfilled with ``now()``, so the first
+    sweep after upgrading gives them one full retention window instead of
+    deleting data that a running instance may still be serving.
+    """
+    if not corpora:
+        return []
+    with _connect() as conn:
+        _ensure_corpus_activity_schema(conn)
+        conn.execute(
+            """INSERT INTO rag_corpus_activity (corpus)
+               SELECT unnest(%s::text[])
+               ON CONFLICT (corpus) DO NOTHING""",
+            (list(corpora),),
+        )
+        rows = conn.execute(
+            """SELECT corpus FROM rag_corpus_activity
+               WHERE corpus = ANY(%s)
+                 AND last_seen < now() - make_interval(secs => %s)
+               ORDER BY corpus""",
+            (list(corpora), float(max_age_seconds)),
+        ).fetchall()
+    return [str(row[0]) for row in rows]
+
+
 def replace_corpus_chunks(chunks: list[dict], *, corpus: str = "demo") -> int:
     """Atomically replace the indexed corpus, scoped to `corpus`."""
     if not chunks:
@@ -181,6 +236,13 @@ def replace_corpus_chunks(chunks: list[dict], *, corpus: str = "demo") -> int:
                     [(item["content"], item["source"], item["chunk_index"], item.get("page_number"),
                       item.get("section"), corpus, item.get("display_name"), Vector(vector))
                      for item, vector in zip(chunks, embeddings)],
+                )
+                _ensure_corpus_activity_schema(conn)
+                cursor.execute(
+                    """INSERT INTO rag_corpus_activity (corpus, last_seen)
+                       VALUES (%s, now())
+                       ON CONFLICT (corpus) DO UPDATE SET last_seen = now()""",
+                    (corpus,),
                 )
     return len(chunks)
 
@@ -220,6 +282,13 @@ def upsert_document_chunks(
                           item.get("section"), corpus, display_name or item.get("display_name"), Vector(vec))
                          for item, vec in zip(chunks, embeddings)],
                     )
+                _ensure_corpus_activity_schema(conn)
+                cursor.execute(
+                    """INSERT INTO rag_corpus_activity (corpus, last_seen)
+                       VALUES (%s, now())
+                       ON CONFLICT (corpus) DO UPDATE SET last_seen = now()""",
+                    (corpus,),
+                )
     return len(chunks)
 
 
@@ -230,7 +299,10 @@ def delete_corpus(corpus: str) -> int:
     with _connect() as conn:
         with conn.cursor() as cursor:
             cursor.execute("DELETE FROM rag_chunks WHERE corpus = %s", (corpus,))
-            return cursor.rowcount
+            removed = cursor.rowcount
+            _ensure_corpus_activity_schema(conn)
+            cursor.execute("DELETE FROM rag_corpus_activity WHERE corpus = %s", (corpus,))
+            return removed
 
 
 def list_corpora(*, prefix: str | None = None) -> list[str]:

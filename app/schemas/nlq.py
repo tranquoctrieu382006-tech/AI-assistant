@@ -17,3 +17,5 @@ class NlqAskResponse(BaseModel):
     truncated: bool = False
     trace_id: str | None = None
     status: Literal["ok", "restricted", "out_of_scope", "unsupported_action", "error"] = "ok"
+    error_code: str | None = None
+    fallback_from: str | None = None

@@ -64,18 +64,15 @@ def is_probably_unaccented_vietnamese(text: str) -> bool:
 
 def tokenize_with_unaccented(text: str) -> list[str]:
     """
-    Tokenize text for BM25 retrieval.
-    Generates both the original accented token and its unaccented ASCII equivalent,
-    allowing BM25 to match seamlessly regardless of query diacritics.
+    Tokenize text for BM25 retrieval, emitting only unaccented tokens.
+
+    Both documents and queries go through this function, so accented and
+    unaccented spellings of the same word produce identical tokens. Emitting
+    only one form (instead of both) keeps BM25 term frequency and document
+    length comparable between accented and unaccented queries.
     """
     if not text:
         return []
     normalized = unicodedata.normalize("NFKC", text).casefold()
     tokens = re.findall(r"\w+", normalized, flags=re.UNICODE)
-    result: list[str] = []
-    for tok in tokens:
-        result.append(tok)
-        unacc = strip_accents(tok)
-        if unacc != tok:
-            result.append(unacc)
-    return result
+    return [strip_accents(token) for token in tokens]

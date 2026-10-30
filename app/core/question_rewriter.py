@@ -5,25 +5,90 @@ import logging
 import re
 import unicodedata
 import asyncio
+from dataclasses import dataclass
+
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
 from app.core.config import settings
 from app.core.llm import get_rag_llm
 from app.core.session_store import trim_history
-from app.core.text_utils import is_probably_unaccented_vietnamese
+from app.core.text_utils import is_probably_unaccented_vietnamese, strip_accents
 
 logger = logging.getLogger(__name__)
 
-# Matches conversational follow-up cues in both accented and unaccented forms
-_FOLLOWUP_CUES = re.compile(
+# Strong cues are unambiguous follow-ups and may trigger a rewrite freely.
+# "thế nào" is a question phrase, not a follow-up reference, so exclude it.
+_STRONG_CUES = re.compile(
     r"\b(?:"
-    r"còn|con|thế|the|vậy|vay|đó|do|này|nay|nó|no|họ|ho|ấy|ay|kia|"
-    r"chúng|chung|chúng nó|chung no|anh ấy|anh ay|chị ấy|chi ay|bạn ấy|ban ay|"
-    r"nữa|nua|trên|tren|như vậy|nhu vay|trường hợp ấy|truong hop ay"
+    r"còn|thế(?!\s*nào)|vậy|nữa|trường\s+hợp\s+ấy|"
+    r"đó|này|nó|họ|ấy|kia|chúng|chúng\s+nó|anh\s+ấy|chị\s+ấy|bạn\s+ấy"
     r")\b",
     re.IGNORECASE,
 )
+# Unaccented variants only apply to pure-ASCII questions.
+_STRONG_CUES_ASCII = re.compile(
+    r"\b(?:the(?!\s*nao)|vay|nua|truong\s+hop\s+ay)\b",
+    re.IGNORECASE,
+)
+# Ambiguous cues also occur in ordinary prose ("hiện nay", "dùng chung",
+# "do lỗi"). They only count for short questions or fixed collocations.
+_AMBIGUOUS_CUES = re.compile(r"\b(?:do|nay|chung|trên|con)\b", re.IGNORECASE)
+_AMBIGUOUS_CUES_ASCII = re.compile(
+    r"\b(?:do|no|ho|con|nay|chung|tren|ay)\b", re.IGNORECASE
+)
+_AMBIGUOUS_COLLOCATION = re.compile(
+    r"\b(?:do|no|ho)\s+(?:đó|vậy|the|vay)\b|\b(?:đó|này|kia|ấy)\s+(?:là|thì)\b",
+    re.IGNORECASE,
+)
+_SHORT_QUESTION_WORDS = 5
+
+_WHITESPACE_RE = re.compile(r"\s+")
+_PUNCTUATION_RE = re.compile(r"[^\w\s]", flags=re.UNICODE)
+
+
+@dataclass(frozen=True)
+class RewriteResult:
+    """Outcome of one rewrite call.
+
+    `accent_restored` is true only when an unaccented Vietnamese question came
+    back with diacritics. `coref_resolved` is true when the rewrite changed
+    anything beyond diacritics/punctuation/case, i.e. it added context from the
+    conversation history.
+    """
+
+    text: str
+    accent_restored: bool = False
+    coref_resolved: bool = False
+    failed: bool = False
+
+
+def _normalize_for_compare(text: str) -> str:
+    """Lowercase, drop punctuation, collapse whitespace, then strip accents."""
+    lowered = unicodedata.normalize("NFKC", text or "").casefold()
+    lowered = _PUNCTUATION_RE.sub(" ", lowered)
+    return _WHITESPACE_RE.sub(" ", strip_accents(lowered)).strip()
+
+
+def _has_followup_cue(question: str) -> bool:
+    """Return True when the question plausibly refers back to the history."""
+    text = (question or "").strip()
+    if not text:
+        return False
+    if _STRONG_CUES.search(text):
+        return True
+    if text.isascii() and _STRONG_CUES_ASCII.search(text):
+        return True
+
+    ambiguous = _AMBIGUOUS_CUES.search(text)
+    if ambiguous is None and text.isascii():
+        ambiguous = _AMBIGUOUS_CUES_ASCII.search(text)
+    if ambiguous is None:
+        return False
+    if len(text.split()) < _SHORT_QUESTION_WORDS:
+        return True
+    return bool(_AMBIGUOUS_COLLOCATION.search(text))
+
 
 REWRITE_SYSTEM_PROMPT = """Bạn là chuyên viên làm rõ và chuẩn hóa câu hỏi trong hệ thống hỏi đáp tài liệu nội bộ.
 Dựa vào LỊCH SỬ HỘI THOẠI và CÂU HỎI MỚI, hãy diễn giải câu hỏi mới thành một câu hỏi ĐỘC LẬP, RÕ RÀNG bằng tiếng Việt CÓ DẤU.
@@ -50,26 +115,29 @@ def build_rewriter_chain(model_role: str | None = None):
     return prompt | llm | StrOutputParser()
 
 
-async def rewrite_question_if_needed(
+async def rewrite_question(
     question: str,
     history: list[dict],
     model_role: str | None = None,
     trace_id: str | None = None,
     parent_span_id: str | None = None,
-) -> str:
-    """
-    Rewrites user question given recent dialogue history and restores diacritics if unaccented.
-    If question is already accented and history is empty (or standalone), skips LLM call immediately.
+) -> RewriteResult:
+    """Rewrite a question and report why it changed.
+
+    The rewrite is skipped when the question is already accented and does not
+    look like a follow-up. Any failure returns the original question with
+    `failed=True` and both flags false, which callers treat as the safe path
+    (no dual retrieval).
     """
     needs_accent_restoration = is_probably_unaccented_vietnamese(question)
     trimmed = trim_history(history, max_turns=5) if history else []
 
     needs_context_rewrite = bool(
-        trimmed and (len(question.split()) < 4 or _FOLLOWUP_CUES.search(question))
+        trimmed and (len(question.split()) < 4 or _has_followup_cue(question))
     )
 
     if not needs_accent_restoration and not needs_context_rewrite:
-        return question
+        return RewriteResult(text=question)
 
     history_lines = []
     for msg in trimmed:
@@ -98,16 +166,41 @@ async def rewrite_question_if_needed(
         max_length = min(2000, max(200, len(question) * 4))
         if not clean or len(clean) > max_length:
             logger.warning("Question rewrite returned empty or oversized output; using original question")
-            return question
+            return RewriteResult(text=question, failed=True)
         if question.rstrip().endswith(("?", "？")) and not clean.rstrip().endswith(("?", "？")):
             if len(clean) >= max_length:
-                return question
+                return RewriteResult(text=question, failed=True)
             clean = clean.rstrip() + "?"
         if unicodedata.normalize("NFC", clean).casefold() in {
             "i don't know", "i cannot answer", "i can't answer", "không biết", "không thể trả lời"
         }:
-            return question
-        return clean
+            return RewriteResult(text=question, failed=True)
     except Exception as exc:
         logger.warning("Question rewrite failed, falling back to original: %s", exc)
-        return question
+        return RewriteResult(text=question, failed=True)
+
+    accent_restored = bool(needs_accent_restoration and not clean.isascii())
+    coref_resolved = _normalize_for_compare(clean) != _normalize_for_compare(question)
+    return RewriteResult(
+        text=clean,
+        accent_restored=accent_restored,
+        coref_resolved=coref_resolved,
+    )
+
+
+async def rewrite_question_if_needed(
+    question: str,
+    history: list[dict],
+    model_role: str | None = None,
+    trace_id: str | None = None,
+    parent_span_id: str | None = None,
+) -> str:
+    """Backward-compatible wrapper returning only the rewritten text."""
+    result = await rewrite_question(
+        question,
+        history,
+        model_role=model_role,
+        trace_id=trace_id,
+        parent_span_id=parent_span_id,
+    )
+    return result.text

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 import httpx
 
 from app.core.config import settings
+from app.core.question_rewriter import RewriteResult
 from app.core.rag_prompt import (
     build_rag_prompt,
     build_hardcoded_rag_prompt,
@@ -84,7 +85,7 @@ async def test_ask_rag_stream_no_answer_event():
     fake_matches = []
     transport = httpx.ASGITransport(app=app)
 
-    with patch("app.api.rag.rewrite_question_if_needed", new=AsyncMock(side_effect=lambda q, _h: q)), \
+    with patch("app.api.rag.rewrite_question", new=AsyncMock(side_effect=lambda q, _h, **kwargs: RewriteResult(text=q))), \
          patch("app.api.rag.run_in_threadpool", new=AsyncMock(return_value=(fake_matches, True))):
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.post(
@@ -115,7 +116,7 @@ async def test_ask_rag_stream_emits_sources_and_tokens():
     transport = httpx.ASGITransport(app=app)
 
     from langchain_core.runnables import RunnableLambda
-    with patch("app.api.rag.rewrite_question_if_needed", new=AsyncMock(side_effect=lambda q, _h: q)), \
+    with patch("app.api.rag.rewrite_question", new=AsyncMock(side_effect=lambda q, _h, **kwargs: RewriteResult(text=q))), \
          patch("app.api.rag.run_in_threadpool", new=AsyncMock(return_value=(fake_matches, False))), \
          patch("app.api.rag.get_rag_llm", return_value=RunnableLambda(lambda _: "stub")), \
          patch("langchain_core.runnables.base.RunnableSequence.astream", side_effect=fake_astream):
@@ -148,7 +149,7 @@ async def test_streaming_model_refusal_does_not_emit_sources():
 
     transport = httpx.ASGITransport(app=app)
     from langchain_core.runnables import RunnableLambda
-    with patch("app.api.rag.rewrite_question_if_needed", new=AsyncMock(side_effect=lambda q, _h: q)), \
+    with patch("app.api.rag.rewrite_question", new=AsyncMock(side_effect=lambda q, _h, **kwargs: RewriteResult(text=q))), \
          patch("app.api.rag.run_in_threadpool", new=AsyncMock(return_value=(fake_matches, False))), \
          patch("app.api.rag.get_rag_llm", return_value=RunnableLambda(lambda _: "stub")), \
          patch("langchain_core.runnables.base.RunnableSequence.astream", side_effect=fake_astream):

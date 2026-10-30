@@ -1,0 +1,2712 @@
+{
+  "golden_set": "data\\rag_golden_set.json",
+  "model_role": "fast",
+  "config": {
+    "search_mode": "vector",
+    "top_k": 5,
+    "gate": 0.5,
+    "use_reranker": false,
+    "corpus": "demo"
+  },
+  "repeats": 1,
+  "variants": {
+    "V0": {
+      "variant": "V0",
+      "metrics": {
+        "answerable_cases": 41,
+        "hit@1": 0.8536585365853658,
+        "hit@3": 0.9512195121951219,
+        "hit@5": 0.975609756097561,
+        "mrr": 0.9207317073170732,
+        "expected_source_coverage@5": 0.975609756097561,
+        "answerable_retrieval_false_refusals": 1,
+        "negative_cases": 24,
+        "negative_gate_leaks": 14,
+        "negative_gate_leak_ids": [
+          "rag-042",
+          "rag-043",
+          "rag-044",
+          "rag-050",
+          "rag-051",
+          "rag-052",
+          "rag-053",
+          "rag-054",
+          "rag-055",
+          "rag-056",
+          "rag-057",
+          "rag-058",
+          "rag-059",
+          "rag-060"
+        ]
+      },
+      "retrieval_latency": {
+        "n": 65,
+        "p50_ms": 2166.1,
+        "p95_ms": 2203.2
+      },
+      "llm_answer_calls": 54,
+      "per_case": {
+        "rag-001": {
+          "id": "rag-001",
+          "category": "simple",
+          "query": "Nhân viên làm việc vào khung giờ nào?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.630174090610946,
+          "retrieval_passed": true,
+          "retrieval_ms": 2289.9,
+          "results": [
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 1,
+              "score": 0.630174090610946
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.5123314305537103
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Nhân viên làm việc từ thứ Hai đến thứ Sáu, 08:30–17:30, nghỉ trưa 12:00–13:00.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1105.1,
+          "reused_answer": false
+        },
+        "rag-002": {
+          "id": "rag-002",
+          "category": "simple",
+          "query": "Nhân viên cần gửi đề nghị nghỉ phép trước bao lâu?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.696530616697044,
+          "retrieval_passed": true,
+          "retrieval_ms": 2193.4,
+          "results": [
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 1,
+              "score": 0.696530616697044
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.5750763073518593
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5622621365317112
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.5417354541500319
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5269708883218603
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Nhân viên cần gửi đề nghị nghỉ phép trước ít nhất 2 ngày làm việc (trừ trường hợp khẩn cấp).",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1387.4,
+          "reused_answer": false
+        },
+        "rag-003": {
+          "id": "rag-003",
+          "category": "simple",
+          "query": "Quy trình nhập kho cần đối chiếu chứng từ nào?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6457290264530958,
+          "retrieval_passed": true,
+          "retrieval_ms": 2180.9,
+          "results": [
+            {
+              "source": "08_quy_trinh_nhap_kho.md",
+              "chunk_index": 0,
+              "score": 0.6457290264530958
+            },
+            {
+              "source": "08_quy_trinh_nhap_kho.md",
+              "chunk_index": 1,
+              "score": 0.6215899602938064
+            },
+            {
+              "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+              "chunk_index": 0,
+              "score": 0.6184913123322547
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.5930419872639553
+            },
+            {
+              "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+              "chunk_index": 1,
+              "score": 0.5561090969389139
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Đối chiếu đơn mua/phiếu điều chuyển.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 796.7,
+          "reused_answer": false
+        },
+        "rag-004": {
+          "id": "rag-004",
+          "category": "simple",
+          "query": "Khách được yêu cầu đổi hoặc trả trong thời hạn bao lâu kể từ khi giao thành công?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.7849453732534256,
+          "retrieval_passed": true,
+          "retrieval_ms": 2174.6,
+          "results": [
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.7849453732534256
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.7235552668571523
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.6565377116203355
+            },
+            {
+              "source": "05_chinh_sach_bao_hanh.pdf",
+              "chunk_index": 0,
+              "score": 0.6398284625956029
+            },
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.5970058912645649
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Khách được yêu cầu đổi hoặc trả trong 7 ngày lịch kể từ ngày giao thành công.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1340.0,
+          "reused_answer": false
+        },
+        "rag-005": {
+          "id": "rag-005",
+          "category": "in_scope_missing",
+          "query": "Công ty có văn phòng tại Đà Nẵng không?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": null,
+          "retrieval_passed": false,
+          "retrieval_ms": 2166.1,
+          "results": [],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": null,
+          "reused_answer": false
+        },
+        "rag-006": {
+          "id": "rag-006",
+          "category": "simple",
+          "query": "Nhân viên được nghỉ phép năm bao nhiêu ngày sau thử việc?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6995664834976395,
+          "retrieval_passed": true,
+          "retrieval_ms": 117.5,
+          "results": [
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 1,
+              "score": 0.6995664834976395
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.5491619437433691
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5370192207682684
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5248145372338795
+            },
+            {
+              "source": "05_chinh_sach_bao_hanh.pdf",
+              "chunk_index": 0,
+              "score": 0.5247257791541399
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Nhân viên được nghỉ phép năm 12 ngày/năm sau khi hoàn tất thử việc.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1000.4,
+          "reused_answer": false
+        },
+        "rag-007": {
+          "id": "rag-007",
+          "category": "simple",
+          "query": "Nhân viên nghỉ trưa vào giờ nào?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.686835255275744,
+          "retrieval_passed": true,
+          "retrieval_ms": 2167.7,
+          "results": [
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 1,
+              "score": 0.686835255275744
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.5086130530642461
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Nhân viên nghỉ trưa từ 12:00 đến 13:00.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": false,
+          "errored": false,
+          "generation_ms": 796.6,
+          "reused_answer": false
+        },
+        "rag-008": {
+          "id": "rag-008",
+          "category": "simple",
+          "query": "Nhân viên phải chấm công trước mấy giờ?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6474962586155555,
+          "retrieval_passed": true,
+          "retrieval_ms": 117.6,
+          "results": [
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 1,
+              "score": 0.6474962586155555
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.5416727488257742
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.5184802324558088
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5027274792303117
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Nhân viên phải chấm công trước 08:35.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1306.7,
+          "reused_answer": false
+        },
+        "rag-009": {
+          "id": "rag-009",
+          "category": "simple",
+          "query": "Có được tải danh sách khách hàng về thiết bị cá nhân không?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6269922630186784,
+          "retrieval_passed": true,
+          "retrieval_ms": 2189.5,
+          "results": [
+            {
+              "source": "02_quy_che_bao_mat.md",
+              "chunk_index": 1,
+              "score": 0.6269922630186784
+            },
+            {
+              "source": "02_quy_che_bao_mat.md",
+              "chunk_index": 0,
+              "score": 0.5325386129206191
+            },
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.5163174945437882
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 0,
+              "score": 0.5029642888797271
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Không, không được tải danh sách khách hàng về thiết bị cá nhân.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": false,
+          "errored": false,
+          "generation_ms": 1027.0,
+          "reused_answer": false
+        },
+        "rag-010": {
+          "id": "rag-010",
+          "category": "simple",
+          "query": "Sự cố dữ liệu phải được báo trong thời hạn nào?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6462480673198585,
+          "retrieval_passed": true,
+          "retrieval_ms": 2148.2,
+          "results": [
+            {
+              "source": "02_quy_che_bao_mat.md",
+              "chunk_index": 1,
+              "score": 0.6462480673198585
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.6117958146029655
+            },
+            {
+              "source": "05_chinh_sach_bao_hanh.pdf",
+              "chunk_index": 0,
+              "score": 0.564002471089443
+            },
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.5630669408560539
+            },
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 1,
+              "score": 0.5413874710433254
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Sự cố dữ liệu phải được báo cáo trong vòng 4 giờ kể từ khi phát hiện.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1526.0,
+          "reused_answer": false
+        },
+        "rag-011": {
+          "id": "rag-011",
+          "category": "simple",
+          "query": "Lương được thanh toán vào ngày nào?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6875607837190816,
+          "retrieval_passed": true,
+          "retrieval_ms": 2156.2,
+          "results": [
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.6875607837190816
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.5930736993814835
+            },
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 1,
+              "score": 0.5876094486857965
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5626849029048296
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5617802719015472
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Lương được thanh toán vào ngày 05 của tháng kế tiếp.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1503.6,
+          "reused_answer": false
+        },
+        "rag-012": {
+          "id": "rag-012",
+          "category": "simple",
+          "query": "Mức lưu trú tối đa trong công tác phí nội địa là bao nhiêu?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6435510516167099,
+          "retrieval_passed": true,
+          "retrieval_ms": 2169.1,
+          "results": [
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.6435510516167099
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5561032824393333
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Mức lưu trú tối đa trong công tác phí nội địa là 500.000 đồng/ngày.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1049.8,
+          "reused_answer": false
+        },
+        "rag-013": {
+          "id": "rag-013",
+          "category": "simple",
+          "query": "Mức ăn uống tối đa trong công tác phí nội địa là bao nhiêu?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6492490930778948,
+          "retrieval_passed": true,
+          "retrieval_ms": 2178.3,
+          "results": [
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.6492490930778948
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5252507202551415
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Mức ăn uống tối đa trong công tác phí nội địa là 200.000 đồng/ngày.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 886.6,
+          "reused_answer": false
+        },
+        "rag-014": {
+          "id": "rag-014",
+          "category": "simple",
+          "query": "Cần đề nghị tạm ứng công tác phí trước chuyến đi bao lâu?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6978936139536406,
+          "retrieval_passed": true,
+          "retrieval_ms": 2184.9,
+          "results": [
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.6978936139536406
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.6355006588994047
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5606486435838718
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5532176634021098
+            },
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 1,
+              "score": 0.5513726350373335
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Đề nghị tạm ứng trước chuyến đi 3 ngày.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1089.7,
+          "reused_answer": false
+        },
+        "rag-015": {
+          "id": "rag-015",
+          "category": "simple",
+          "query": "Sau chuyến công tác, hạn quyết toán là bao lâu?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6707594983412697,
+          "retrieval_passed": true,
+          "retrieval_ms": 2160.4,
+          "results": [
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.6707594983412697
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.6335075149674961
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.6256666030486848
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.6170172044584082
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.6042253958507718
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "5 ngày làm việc sau khi kết thúc chuyến công tác.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1047.3,
+          "reused_answer": false
+        },
+        "rag-016": {
+          "id": "rag-016",
+          "category": "simple",
+          "query": "Hàng lỗi do nhà sản xuất được tiếp nhận trong bao lâu?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6912952845517233,
+          "retrieval_passed": true,
+          "retrieval_ms": 2149.9,
+          "results": [
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.6912952845517233
+            },
+            {
+              "source": "05_chinh_sach_bao_hanh.pdf",
+              "chunk_index": 0,
+              "score": 0.6716330660789515
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.6086547633778528
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.583436655541555
+            },
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.54091094651083
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Hàng lỗi do nhà sản xuất được tiếp nhận trong 30 ngày.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 981.6,
+          "reused_answer": false
+        },
+        "rag-017": {
+          "id": "rag-017",
+          "category": "simple",
+          "query": "Thời gian chẩn đoán bảo hành tối đa là bao lâu?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.7128172050689239,
+          "retrieval_passed": true,
+          "retrieval_ms": 2203.2,
+          "results": [
+            {
+              "source": "05_chinh_sach_bao_hanh.pdf",
+              "chunk_index": 0,
+              "score": 0.7128172050689239
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5742336676895275
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5429576430522713
+            },
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.5130208730698215
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5062980938617048
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Thời gian chẩn đoán bảo hành tối đa là 3 ngày làm việc.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1270.7,
+          "reused_answer": false
+        },
+        "rag-018": {
+          "id": "rag-018",
+          "category": "simple",
+          "query": "Thời gian sửa chữa bảo hành dự kiến tối đa là bao lâu?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.7220365123228907,
+          "retrieval_passed": true,
+          "retrieval_ms": 2174.7,
+          "results": [
+            {
+              "source": "05_chinh_sach_bao_hanh.pdf",
+              "chunk_index": 0,
+              "score": 0.7220365123228907
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5892893533628033
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5684751190573198
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5326354860011622
+            },
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.5037971748580402
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Thời gian sửa chữa dự kiến tối đa là 15 làm việc.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": false,
+          "errored": false,
+          "generation_ms": 942.7,
+          "reused_answer": false
+        },
+        "rag-019": {
+          "id": "rag-019",
+          "category": "simple",
+          "query": "Phí giao hàng cơ bản là bao nhiêu?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.7101968181367896,
+          "retrieval_passed": true,
+          "retrieval_ms": 2153.4,
+          "results": [
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.7101968181367896
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.6449063593037557
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5940238963323089
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.5890864346233492
+            },
+            {
+              "source": "07_khuyen_mai_thanh_vien.docx",
+              "chunk_index": 1,
+              "score": 0.5255507796346361
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Phí giao hàng cơ bản là 30.000 đồng/đơn.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1038.7,
+          "reused_answer": false
+        },
+        "rag-020": {
+          "id": "rag-020",
+          "category": "simple",
+          "query": "Đơn hàng từ giá trị nào được miễn phí giao hàng?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6317875071078926,
+          "retrieval_passed": true,
+          "retrieval_ms": 2152.8,
+          "results": [
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.6317875071078926
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.6140226449912833
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5816497066708003
+            },
+            {
+              "source": "07_khuyen_mai_thanh_vien.docx",
+              "chunk_index": 1,
+              "score": 0.5410517258397495
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Đơn hàng từ 1.000.000 đồng (trước giảm giá) được miễn phí giao hàng.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": false,
+          "errored": false,
+          "generation_ms": 1024.0,
+          "reused_answer": false
+        },
+        "rag-021": {
+          "id": "rag-021",
+          "category": "simple",
+          "query": "Thời gian giao nội thành dự kiến là bao lâu?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.628420121356255,
+          "retrieval_passed": true,
+          "retrieval_ms": 2161.9,
+          "results": [
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.628420121356255
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5286374934964129
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5215808646293332
+            },
+            {
+              "source": "05_chinh_sach_bao_hanh.pdf",
+              "chunk_index": 0,
+              "score": 0.5197407424836524
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.5134739569739576
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Đơn nội thành dự kiến 1–2 ngày làm việc sau khi xác nhận.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 972.9,
+          "reused_answer": false
+        },
+        "rag-022": {
+          "id": "rag-022",
+          "category": "simple",
+          "query": "Khi giao thất bại, đơn vị vận chuyển liên hệ khách tối đa bao nhiêu lần?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.5745177015374732,
+          "retrieval_passed": true,
+          "retrieval_ms": 2161.3,
+          "results": [
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5745177015374732
+            },
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.56466199509193
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5423324007195626
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5295296627002762
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Khi giao thất bại, đơn vị giao liên hệ tối đa 2 lần.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1221.1,
+          "reused_answer": false
+        },
+        "rag-023": {
+          "id": "rag-023",
+          "category": "simple",
+          "query": "Hạng Kim cương được giảm bao nhiêu phần trăm?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.683154266068653,
+          "retrieval_passed": true,
+          "retrieval_ms": 2204.1,
+          "results": [
+            {
+              "source": "07_khuyen_mai_thanh_vien.docx",
+              "chunk_index": 1,
+              "score": 0.683154266068653
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Hạng Kim cương được giảm 8% trên giá sản phẩm đủ điều kiện.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": false,
+          "errored": false,
+          "generation_ms": 786.9,
+          "reused_answer": false
+        },
+        "rag-024": {
+          "id": "rag-024",
+          "category": "simple",
+          "query": "Khách cần chi tiêu tích lũy bao nhiêu để đạt hạng Bạc?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.668915191616062,
+          "retrieval_passed": true,
+          "retrieval_ms": 126.0,
+          "results": [
+            {
+              "source": "07_khuyen_mai_thanh_vien.docx",
+              "chunk_index": 1,
+              "score": 0.668915191616062
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.5178308795589963
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5094287687880616
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Khách cần chi tiêu tích lũy từ 5 đến dưới 20 triệu đồng để đạt hạng Bạc.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": false,
+          "errored": false,
+          "generation_ms": 947.8,
+          "reused_answer": false
+        },
+        "rag-025": {
+          "id": "rag-025",
+          "category": "simple",
+          "query": "Một đơn hàng có thể áp dụng bao nhiêu mã khuyến mãi?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.5930168011835899,
+          "retrieval_passed": true,
+          "retrieval_ms": 2162.8,
+          "results": [
+            {
+              "source": "07_khuyen_mai_thanh_vien.docx",
+              "chunk_index": 1,
+              "score": 0.5930168011835899
+            },
+            {
+              "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+              "chunk_index": 1,
+              "score": 0.5407614805131103
+            },
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.533427858420286
+            },
+            {
+              "source": "08_quy_trinh_nhap_kho.md",
+              "chunk_index": 1,
+              "score": 0.5070167805017348
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5048799242925677
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Mỗi đơn chỉ áp dụng một mã khuyến mãi.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 944.3,
+          "reused_answer": false
+        },
+        "rag-026": {
+          "id": "rag-026",
+          "category": "simple",
+          "query": "Ai duyệt phiếu nhập kho và thời hạn duyệt là khi nào?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.703974526390918,
+          "retrieval_passed": true,
+          "retrieval_ms": 2181.4,
+          "results": [
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.703974526390918
+            },
+            {
+              "source": "08_quy_trinh_nhap_kho.md",
+              "chunk_index": 0,
+              "score": 0.6256472994160839
+            },
+            {
+              "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+              "chunk_index": 0,
+              "score": 0.5736041577336213
+            },
+            {
+              "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+              "chunk_index": 1,
+              "score": 0.5713197077894877
+            },
+            {
+              "source": "08_quy_trinh_nhap_kho.md",
+              "chunk_index": 1,
+              "score": 0.5551369917719976
+            }
+          ],
+          "ranks": [
+            2
+          ],
+          "hit": true,
+          "answer": "Quản lý kho duyệt phiếu trong ngày.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": false,
+          "errored": false,
+          "generation_ms": 806.6,
+          "reused_answer": false
+        },
+        "rag-027": {
+          "id": "rag-027",
+          "category": "simple",
+          "query": "Hàng lỗi khi nhập kho được xử lý thế nào với tồn có thể bán?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6081498084023784,
+          "retrieval_passed": true,
+          "retrieval_ms": 2181.4,
+          "results": [
+            {
+              "source": "08_quy_trinh_nhap_kho.md",
+              "chunk_index": 1,
+              "score": 0.6081498084023784
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.5853713111195937
+            },
+            {
+              "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+              "chunk_index": 1,
+              "score": 0.5747496821359582
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5503913536084957
+            },
+            {
+              "source": "08_quy_trinh_nhap_kho.md",
+              "chunk_index": 0,
+              "score": 0.5368234210820456
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Hàng lỗi được đưa vào khu cách ly và không cộng vào tồn có thể bán.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1474.3,
+          "reused_answer": false
+        },
+        "rag-028": {
+          "id": "rag-028",
+          "category": "simple",
+          "query": "Kho nên dùng nguyên tắc nào cho hàng có hạn dùng?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6573965549469741,
+          "retrieval_passed": true,
+          "retrieval_ms": 2164.2,
+          "results": [
+            {
+              "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+              "chunk_index": 1,
+              "score": 0.6573965549469741
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.5623589287812691
+            },
+            {
+              "source": "08_quy_trinh_nhap_kho.md",
+              "chunk_index": 1,
+              "score": 0.5601517629804686
+            },
+            {
+              "source": "08_quy_trinh_nhap_kho.md",
+              "chunk_index": 0,
+              "score": 0.5587493794408102
+            },
+            {
+              "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+              "chunk_index": 0,
+              "score": 0.5535974374778644
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Kho nên dùng nguyên tắc FEFO cho hàng có hạn dùng.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 835.4,
+          "reused_answer": false
+        },
+        "rag-029": {
+          "id": "rag-029",
+          "category": "simple",
+          "query": "Kiểm kê luân phiên được thực hiện với tần suất nào?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": null,
+          "retrieval_passed": false,
+          "retrieval_ms": 2160.0,
+          "results": [],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": null,
+          "reused_answer": false
+        },
+        "rag-030": {
+          "id": "rag-030",
+          "category": "simple",
+          "query": "Kiểm kê toàn bộ phải thực hiện tối thiểu bao lâu một lần?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.545697672793393,
+          "retrieval_passed": true,
+          "retrieval_ms": 125.1,
+          "results": [
+            {
+              "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+              "chunk_index": 1,
+              "score": 0.545697672793393
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.5450351128128642
+            },
+            {
+              "source": "05_chinh_sach_bao_hanh.pdf",
+              "chunk_index": 0,
+              "score": 0.5164598573624699
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5135123914960538
+            },
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 1,
+              "score": 0.506619559908367
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Kiểm kê toàn bộ phải được thực hiện tối thiểu mỗi năm một lần.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1025.8,
+          "reused_answer": false
+        },
+        "rag-031": {
+          "id": "rag-031",
+          "category": "simple",
+          "query": "Đơn mới cần xác nhận tồn kho và địa chỉ trong bao lâu?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6880143771231568,
+          "retrieval_passed": true,
+          "retrieval_ms": 2155.0,
+          "results": [
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.6880143771231568
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.6446835147579989
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.6282984835924169
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.6218559767045887
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.6187538191685289
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Đơn mới cần xác nhận tồn kho và địa chỉ trong 4 giờ làm việc.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 2567.0,
+          "reused_answer": false
+        },
+        "rag-032": {
+          "id": "rag-032",
+          "category": "simple",
+          "query": "Khiếu nại cần được phản hồi lần đầu trong bao lâu?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6283747638388865,
+          "retrieval_passed": true,
+          "retrieval_ms": 2168.2,
+          "results": [
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.6283747638388865
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.6092054689779713
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.6065835483769833
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5828678161738506
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5554161733885018
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Khiếu nại cần được phản hồi đầu tiên trong 1 ngày làm việc.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 985.6,
+          "reused_answer": false
+        },
+        "rag-033": {
+          "id": "rag-033",
+          "category": "simple",
+          "query": "Khách tra cứu đơn hàng bằng thông tin nào?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.659413714339026,
+          "retrieval_passed": true,
+          "retrieval_ms": 2183.1,
+          "results": [
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.659413714339026
+            },
+            {
+              "source": "02_quy_che_bao_mat.md",
+              "chunk_index": 1,
+              "score": 0.5598204851685519
+            },
+            {
+              "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+              "chunk_index": 1,
+              "score": 0.5478644795902483
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5471843154916662
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.5438576230875805
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Khách tra cứu đơn hàng bằng mã đơn hoặc số điện thoại đã xác minh.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1017.5,
+          "reused_answer": false
+        },
+        "rag-034": {
+          "id": "rag-034",
+          "category": "simple",
+          "query": "Sau khi duyệt, tiền hoàn được xử lý trong bao lâu?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6697754466267162,
+          "retrieval_passed": true,
+          "retrieval_ms": 2163.1,
+          "results": [
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.6697754466267162
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.6639765887163053
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.6274602050913515
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.6149305010938569
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.6017315039386568
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "5–7 ngày làm việc sau khi duyệt.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1149.3,
+          "reused_answer": false
+        },
+        "rag-035": {
+          "id": "rag-035",
+          "category": "in_scope_missing",
+          "query": "Khách có văn phòng nào ở Đà Nẵng?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": null,
+          "retrieval_passed": false,
+          "retrieval_ms": 2187.4,
+          "results": [],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": null,
+          "reused_answer": false
+        },
+        "rag-036": {
+          "id": "rag-036",
+          "category": "paraphrase",
+          "query": "Tôi muốn xin nghỉ phép thường lệ thì phải gửi yêu cầu trước ít nhất mấy ngày?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6477701663971132,
+          "retrieval_passed": true,
+          "retrieval_ms": 126.3,
+          "results": [
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 1,
+              "score": 0.6477701663971132
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5740892544931709
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.563758645281736
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5456276806814948
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5226666846275303
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Bạn phải gửi đề nghị nghỉ phép năm trước ít nhất 2 ngày làm việc (trừ trường hợp khẩn cấp).",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1570.7,
+          "reused_answer": false
+        },
+        "rag-037": {
+          "id": "rag-037",
+          "category": "paraphrase",
+          "query": "Một ngày làm việc bắt đầu và kết thúc lúc nào, khoảng nghỉ giữa ngày là mấy giờ?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6469169206098406,
+          "retrieval_passed": true,
+          "retrieval_ms": 2192.5,
+          "results": [
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 1,
+              "score": 0.6469169206098406
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.5254248911045137
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.512130920456978
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Nhân viên làm việc từ thứ Hai đến thứ Sáu, 08:30–17:30, nghỉ trưa 12:00–13:00.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 906.4,
+          "reused_answer": false
+        },
+        "rag-038": {
+          "id": "rag-038",
+          "category": "paraphrase",
+          "query": "Nếu giao hàng không thành công thì bên vận chuyển gọi lại cho khách nhiều nhất mấy lượt?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.5874478675332093,
+          "retrieval_passed": true,
+          "retrieval_ms": 2192.1,
+          "results": [
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.5874478675332093
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5740069150924724
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5591337802607566
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5444755554199258
+            }
+          ],
+          "ranks": [
+            2
+          ],
+          "hit": true,
+          "answer": "Khi giao thất bại, đơn vị giao liên hệ tối đa 2 lần.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1028.4,
+          "reused_answer": false
+        },
+        "rag-039": {
+          "id": "rag-039",
+          "category": "paraphrase",
+          "query": "Đơn mua từ mức giá trị nào sẽ được miễn phí giao hàng?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6386002682805233,
+          "retrieval_passed": true,
+          "retrieval_ms": 2174.9,
+          "results": [
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.6386002682805233
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.6208437455203393
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5819959445009529
+            },
+            {
+              "source": "07_khuyen_mai_thanh_vien.docx",
+              "chunk_index": 1,
+              "score": 0.5645213905832756
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.514538737751028
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Đơn từ 1.000.000 đồng trước giảm giá sẽ được miễn phí giao hàng.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1174.9,
+          "reused_answer": false
+        },
+        "rag-040": {
+          "id": "rag-040",
+          "category": "multi_document",
+          "query": "Nhân viên cần gửi đơn xin nghỉ phép trước bao lâu, và khi phát hiện sự cố dữ liệu phải báo trong hạn nào?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6636984749200202,
+          "retrieval_passed": true,
+          "retrieval_ms": 2167.5,
+          "results": [
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 1,
+              "score": 0.6636984749200202
+            },
+            {
+              "source": "02_quy_che_bao_mat.md",
+              "chunk_index": 1,
+              "score": 0.6006291386840371
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.5909395637828833
+            },
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.5514395236969621
+            },
+            {
+              "source": "05_chinh_sach_bao_hanh.pdf",
+              "chunk_index": 0,
+              "score": 0.5352162517285259
+            }
+          ],
+          "ranks": [
+            1,
+            2
+          ],
+          "hit": true,
+          "answer": "Nhân viên cần gửi đề nghị nghỉ phép trước ít nhất 2 ngày làm việc (trừ trường hợp khẩn cấp), và khi phát hiện sự cố dữ liệu phải báo cho phụ trách hệ thống trong vòng 4 giờ kể từ khi phát hiện.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1112.8,
+          "reused_answer": false
+        },
+        "rag-041": {
+          "id": "rag-041",
+          "category": "multi_document",
+          "query": "Khách có thể yêu cầu đổi trả trong bao lâu sau khi nhận hàng, và đơn từ giá trị nào được miễn phí giao?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.7376263014746692,
+          "retrieval_passed": true,
+          "retrieval_ms": 2188.4,
+          "results": [
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.7376263014746692
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.7365793053725694
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.6530152583691305
+            },
+            {
+              "source": "05_chinh_sach_bao_hanh.pdf",
+              "chunk_index": 0,
+              "score": 0.5959194010616562
+            },
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.5754559040070234
+            }
+          ],
+          "ranks": [
+            2,
+            3
+          ],
+          "hit": true,
+          "answer": "Khách có thể yêu cầu đổi trả trong 7 ngày lịch kể từ ngày giao thành công (hàng lỗi do nhà sản xuất được báo trong 30 ngày). Đơn hàng từ 1.000.000 đồng (trước giảm giá) được miễn phí giao.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": false,
+          "errored": false,
+          "generation_ms": 1089.6,
+          "reused_answer": false
+        },
+        "rag-042": {
+          "id": "rag-042",
+          "category": "in_scope_missing",
+          "query": "Nhân viên được nghỉ thai sản bao nhiêu ngày theo chính sách công ty?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.5840784564533158,
+          "retrieval_passed": true,
+          "retrieval_ms": 2180.4,
+          "results": [
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 1,
+              "score": 0.5840784564533158
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.5103079750356821
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5082051802905067
+            }
+          ],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": 1146.6,
+          "reused_answer": false
+        },
+        "rag-043": {
+          "id": "rag-043",
+          "category": "in_scope_missing",
+          "query": "Số điện thoại tổng đài chăm sóc khách hàng là bao nhiêu?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.5558043718338644,
+          "retrieval_passed": true,
+          "retrieval_ms": 2156.6,
+          "results": [
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.5558043718338644
+            },
+            {
+              "source": "05_chinh_sach_bao_hanh.pdf",
+              "chunk_index": 0,
+              "score": 0.5371696148560313
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5166239410715437
+            },
+            {
+              "source": "02_quy_che_bao_mat.md",
+              "chunk_index": 0,
+              "score": 0.5020650311204773
+            }
+          ],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": 1183.3,
+          "reused_answer": false
+        },
+        "rag-044": {
+          "id": "rag-044",
+          "category": "in_scope_missing",
+          "query": "Mức lương cơ bản hàng tháng của nhân viên kinh doanh là bao nhiêu?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.5490063756112328,
+          "retrieval_passed": true,
+          "retrieval_ms": 2222.0,
+          "results": [
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.5490063756112328
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5133862785466825
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 0,
+              "score": 0.5002651809065776
+            }
+          ],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": 1393.8,
+          "reused_answer": false
+        },
+        "rag-045": {
+          "id": "rag-045",
+          "category": "in_scope_missing",
+          "query": "Doanh thu công ty trong tháng 9 năm 2026 là bao nhiêu?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": null,
+          "retrieval_passed": false,
+          "retrieval_ms": 2154.8,
+          "results": [],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": null,
+          "reused_answer": false
+        },
+        "rag-046": {
+          "id": "rag-046",
+          "category": "in_scope_missing",
+          "query": "Công ty có bao nhiêu nhân viên đang làm việc tại chi nhánh Đà Nẵng?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": null,
+          "retrieval_passed": false,
+          "retrieval_ms": 126.6,
+          "results": [],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": null,
+          "reused_answer": false
+        },
+        "rag-047": {
+          "id": "rag-047",
+          "category": "in_scope_missing",
+          "query": "Mã số bảo hiểm xã hội của nhân viên Nguyễn Văn An là gì?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": null,
+          "retrieval_passed": false,
+          "retrieval_ms": 102.8,
+          "results": [],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": null,
+          "reused_answer": false
+        },
+        "rag-048": {
+          "id": "rag-048",
+          "category": "simple",
+          "query": "FAQ nhân viên quy định ai duyệt phiếu nhập kho?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.7113373479265043,
+          "retrieval_passed": true,
+          "retrieval_ms": 26.7,
+          "results": [
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.7113373479265043
+            },
+            {
+              "source": "08_quy_trinh_nhap_kho.md",
+              "chunk_index": 0,
+              "score": 0.6266292118825272
+            },
+            {
+              "source": "08_quy_trinh_nhap_kho.md",
+              "chunk_index": 1,
+              "score": 0.6016003610611778
+            },
+            {
+              "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+              "chunk_index": 1,
+              "score": 0.6001290678978649
+            },
+            {
+              "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+              "chunk_index": 0,
+              "score": 0.5681702928138535
+            }
+          ],
+          "ranks": [
+            1
+          ],
+          "hit": true,
+          "answer": "Quản lý kho duyệt phiếu trong ngày.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 890.3,
+          "reused_answer": false
+        },
+        "rag-049": {
+          "id": "rag-049",
+          "category": "simple",
+          "query": "Khách tra cứu đơn hàng bằng thông tin nào?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.659413714339026,
+          "retrieval_passed": true,
+          "retrieval_ms": 2153.8,
+          "results": [
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.659413714339026
+            },
+            {
+              "source": "02_quy_che_bao_mat.md",
+              "chunk_index": 1,
+              "score": 0.5598204851685519
+            },
+            {
+              "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+              "chunk_index": 1,
+              "score": 0.5478644795902483
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5471843154916662
+            },
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.5438576230875805
+            }
+          ],
+          "ranks": [
+            4
+          ],
+          "hit": true,
+          "answer": "Khách tra cứu đơn hàng bằng mã đơn hoặc số điện thoại đã xác minh.",
+          "model_abstain": false,
+          "final_abstain": false,
+          "fragment_match": true,
+          "errored": false,
+          "generation_ms": 1143.2,
+          "reused_answer": false
+        },
+        "rag-050": {
+          "id": "rag-050",
+          "category": "in_scope_missing",
+          "query": "Chính sách có quy định nhân viên làm việc từ xa tối đa bao nhiêu ngày mỗi tuần không?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.5797230195338773,
+          "retrieval_passed": true,
+          "retrieval_ms": 2164.2,
+          "results": [
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 1,
+              "score": 0.5797230195338773
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.5034472058556106
+            }
+          ],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": 919.9,
+          "reused_answer": false
+        },
+        "rag-051": {
+          "id": "rag-051",
+          "category": "in_scope_missing",
+          "query": "Nhân viên thử việc được hưởng bao nhiêu phần trăm lương chính thức?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.5738675775532049,
+          "retrieval_passed": true,
+          "retrieval_ms": 2159.9,
+          "results": [
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.5738675775532049
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 0,
+              "score": 0.5285163015243652
+            },
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 1,
+              "score": 0.5036456152019854
+            }
+          ],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": 1058.6,
+          "reused_answer": false
+        },
+        "rag-052": {
+          "id": "rag-052",
+          "category": "in_scope_missing",
+          "query": "Mức phụ cấp ăn trưa hàng tháng của nhân viên là bao nhiêu?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.594525849492925,
+          "retrieval_passed": true,
+          "retrieval_ms": 2184.4,
+          "results": [
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.594525849492925
+            },
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 1,
+              "score": 0.5014732480049275
+            }
+          ],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": 1308.8,
+          "reused_answer": false
+        },
+        "rag-053": {
+          "id": "rag-053",
+          "category": "in_scope_missing",
+          "query": "Khách có thể thanh toán đơn hàng bằng ví điện tử nào?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.5243144122294554,
+          "retrieval_passed": true,
+          "retrieval_ms": 2174.1,
+          "results": [
+            {
+              "source": "05_chinh_sach_bao_hanh.pdf",
+              "chunk_index": 0,
+              "score": 0.5243144122294554
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5207232751833322
+            },
+            {
+              "source": "07_khuyen_mai_thanh_vien.docx",
+              "chunk_index": 1,
+              "score": 0.511020586879953
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5092346820007824
+            },
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.5034027265860546
+            }
+          ],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": 1661.7,
+          "reused_answer": false
+        },
+        "rag-054": {
+          "id": "rag-054",
+          "category": "in_scope_missing",
+          "query": "Đơn hàng có hỗ trợ giao hỏa tốc trong ngày không?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6126427612773828,
+          "retrieval_passed": true,
+          "retrieval_ms": 2174.5,
+          "results": [
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.6126427612773828
+            },
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.5447329229435788
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5422818236703678
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5211933128873666
+            }
+          ],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": 1167.6,
+          "reused_answer": false
+        },
+        "rag-055": {
+          "id": "rag-055",
+          "category": "in_scope_missing",
+          "query": "Khách cần gửi yêu cầu đổi trả qua kênh nào?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6053551654737639,
+          "retrieval_passed": true,
+          "retrieval_ms": 2178.4,
+          "results": [
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.6053551654737639
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.6003348469534704
+            },
+            {
+              "source": "10_huong_dan_don_hang_khieu_nai.docx",
+              "chunk_index": 1,
+              "score": 0.5701863849385608
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5328681151349561
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 0,
+              "score": 0.5225864777636755
+            }
+          ],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": 1187.5,
+          "reused_answer": false
+        },
+        "rag-056": {
+          "id": "rag-056",
+          "category": "in_scope_missing",
+          "query": "Sản phẩm điện tử được bảo hành bao nhiêu tháng sau khi hết thời hạn tiêu chuẩn?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.7780160672063977,
+          "retrieval_passed": true,
+          "retrieval_ms": 2190.0,
+          "results": [
+            {
+              "source": "05_chinh_sach_bao_hanh.pdf",
+              "chunk_index": 0,
+              "score": 0.7780160672063977
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5837369261728831
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5830474744410922
+            },
+            {
+              "source": "02_quy_che_bao_mat.md",
+              "chunk_index": 0,
+              "score": 0.5198266674224983
+            },
+            {
+              "source": "02_quy_che_bao_mat.md",
+              "chunk_index": 1,
+              "score": 0.5058063549380446
+            }
+          ],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": 1089.6,
+          "reused_answer": false
+        },
+        "rag-057": {
+          "id": "rag-057",
+          "category": "in_scope_missing",
+          "query": "Công ty hoàn tiền qua ngân hàng nào và có mất phí không?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.5912187534422076,
+          "retrieval_passed": true,
+          "retrieval_ms": 2175.9,
+          "results": [
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.5912187534422076
+            },
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5820946542195119
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5808369306740802
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.5747383682360623
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 0,
+              "score": 0.5058784779384681
+            }
+          ],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": 1078.5,
+          "reused_answer": false
+        },
+        "rag-058": {
+          "id": "rag-058",
+          "category": "in_scope_missing",
+          "query": "Nhân viên được nghỉ phép khi con ốm tối đa bao nhiêu ngày?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.5728199649775589,
+          "retrieval_passed": true,
+          "retrieval_ms": 2141.8,
+          "results": [
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 1,
+              "score": 0.5728199649775589
+            }
+          ],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": 940.1,
+          "reused_answer": false
+        },
+        "rag-059": {
+          "id": "rag-059",
+          "category": "in_scope_missing",
+          "query": "Ai cần ký xác nhận biên bản chênh lệch khi hàng nhập thực tế không khớp chứng từ?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.6113292113892619,
+          "retrieval_passed": true,
+          "retrieval_ms": 2167.6,
+          "results": [
+            {
+              "source": "12_faq_nhan_vien.md",
+              "chunk_index": 1,
+              "score": 0.6113292113892619
+            },
+            {
+              "source": "08_quy_trinh_nhap_kho.md",
+              "chunk_index": 1,
+              "score": 0.5985798048623369
+            },
+            {
+              "source": "09_quy_trinh_xuat_kho_kiem_ke.md",
+              "chunk_index": 1,
+              "score": 0.5888694143816862
+            },
+            {
+              "source": "01_quy_che_lam_viec.md",
+              "chunk_index": 2,
+              "score": 0.5250072218535452
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 2,
+              "score": 0.5250072218535452
+            }
+          ],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": 1049.8,
+          "reused_answer": false
+        },
+        "rag-060": {
+          "id": "rag-060",
+          "category": "in_scope_missing",
+          "query": "Khách hàng thân thiết được cộng điểm vào thời điểm nào sau khi thanh toán?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": 0.5564928246788007,
+          "retrieval_passed": true,
+          "retrieval_ms": 2201.7,
+          "results": [
+            {
+              "source": "04_chinh_sach_doi_tra.docx",
+              "chunk_index": 1,
+              "score": 0.5564928246788007
+            },
+            {
+              "source": "03_quy_che_luong_cong_tac_phi.md",
+              "chunk_index": 1,
+              "score": 0.5452882214522874
+            },
+            {
+              "source": "07_khuyen_mai_thanh_vien.docx",
+              "chunk_index": 1,
+              "score": 0.5429863349885178
+            },
+            {
+              "source": "11_faq_khach_hang.pdf",
+              "chunk_index": 0,
+              "score": 0.5389484302617484
+            },
+            {
+              "source": "06_chinh_sach_van_chuyen.pdf",
+              "chunk_index": 0,
+              "score": 0.515852891745031
+            }
+          ],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": 937.0,
+          "reused_answer": false
+        },
+        "rag-061": {
+          "id": "rag-061",
+          "category": "out_of_scope_far",
+          "query": "Thời tiết Hà Nội ngày mai sẽ thế nào?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": null,
+          "retrieval_passed": false,
+          "retrieval_ms": 2158.7,
+          "results": [],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": null,
+          "reused_answer": false
+        },
+        "rag-062": {
+          "id": "rag-062",
+          "category": "out_of_scope_far",
+          "query": "Cho tôi công thức nấu bún bò Huế.",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": null,
+          "retrieval_passed": false,
+          "retrieval_ms": 116.7,
+          "results": [],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": null,
+          "reused_answer": false
+        },
+        "rag-063": {
+          "id": "rag-063",
+          "category": "out_of_scope_far",
+          "query": "Đội tuyển nào vô địch World Cup 2022?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": null,
+          "retrieval_passed": false,
+          "retrieval_ms": 133.6,
+          "results": [],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": null,
+          "reused_answer": false
+        },
+        "rag-064": {
+          "id": "rag-064",
+          "category": "out_of_scope_far",
+          "query": "Viết giúp hàm Python sắp xếp danh sách số theo thứ tự tăng dần.",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": null,
+          "retrieval_passed": false,
+          "retrieval_ms": 28.1,
+          "results": [],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": null,
+          "reused_answer": false
+        },
+        "rag-065": {
+          "id": "rag-065",
+          "category": "out_of_scope_far",
+          "query": "Chuyến bay từ Hà Nội đến Bangkok thường mất bao lâu?",
+          "dual_query": null,
+          "retrieval_mode": "vector",
+          "rewrite": null,
+          "top_score": null,
+          "retrieval_passed": false,
+          "retrieval_ms": 23.2,
+          "results": [],
+          "ranks": [],
+          "hit": false,
+          "answer": "Tài liệu hiện có không chứa đủ thông tin để trả lời câu hỏi này.",
+          "model_abstain": true,
+          "final_abstain": true,
+          "fragment_match": null,
+          "errored": false,
+          "generation_ms": null,
+          "reused_answer": false
+        }
+      },
+      "answer_metrics": {
+        "answerable_total": 41,
+        "answerable_decided": 41,
+        "answerable_answered": 40,
+        "answerable_fragment_matches": 32,
+        "answerable_false_abstentions": 1,
+        "negative_total": 24,
+        "negative_decided": 24,
+        "negative_hallucinated_answers": 0,
+        "negative_false_refusals": 24,
+        "decided_cases": 65,
+        "correct_cases": 56,
+        "abstention_accuracy": 0.862
+      },
+      "generation_latency": {
+        "n": 54,
+        "p50_ms": 1054.2,
+        "p95_ms": 1570.7
+      },
+      "noise_floor": {
+        "note": "Cần ít nhất 2 lần chạy để đo sàn nhiễu.",
+        "unstable_case_ids": []
+      }
+    }
+  },
+  "pairwise": {}
+}

@@ -6,8 +6,8 @@ tránh so sánh chéo giữa các bộ dữ liệu khác nhau. Mọi giá trị 
 
 | Mốc | Commit | Ghi chú |
 |---|---|---|
-| HEAD khi lập bảng | `4fe95e0` | nhánh `feature/TASK-AI21-AI23-chat-ui-eval-unit-test`; **274** test |
-| Bản zip đang lưu hành | `5b8a5d4` | thiếu 4 commit follow-up; **268** test |
+| HEAD khi lập bảng | `fb08b01` | nhánh `feature/TASK-AI21-AI23-chat-ui-eval-unit-test`; **352** test thu thập |
+| Bản zip đang lưu hành | Không xác minh được | Không có file zip mã nguồn trong workspace; mọi số dưới đây tính từ artifact + code tại HEAD `fb08b01` |
 
 ## 1. RAG abstention — 65 ca
 
@@ -41,10 +41,89 @@ Nhãn đúng theo `docs/rag_eval_protocol.md`: **cả** `in_scope_missing` **và
   suy giảm mạnh đúng lúc đo (gọi thử 1 câu mất 26,37 s), nên **không dùng số này
   làm baseline độ trễ**. Artifact M1 cũ đo cả 4,2 s pacing nên cũng không dùng.
 
+### Chạy lại end-to-end 2026-10-30 (đo sàn nhiễu)
+
+Hai lần chạy độc lập V0 (`eval/rag_variants_answers_v0_run1.json`,
+`eval/rag_variants_answers_v0_run2.json`), cùng cấu hình production
+(`search_mode=vector`, `top_k=5`, gate 0.5), cùng 65 ca:
+
+| Chỉ số | Run 1 | Run 2 | Artifact M2 cũ |
+|---|---:|---:|---:|
+| answerable đã trả lời | 40/41 | 40/41 | 40/41 |
+| `fragment_match` | 32/41 | 32/41 | 31/41 |
+| hallucination trên nhóm âm | 0/24 | 0/24 | 0/24 |
+| lần gọi LLM | 54 | 54 | 54 |
+
+- **Trạng thái trả lời/từ chối không đổi ca nào** giữa run 1 và run 2. Sàn nhiễu
+  **của retrieval** = 0 ca đổi qua 3 lần chạy V0 (retrieval tất định).
+- Nhưng `fragment_match` **lật ở 4/41 ca** giữa hai lần chạy (`rag-018`,
+  `rag-037`, `rag-039`, `rag-041`) và 16/65 câu có text khác nhau, dù tổng vẫn
+  32/41 nhờ hai ca lên và hai ca xuống. Sàn nhiễu của phép khớp chuỗi con là
+  **±2 ca**, không phải 0.
+- `fragment_match` 32 so với 31 của M2 nằm trong sàn nhiễu đó; không ca
+  answerable nào đổi trạng thái trả lời/từ chối.
+
+### So sánh lượt trả lời V0 vs V2/V3/V4 (2026-10-30)
+
+Nguồn: `eval/rag_variants_answers_v2v4.json` (cùng 65 ca, cùng cấu hình
+production, cùng cache viết lại với V0). Dòng V0 lấy từ hai lần chạy
+(`eval/rag_variants_answers_v0_run1.json` và `..._run2.json`), hai lần này có
+cùng trạng thái trả lời/từ chối ở từng ca.
+
+| Biến thể | Answerable đã trả lời | `fragment_match` | Hallucination | Lần gọi LLM |
+|---|---:|---:|---:|---:|
+| V0 | 40/41 | 32/41 | 0/24 | 54 |
+| V2 | 40/41 | 32/41 | 0/24 | 53 |
+| V3 | 40/41 | 30/41 | 0/24 | 53 |
+| V4 | 37/38 ca quyết định | 30/38 ca quyết định | 0/19 ca quyết định | 53 |
+
+- **V2 khớp V0 về trạng thái trả lời/từ chối ở cả 41 ca answerable**; tổng
+  `fragment_match` cũng bằng đúng V0 (32/41) nhưng có 2 ca lật ngược chiều
+  (`rag-023` từ không khớp thành khớp, `rag-037` ngược lại) — vẫn trong sàn
+  4 ca đã đo giữa hai lần chạy V0.
+- **V3 = V2 về truy xuất**: cả 65 ca có đúng cùng 5 chunk (`results` giống nhau
+  từng ca), chỉ khác metadata `dual_query`. Vậy mà `fragment_match` vẫn lật ở
+  **4/41 ca** (`rag-018`, `rag-023`, `rag-039`, `rag-040`) và tổng đổi −2 — đúng
+  bằng sàn nhiễu, nên **không kết luận V3 kém hơn V2**. Chỉ coi là cải
+  thiện/hồi quy khi vượt quá 4 ca lật hoặc khi đổi trạng thái trả lời/từ chối.
+- **V4 chưa đủ dữ liệu**: 8 ca lỗi `GoogleRateLimitError` (429) — 3 answerable
+  (`rag-036`, `rag-041`, `rag-048`) và 5 ca âm (`rag-051`, `rag-052`, `rag-056`,
+  `rag-059`, `rag-060`). Chạy lại riêng V4 với pacing 8 s
+  (`eval/rag_variants_answers_v4_retry.json`) vẫn 429 đúng 8 ca đó, nên đây là
+  hạn mức free tier, không phải lỗi pipeline. Trên 38 ca quyết định:
+  37/38 đã trả lời (97,4% so với 40/41 = 97,6% của V0) và 30/38 khớp chuỗi con
+  (78,9% so với 78,0%) — **không có bằng chứng hồi quy**, nhưng **không thể kết
+  luận** cho tới khi chạy bù đủ 41 ca answerable và 24 ca âm.
+- `llm_answer_calls` 53 thay vì 54 vì `rag-055` bị gate chặn ở V2/V3/V4.
+
 ## 2. Retrieval và reranker
 
 Nguồn: `eval/report_v2.md` §3.2 và `eval/rerank_config_comparison.md`, cùng
 dataset 65 ca (41 answerable).
+
+### Biến thể câu hỏi không dấu (2026-10-30)
+
+Nguồn: `eval/rag_variants_dev.json` (cùng corpus, gate, `top_k`; V0 chạy 3 lần,
+sàn nhiễu retrieval = 0 ca).
+
+| Biến thể | Mô tả | Hit@1 | Hit@5 | MRR | False refusal | Gate leak |
+|---|---|---:|---:|---:|---:|---:|
+| V0 | câu gốc có dấu | 0.8537 (35/41) | 0.9756 | 0.9207 | 1 | 14/24 |
+| V1 | bỏ dấu, không xử lý | 0.0000 (0/41) | 0.0000 | 0.0000 | 41 | 0/24 |
+| V2 | V1 + LLM khôi phục dấu | 0.8537 (35/41) | 0.9756 | 0.9207 | 1 | 13/24 |
+| V3 | V2 + truy xuất kép có điều kiện | 0.8537 (35/41) | 0.9756 | 0.9207 | 1 | 13/24 |
+| V4 | V3 + hybrid (vector + BM25 bỏ dấu) | 0.8537 (35/41) | 0.9756 | 0.9268 | 1 | 13/24 |
+
+- V1 sụp hoàn toàn vì `bge-m3` rất nhạy dấu: `rag-001` được 0.6302 khi có dấu
+  nhưng chỉ 0.3674 khi bỏ dấu, dưới gate 0.5.
+- So với V0, V2/V3/V4 chỉ đổi **1 ca**: `rag-055` (nhóm âm) từ lọt gate thành bị
+  chặn, tức cải thiện; **không ca answerable nào đổi**. V3 không khác V2 vì mọi
+  match của câu không dấu đều dưới gate.
+- V4 tăng MRR nhờ hạ trọng số BM25 trong RRF từ `(0.5, 0.5)` xuống `(0.2, 0.8)`;
+  đo quét trọng số cho Hit@1 26/41 → 35/41. BM25 chỉ dùng khi
+  `search_mode=hybrid`, production hiện vẫn `vector`.
+- Đây là số development trên cùng corpus đã dùng để chọn ngưỡng, không phải
+  held-out.
 
 | Cấu hình | Hit@1 | Hit@5 | MRR | Độ trễ TB |
 |---|---:|---:|---:|---:|
@@ -121,10 +200,18 @@ Corpus `demo` trong DB local đã được dựng lại từ đúng 12 tài li�
 manifest. Trước khi dựng lại, corpus có 49 chunk / 13 nguồn — thừa một file
 `Smart_Waste_Sorter_hoan_chinh_v4.pptx.pdf`, làm mọi phép đo retrieval sai.
 
-`POST /api/rag/ask` và `/api/rag/ask/stream` giờ gộp nguồn theo tài liệu (mỗi
-nguồn một dòng, giữ chunk điểm cao nhất), cắt theo biên 0,10 điểm và tối đa 3
-nguồn. `top_k` vẫn là số đoạn trích đưa vào ngữ cảnh, không phải số nguồn hiển
-thị.
+`POST /api/rag/ask` và `/api/rag/ask/stream` gộp nguồn theo tài liệu (mỗi tài
+liệu một dòng, giữ chunk điểm cao nhất) và báo **mọi tài liệu được truy xuất**
+đã nằm trong ngữ cảnh; không còn cắt theo biên 0,10 điểm hay tối đa 3 nguồn.
+`top_k` vẫn là số đoạn trích đưa vào ngữ cảnh, không phải số dòng nguồn hiển thị;
+UI tự giới hạn khi cần.
+
+Corpus session có thêm mốc `last_seen` lưu trong PostgreSQL (bảng
+`rag_corpus_activity`). Khi khởi động lại, sweep chỉ xoá corpus `session_*` có
+`last_seen` cũ hơn TTL phiên; bản ghi thiếu mốc được backfill bằng thời điểm
+quét. `clear_session`/dọn phiên xoá cả chunks lẫn mốc `last_seen`. Lịch sử hội
+thoại vẫn chỉ nằm trong RAM, nên nhiều instance vẫn cần sticky session hoặc
+session store dùng chung.
 
 ## Việc còn lại trước khi freeze lại baseline
 
@@ -147,5 +234,6 @@ thị.
 
 ```powershell
 .venv\Scripts\python.exe -m scripts.report_manifest_drift   # trạng thái hash
-.venv\Scripts\python.exe -m pytest -q                       # 279 test sau khi thêm test drift, nhãn far, ca lỗi, dedupe nguồn
+.venv\Scripts\python.exe -m pytest -q                       # 352 test thu thập
+.venv\Scripts\python.exe -m scripts.check_current_numbers   # đối chiếu bảng này với artifact
 ```

@@ -31,7 +31,10 @@ def test_replace_corpus_removes_stale_sources_and_replaces_current_sources(monke
     assert connection._vector_adapter_registered is True
     assert cursor.execute.call_args_list[0].args[0] == "DELETE FROM rag_chunks WHERE corpus = %s"
     assert cursor.execute.call_args_list[0].args[1] == ("demo",)
-    assert cursor.execute.call_count == 1
+    # Second statement refreshes the persisted last_seen for this corpus.
+    assert "rag_corpus_activity" in cursor.execute.call_args_list[1].args[0]
+    assert cursor.execute.call_args_list[1].args[1] == ("demo",)
+    assert cursor.execute.call_count == 2
     cursor.executemany.assert_called_once()
 
 

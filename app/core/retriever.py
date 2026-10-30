@@ -3,16 +3,15 @@ from __future__ import annotations
 
 import copy
 import logging
-import re
 import threading
 import time
-import unicodedata
 from collections import OrderedDict, defaultdict
 
 from langchain_core.documents import Document
 
 from app.core import vector_store
 from app.core.config import settings
+from app.core.text_utils import tokenize_with_unaccented
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +29,11 @@ _REVISION_LOCK = threading.Lock()
 _REVISION_CACHE_TTL_SECONDS = settings.bm25_revision_ttl_seconds
 _REVISION_CACHE: dict[tuple[str, ...] | None, tuple[tuple[int, int], float]] = {}
 _RRF_CONSTANT = 60
-_RRF_WEIGHTS = (0.5, 0.5)  # BM25, vector
+# Weighted RRF. BM25 tokens are unaccented (homophones collapse), so lexical
+# ranks are noisier than before; vector-heavy fusion preserves Hit@1 while
+# keeping BM25's recall contribution. Measured on the 65-case dev set:
+# eval/rag_variants_dev.json (0.2/0.8 -> 35/41 Hit@1, 0.5/0.5 -> 26/41).
+_RRF_WEIGHTS = (0.2, 0.8)  # BM25, vector
 
 
 def _corpus_key(corpus: str | list[str] | tuple[str, ...] | None) -> tuple[str, ...] | None:
@@ -77,9 +80,13 @@ def _store_bm25(
 
 
 def _bm25_tokens(text: str) -> list[str]:
-    """Normalize Unicode/case and discard punctuation around Vietnamese tokens."""
-    normalized = unicodedata.normalize("NFKC", text).casefold()
-    return re.findall(r"\w+", normalized, flags=re.UNICODE)
+    """Normalize Unicode/case and emit unaccented tokens for BM25.
+
+    Delegates to the shared tokenizer so documents and queries use exactly the
+    same normalization; this is what makes unaccented queries match accented
+    documents in hybrid mode.
+    """
+    return tokenize_with_unaccented(text)
 
 
 def get_bm25_retriever(

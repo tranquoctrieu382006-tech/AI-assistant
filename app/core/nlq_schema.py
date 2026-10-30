@@ -14,7 +14,7 @@ from psycopg import sql
 
 from app.core.config import settings
 
-_SENSITIVE = re.compile(r"password|passwd|secret|token|email|phone|mobile|address|account_number|national_id|full_name", re.I)
+from app.core.nlq_policy import _SENSITIVE
 _ENUM_CANDIDATE = re.compile(r"(?:^|_)(?:status|type|tier|category|level|method)(?:_|$)", re.I)
 _STOP = {"cho", "cua", "trong", "nhung", "nao", "theo", "bao", "nhieu", "hay", "va", "la", "co", "tu", "den", "thang", "nam", "ngay", "hang", "san", "pham", "don", "khach", "tong", "trung", "binh"}
 _CACHE_LOCK = threading.Lock()

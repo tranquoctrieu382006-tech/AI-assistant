@@ -356,6 +356,87 @@ def test_validate_sql_security_guard_blocks_malicious_constructs(malicious_sql, 
         validate_sql(malicious_sql, allowed_tables, allowed_cols)
 
 
+def test_nlq_sensitive_projection_is_refused_without_calling_the_model(monkeypatch):
+    """Kiểm tra nhạy cảm phải đứng trước LLM chọn bảng, không tốn một lượt gọi."""
+    monkeypatch.setattr(nlq_graph, "load_schema", _schema)
+
+    class ExplodingLLM:
+        def invoke(self, *args, **kwargs):  # pragma: no cover - must not run
+            raise AssertionError("LLM must not be called for a sensitive projection")
+
+    res = _make_graph(ExplodingLLM()).invoke({
+        "question": "Cho tôi số điện thoại của khách hàng",
+        "repair_count": 0,
+        "repaired": False,
+        "callbacks": [],
+    })
+    assert res.get("status") == "restricted"
+    assert res["sql"] == ""
+
+
+def test_nlq_fails_fast_when_remaining_budget_cannot_fit_a_model_call(monkeypatch):
+    monkeypatch.setattr(nlq_graph, "load_schema", _schema)
+    model = FakeNlqModel()
+    with pytest.raises(NlqRequestTimeout):
+        _make_graph(model).invoke({
+            "question": "Doanh thu tháng này là bao nhiêu?",
+            "repair_count": 0,
+            "repaired": False,
+            "callbacks": [],
+            # Ít hơn ngưỡng 10 giây tối thiểu của Google GenAI.
+            "deadline_monotonic": time.monotonic() + 5,
+        })
+    assert model.calls == []
+
+
+def test_nlq_call_timeout_uses_remaining_budget_and_disables_retries(monkeypatch):
+    monkeypatch.setattr(nlq_graph, "load_schema", _schema)
+    monkeypatch.setattr(
+        nlq_graph, "_run_readonly",
+        lambda sql: (["order_count"], [{"order_count": 1}], False),
+    )
+
+    class RecordingModel(FakeNlqModel):
+        def __init__(self):
+            super().__init__()
+            self.invoke_kwargs = []
+
+        def invoke(self, prompt, config=None, **kwargs):
+            self.invoke_kwargs.append(kwargs)
+            return super().invoke(prompt, config=config)
+
+    model = RecordingModel()
+    _make_graph(model).invoke({
+        "question": "Có bao nhiêu đơn hàng?",
+        "repair_count": 0,
+        "repaired": False,
+        "callbacks": [],
+        "deadline_monotonic": time.monotonic() + 15,
+    })
+
+    budgeted = [kwargs for kwargs in model.invoke_kwargs if kwargs]
+    assert budgeted, "Expected at least one model call with a per-call timeout"
+    for kwargs in budgeted:
+        assert 10 < kwargs["timeout"] <= 15
+
+
+def test_invoke_model_response_honours_zero_retries_under_tight_budget():
+    from google.api_core.exceptions import ServiceUnavailable
+
+    calls = []
+
+    class FailingModel:
+        def invoke(self, prompt, config=None, **kwargs):
+            calls.append(1)
+            raise ServiceUnavailable("temporary")
+
+    with pytest.raises(ServiceUnavailable):
+        nlq_graph._invoke_model_response(
+            FailingModel(), "prompt", [], timeout=12.0, max_retries=0
+        )
+    assert len(calls) == 1
+
+
 def test_nlq_restricted_intent_returns_restricted_status():
     from langchain_community.chat_models import FakeListChatModel
 
@@ -369,3 +450,69 @@ def test_nlq_restricted_intent_returns_restricted_status():
     assert res.get("status") == "restricted"
     assert "bị hạn chế" in res["answer"]
     assert res["sql"] == ""
+
+
+def test_sensitive_attribute_returns_restricted_without_fallback():
+    """Ca 2: 'Email của khách hàng X' trả về status='restricted' và TUYỆT ĐỐI không fallback sang RAG."""
+    from app.core.nlq_policy import has_sensitive_mention
+
+    q_sensitive = "Email của khách hàng Nguyễn Văn A là gì?"
+    assert has_sensitive_mention(q_sensitive) is True
+
+    nlq_res = nlq_graph.ask_nlq(q_sensitive)
+    assert nlq_res["status"] == "restricted"
+    assert nlq_res["error_code"] == "policy_denied"
+    assert "quyền riêng tư" in nlq_res["answer"]
+    assert "hạng thành viên" in nlq_res["answer"]
+    assert "phân khúc" not in nlq_res["answer"]
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_blocks_sensitive_fallback_to_rag():
+    """Đảm bảo Backend Orchestrator chặn không cho câu hỏi có cờ nhạy cảm fallback sang RAG."""
+    from app.core.orchestrator import AskUnifiedRequest, ask_orchestrated
+
+    req = AskUnifiedRequest(
+        question="Số điện thoại của khách hàng là bao nhiêu?",
+        mode="auto",
+    )
+    res = await ask_orchestrated(req)
+    assert res.status == "restricted"
+    assert res.error_code == "policy_denied"
+    assert res.fallback_from is None
+
+
+def test_typed_exceptions_policy_vs_schema():
+    """Kiểm tra ngoại lệ có kiểu PolicyViolation vs SchemaMismatch (kế thừa ValueError)."""
+    from app.core.nlq_policy import PolicyViolation, SchemaMismatch
+
+    with pytest.raises(PolicyViolation) as exc_info:
+        validate_sql("SELECT phone FROM customers", ALL_TABLES)
+    assert issubclass(PolicyViolation, ValueError)
+    assert "nhạy cảm" in str(exc_info.value)
+
+    with pytest.raises(PolicyViolation):
+        validate_sql("DELETE FROM orders", ALL_TABLES)
+
+    with pytest.raises(SchemaMismatch) as exc_info:
+        validate_sql("SELECT * FROM employees", ALL_TABLES)
+    assert issubclass(SchemaMismatch, ValueError)
+    assert "ngoài schema" in str(exc_info.value)
+
+
+def test_api_ask_unified_endpoint():
+    """Kiểm tra endpoint /api/ask phản hồi chuẩn JSON với header X-API-Key."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    client = TestClient(app)
+    resp = client.post(
+        "/api/ask",
+        json={"question": "Xóa toàn bộ đơn hàng cũ", "mode": "auto"},
+        headers={"X-API-Key": settings.app_api_key},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["route"] == "unsupported_action"
+    assert data["status"] == "unsupported_action"
+    assert "chỉ đọc" in data["answer"]

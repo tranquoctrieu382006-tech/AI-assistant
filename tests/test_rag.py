@@ -5,7 +5,7 @@ import types
 import httpx
 import pytest
 from contextlib import contextmanager
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
@@ -156,7 +156,51 @@ def test_rag_filters_each_low_score_chunk_and_uses_separate_messages():
     assert "poor" not in model.prompt[1].content
 
 
-def test_select_sources_dedupes_by_document_and_caps_list():
+def test_rag_passes_trace_context_to_rewrite_and_logs_rewrite_flags():
+    """Trace phải ghi câu độc lập, cờ khôi phục dấu/đại từ và truy vấn kép."""
+    from app.core.question_rewriter import RewriteResult
+
+    spans = []
+
+    @contextmanager
+    def fake_observation(name, **kwargs):
+        spans.append((name, kwargs))
+        yield MagicMock()
+
+    rewrite = AsyncMock(return_value=RewriteResult(
+        text="Nhân viên làm việc vào khung giờ nào?",
+        accent_restored=True,
+        coref_resolved=False,
+    ))
+    trace_id = "a" * 32
+    raw_question = "nhan vien lam viec vao khung gio nao?"
+    with (
+        patch.object(rag, "rewrite_question", rewrite),
+        patch.object(rag, "langfuse_observation", fake_observation),
+        patch.object(rag, "update_langfuse_observation"),
+        patch.object(
+            rag, "_retrieve_with_timeout", AsyncMock(return_value=([], True))
+        ),
+    ):
+        response = run_inline(rag._answer_rag(
+            RagAskRequest(question=raw_question),
+            trace_id=trace_id,
+        ))
+
+    assert response.answer == rag.NO_ANSWER
+    assert rewrite.await_args.kwargs["trace_id"] == trace_id
+    span_name, span_kwargs = spans[0]
+    assert span_name == "rag-retrieval"
+    retrieval_input = span_kwargs["input"]
+    assert retrieval_input["question"] == "Nhân viên làm việc vào khung giờ nào?"
+    assert retrieval_input["original_question"] == raw_question
+    assert retrieval_input["dual_query"] == raw_question
+    assert retrieval_input["accent_restored"] is True
+    assert retrieval_input["coref_resolved"] is False
+    assert retrieval_input["rewrite_failed"] is False
+
+
+def test_select_sources_dedupes_by_document_and_keeps_all_context_documents():
     matches = [
         {"source": "a.md", "chunk_index": 0, "score": 0.90},
         {"source": "a.md", "chunk_index": 3, "score": 0.70},
@@ -167,19 +211,23 @@ def test_select_sources_dedupes_by_document_and_caps_list():
 
     selected = rag._select_sources(matches)
 
-    # Một nguồn chỉ xuất hiện một lần, giữ chunk điểm cao nhất, tối đa 3 nguồn.
-    assert [match["source"] for match in selected] == ["a.md", "b.md", "c.md"]
+    # Một tài liệu chỉ xuất hiện một lần, giữ chunk điểm cao nhất; mọi tài liệu
+    # đã đưa vào ngữ cảnh đều được báo lại (không cắt còn 3).
+    assert [match["source"] for match in selected] == ["a.md", "b.md", "c.md", "d.md"]
     assert selected[0]["chunk_index"] == 0
 
 
-def test_select_sources_drops_sources_far_below_top_score():
+def test_select_sources_keeps_documents_regardless_of_score_margin():
     matches = [
         {"source": "top.md", "chunk_index": 0, "score": 0.80},
         {"source": "near.md", "chunk_index": 0, "score": 0.75},
         {"source": "weak.md", "chunk_index": 0, "score": 0.55},
     ]
 
-    assert [match["source"] for match in rag._select_sources(matches)] == ["top.md", "near.md"]
+    # Cả ba đều đã vượt gate và nằm trong ngữ cảnh, nên đều là nguồn.
+    assert [match["source"] for match in rag._select_sources(matches)] == [
+        "top.md", "near.md", "weak.md",
+    ]
     assert rag._select_sources([]) == []
 
 
@@ -265,8 +313,8 @@ async def test_stream_disconnect_before_first_token_does_not_record_a_turn():
     async def inline_threadpool(function, *args):
         return function(*args)
 
-    async def no_rewrite(question, history):
-        return question
+    async def no_rewrite(question, history, **kwargs):
+        return rag.RewriteResult(text=question)
 
     @contextmanager
     def no_trace(*args, **kwargs):
@@ -274,7 +322,7 @@ async def test_stream_disconnect_before_first_token_does_not_record_a_turn():
 
     request = RagAskRequest(question="Question without output?", session_id="empty-stream")
     with (
-        patch.object(rag, "rewrite_question_if_needed", no_rewrite),
+        patch.object(rag, "rewrite_question", no_rewrite),
         patch.object(rag, "run_in_threadpool", inline_threadpool),
         patch.object(rag, "retrieve_and_gate", return_value=([{
             "content": "Evidence", "source": "policy.md", "chunk_index": 0,
@@ -320,8 +368,8 @@ async def test_stream_disconnect_persists_partial_turn_for_followup():
     async def inline_threadpool(function, *args):
         return function(*args)
 
-    async def no_rewrite(question, history):
-        return question
+    async def no_rewrite(question, history, **kwargs):
+        return rag.RewriteResult(text=question)
 
     @contextmanager
     def no_trace(*args, **kwargs):
@@ -332,7 +380,7 @@ async def test_stream_disconnect_persists_partial_turn_for_followup():
     generation_span = MagicMock()
     spans = iter([root_span, generation_span])
     with (
-        patch.object(rag, "rewrite_question_if_needed", no_rewrite),
+        patch.object(rag, "rewrite_question", no_rewrite),
         patch.object(rag, "run_in_threadpool", inline_threadpool),
         patch.object(rag, "retrieve_and_gate", return_value=([{
             "content": "Evidence", "source": "policy.md", "chunk_index": 0,

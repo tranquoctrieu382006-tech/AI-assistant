@@ -65,10 +65,11 @@ Hỏi đáp và nhận toàn bộ câu trả lời kèm danh sách nguồn tríc
 ```
 
 `top_k` là số **đoạn trích** đưa vào ngữ cảnh, không phải số nguồn hiển thị.
-Danh sách `sources` được gộp theo tài liệu: mỗi nguồn chỉ xuất hiện một lần và
-giữ đoạn trích có điểm cao nhất, chỉ giữ các nguồn nằm trong 0,10 điểm so với
-nguồn cao nhất, và tối đa 3 nguồn. Đây là "nguồn tham khảo" đã dùng để dựng ngữ
-cảnh, không phải danh sách trích dẫn do mô hình chỉ định.
+Danh sách `sources` được gộp theo tài liệu: mỗi tài liệu chỉ xuất hiện một lần và
+giữ đoạn trích có điểm cao nhất. Danh sách này chứa **mọi tài liệu được truy xuất**
+đã góp mặt trong ngữ cảnh (sau khi qua ngưỡng lọc), nên nó không thể báo thiếu
+bằng chứng so với những gì mô hình đã đọc; UI tự giới hạn số dòng khi cần. Đây là
+"tài liệu được truy xuất", không phải danh sách trích dẫn do mô hình chỉ định.
 
 ---
 
@@ -92,9 +93,9 @@ Mỗi gói tin tuân thủ chuẩn SSE: `data: <JSON>\n\n`. Luồng stream bao g
 1. **Sự kiện `sources` (Nguồn trích dẫn):**  
    Được phát ra đầu tiên ngay khi các đoạn trích vượt qua ngưỡng lọc tương đồng (`score >= RAG_MIN_RELEVANCE_SCORE`).
    Danh sách dùng chung quy tắc với endpoint JSON: gộp theo tài liệu, giữ đoạn
-   điểm cao nhất của mỗi nguồn, cắt theo biên 0,10 điểm và tối đa 3 nguồn.
-   Sự kiện này đi trước câu trả lời, nên nó là nguồn **đã dựng ngữ cảnh**, không
-   phải nguồn mô hình thực sự trích dẫn:
+   điểm cao nhất của mỗi tài liệu, và báo **mọi tài liệu được truy xuất** trong ngữ
+   cảnh (UI tự giới hạn số dòng). Sự kiện này đi trước câu trả lời, nên nó là tài
+   liệu **đã dựng ngữ cảnh**, không phải nguồn mô hình thực sự trích dẫn:
    ```sse
    data: {"type": "sources", "sources": [{"source": "02_chinh_sach_bao_hanh.md", "chunk_index": 1, "score": 0.825, "section": "Màn hình", "page_number": null}], "trace_id": "1bc12f0391e0773c3458cc76c295d8c6"}
    ```
@@ -150,7 +151,7 @@ Cho phép tải trực tiếp file tài liệu mới lên để chunking, embedd
 }
 ```
 
-`corpus` cho biết tài liệu đã được ghi vào corpus riêng của phiên hay corpus `user` dùng chung. Tài liệu thuộc `session_*` sẽ bị xoá khi phiên hết TTL hoặc bị đẩy khỏi LRU; corpus `session_*` còn sót sau khi tiến trình khởi động lại cũng được quét dọn khi ứng dụng khởi động.
+`corpus` cho biết tài liệu đã được ghi vào corpus riêng của phiên hay corpus `user` dùng chung. Tài liệu thuộc `session_*` sẽ bị xoá khi phiên hết TTL hoặc bị đẩy khỏi LRU. Sau khi tiến trình khởi động lại, corpus `session_*` còn sót chỉ bị quét dọn khi `last_seen` (lưu trong PostgreSQL) đã cũ hơn TTL phiên; nhờ vậy một instance đang phục vụ phiên đó không bị instance khác xoá mất dữ liệu. Lịch sử hội thoại vẫn chỉ nằm trong RAM, nên khôi phục dữ liệu corpus không khôi phục được ngữ cảnh trò chuyện.
 
 ---
 

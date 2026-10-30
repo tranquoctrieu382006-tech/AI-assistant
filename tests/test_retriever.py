@@ -16,9 +16,11 @@ from app.core.retriever import (
 )
 
 
-def test_bm25_tokens_ignore_case_and_normalize_unicode():
+def test_bm25_tokens_ignore_case_normalize_unicode_and_drop_accents():
     assert _bm25_tokens("NghỈ PHÉP") == _bm25_tokens("nghỉ phép")
-    assert _bm25_tokens("ngày, lỗi?") == ["ngày", "lỗi"]
+    assert _bm25_tokens("ngày, lỗi?") == ["ngay", "loi"]
+    # Chỉ phát một dạng token, để câu có dấu và không dấu không bị cộng điểm lệch
+    assert _bm25_tokens("đổi trả") == ["doi", "tra"]
 
 
 def test_retrieve_and_gate_abstains_when_vector_below_cutoff(monkeypatch):

@@ -11,7 +11,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import feedback, health, nlq, rag, router_api
+from app.api import ask, feedback, health, nlq, rag, router_api
 from app.core import session_store
 from app.core.config import settings
 from app.core.llm import MODEL_REGISTRY, check_ollama_status_async
@@ -139,12 +139,14 @@ app.add_middleware(
 
 # Routers
 app.include_router(health.router, prefix="/api", tags=["Health"])
-# Hỗ trợ cả /health và /health/live trực tiếp (phục vụ docker healthcheck / load balancers)
-app.include_router(health.router, tags=["Health"])
+# Hỗ trợ cả /health và /health/live trực tiếp (phục vụ docker healthcheck / load balancers).
+# Bản sao này cố ý ẩn khỏi OpenAPI để /docs chỉ hiển thị một bộ endpoint /api/health.
+app.include_router(health.router, tags=["Health"], include_in_schema=False)
 app.include_router(rag.router, prefix="/api", tags=["RAG"])
 app.include_router(nlq.router, prefix="/api", tags=["NLQ"])
 app.include_router(feedback.router, prefix="/api", tags=["Feedback"])
 app.include_router(router_api.router, prefix="/api", tags=["Router"])
+app.include_router(ask.router, prefix="/api", tags=["Ask"])
 
 
 @app.get("/", include_in_schema=False)
