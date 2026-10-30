@@ -212,20 +212,23 @@ def _hybrid_fusion(bm25_docs: list[Document], vector_matches: list[dict], top_k:
             if is_bm25:
                 source = item.metadata["source"]
                 chunk_index = item.metadata["chunk_index"]
+                corpus = item.metadata.get("corpus")
                 doc = item
             else:
                 source = item["source"]
                 chunk_index = item["chunk_index"]
+                corpus = item.get("corpus")
                 doc = Document(
                     page_content=item["content"],
                     metadata={
                         "source": source,
                         "chunk_index": chunk_index,
+                        "corpus": corpus,
                         "page_number": item.get("page_number"),
                         "section": item.get("section"),
                     },
                 )
-            key = (source, chunk_index)
+            key = (corpus, source, chunk_index)
             scores[key] += weight / (_RRF_CONSTANT + rank)
             documents.setdefault(key, doc)
 

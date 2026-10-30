@@ -10,7 +10,7 @@ from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 from sqlglot import exp, parse
-from sqlglot.optimizer.scope import traverse_scope
+from sqlglot.optimizer.scope import Scope, traverse_scope
 
 from app.core.config import settings
 from app.core.llm import extract_message_text, get_llm, get_model_provider
@@ -165,9 +165,8 @@ def _has_canceled_order_exclusion(root: exp.Select) -> bool:
         return False
 
     predicates = []
-    where = root.args.get("where")
-    if where is not None:
-        predicates.extend(where.walk())
+    for where_node in root.find_all(exp.Where):
+        predicates.extend(where_node.walk())
     for join in root.find_all(exp.Join):
         on_clause = join.args.get("on")
         if on_clause is not None:
@@ -302,14 +301,22 @@ def validate_sql(
                 ):
                     raise SchemaMismatch("Không cho phép SELECT *; hãy chọn cột cụ thể.")
         table_aliases = {}
+        subquery_aliases = {}
         for scope in traverse_scope(root):
             for alias, source in scope.sources.items():
                 if isinstance(source, exp.Table):
                     table_aliases[alias.casefold()] = source.name.casefold()
+                elif isinstance(source, Scope):
+                    subquery_aliases[alias.casefold()] = {
+                        c.casefold() for c in getattr(source.expression, "named_selects", [])
+                    }
+                    table_aliases[alias.casefold()] = alias.casefold()
                 elif hasattr(source, "alias_or_name"):
                     table_aliases[alias.casefold()] = source.alias_or_name.casefold()
         for name in referenced:
             table_aliases[name.casefold()] = name.casefold()
+        for sub_alias, sub_cols in subquery_aliases.items():
+            allowed_column_names.setdefault(sub_alias, set()).update(sub_cols)
 
         for column in root.find_all(exp.Column):
             name = column.name.casefold()

@@ -171,10 +171,12 @@ def test_router_detects_write_intent_and_allows_valid_questions():
     assert route_question("DROP TABLE orders").category == RouteCategory.UNSUPPORTED_ACTION
     assert route_question("Xóa toàn bộ đơn hàng được không?").category == RouteCategory.UNSUPPORTED_ACTION
     assert route_question("xoa toan bo don hang duoc khong?").category == RouteCategory.UNSUPPORTED_ACTION
+    assert route_question("Hủy đơn hàng 123").category == RouteCategory.UNSUPPORTED_ACTION
 
     # Câu hỏi hợp lệ về chính sách/quy trình hủy vẫn vào RAG
     assert route_question("Làm sao để hủy đơn hàng?").category == RouteCategory.RAG
     assert route_question("Quy trình cập nhật tồn kho thế nào?").category == RouteCategory.RAG
+    assert route_question("Quy trình xử lý có bao nhiêu đơn hàng tối đa mỗi lần?").category == RouteCategory.RAG
     assert route_question("thoi han bao hanh san pham la bao nhieu ngay").category == RouteCategory.RAG
     assert route_question("bao hanh bao nhieu ngay").category == RouteCategory.RAG
     assert route_question("hat dieu co con khong").category == RouteCategory.RAG

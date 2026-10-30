@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 # In-memory dictionary: session_id -> list of message dicts
 _SESSIONS: OrderedDict[str, list[dict]] = OrderedDict()
 _SESSION_LAST_ACTIVITY: dict[str, float] = {}
+_SESSION_LOCK = threading.Lock()
 _MAX_SESSIONS = 1000
 _MAX_MESSAGES_PER_SESSION = 40
 _SESSION_TTL_SECONDS = 30 * 60
@@ -122,12 +123,13 @@ def touch_session(session_id: str | None) -> None:
     if not session_id:
         return
     now = time.monotonic()
-    _expire_sessions(now)
-    _evict_if_needed(session_id)
-    if session_id not in _SESSIONS:
-        _SESSIONS[session_id] = []
-    _SESSIONS.move_to_end(session_id)
-    _SESSION_LAST_ACTIVITY[session_id] = now
+    with _SESSION_LOCK:
+        _expire_sessions(now)
+        _evict_if_needed(session_id)
+        if session_id not in _SESSIONS:
+            _SESSIONS[session_id] = []
+        _SESSIONS.move_to_end(session_id)
+        _SESSION_LAST_ACTIVITY[session_id] = now
 
 
 def get_history(session_id: str | None) -> list[dict]:
@@ -135,12 +137,13 @@ def get_history(session_id: str | None) -> list[dict]:
     if not session_id:
         return []
     now = time.monotonic()
-    _expire_sessions(now)
-    if session_id not in _SESSIONS:
-        return []
-    _SESSIONS.move_to_end(session_id)
-    _SESSION_LAST_ACTIVITY[session_id] = now
-    return list(_SESSIONS[session_id])
+    with _SESSION_LOCK:
+        _expire_sessions(now)
+        if session_id not in _SESSIONS:
+            return []
+        _SESSIONS.move_to_end(session_id)
+        _SESSION_LAST_ACTIVITY[session_id] = now
+        return list(_SESSIONS[session_id])
 
 
 def add_turn(session_id: str | None, question: str, answer: str) -> None:
@@ -149,33 +152,36 @@ def add_turn(session_id: str | None, question: str, answer: str) -> None:
         return
 
     now = time.monotonic()
-    _expire_sessions(now)
-    _evict_if_needed(session_id)
+    with _SESSION_LOCK:
+        _expire_sessions(now)
+        _evict_if_needed(session_id)
 
-    if session_id not in _SESSIONS:
-        _SESSIONS[session_id] = []
+        if session_id not in _SESSIONS:
+            _SESSIONS[session_id] = []
 
-    _SESSIONS[session_id].append({"role": "user", "content": question, "timestamp": time.time()})
-    _SESSIONS[session_id].append({"role": "assistant", "content": answer, "timestamp": time.time()})
-    if len(_SESSIONS[session_id]) > _MAX_MESSAGES_PER_SESSION:
-        del _SESSIONS[session_id][:-_MAX_MESSAGES_PER_SESSION]
-    _SESSIONS.move_to_end(session_id)
-    _SESSION_LAST_ACTIVITY[session_id] = now
+        _SESSIONS[session_id].append({"role": "user", "content": question, "timestamp": time.time()})
+        _SESSIONS[session_id].append({"role": "assistant", "content": answer, "timestamp": time.time()})
+        if len(_SESSIONS[session_id]) > _MAX_MESSAGES_PER_SESSION:
+            del _SESSIONS[session_id][:-_MAX_MESSAGES_PER_SESSION]
+        _SESSIONS.move_to_end(session_id)
+        _SESSION_LAST_ACTIVITY[session_id] = now
 
 
 def clear_session(session_id: str) -> None:
     """Clear history for a specific session and schedule corpus cleanup."""
-    existed = session_id in _SESSIONS
-    _SESSIONS.pop(session_id, None)
-    _SESSION_LAST_ACTIVITY.pop(session_id, None)
+    with _SESSION_LOCK:
+        existed = session_id in _SESSIONS
+        _SESSIONS.pop(session_id, None)
+        _SESSION_LAST_ACTIVITY.pop(session_id, None)
     if existed:
         _dispatch_corpus_cleanup(session_id)
 
 
 def clear_all_sessions() -> None:
     """Clear all sessions (useful for unit tests)."""
-    _SESSIONS.clear()
-    _SESSION_LAST_ACTIVITY.clear()
+    with _SESSION_LOCK:
+        _SESSIONS.clear()
+        _SESSION_LAST_ACTIVITY.clear()
 
 
 def sweep_orphan_session_corpora() -> int:

@@ -166,7 +166,7 @@ GREETING_PATTERNS = [
 # 7. Lạc đề ngoài phạm vi
 # 8. Mệnh lệnh ghi / xóa / sửa dữ liệu (Write intent)
 WRITE_IMPERATIVE_PATTERNS = [
-    r"^(?:hãy\s+)?(?:xóa|xoa|drop|delete|truncate|clear)\b",
+    r"^(?:hãy\s+)?(?:xóa|xoa|hủy|huy|drop|delete|truncate|clear)\b",
     r"^(?:hãy\s+)?(?:cập\s+nhật|cap\s+nhat|update|sửa|sua|thay\s+đổi|thay\s+doi)\s+.*(?:thành|thanh|=|sang)",
     r"^(?:hãy\s+)?(?:thêm|them|chèn|chen|insert)\s+.*(?:vào|vao|to)",
     r"\b(?:drop\s+table|delete\s+from|update\s+\w+\s+set|insert\s+into|truncate\s+table)\b",
@@ -297,8 +297,8 @@ def _rule_based_classify(question: str) -> RouteDecision:
     is_destructive_wipe = any(
         re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
         for p in [
-            r"\b(?:xóa|xoa|drop|delete|truncate|clear)\s+(?:toàn\s+bộ|toan\s+bo|hết|het|tất\s+cả|tat\s+ca)\b",
-            r"\b(?:xóa|xoa|drop|delete|truncate)\s+(?:bảng|bang|table|cơ\s+sở\s+dữ\s+liệu|co\s+so\s+du\s+lieu|database)\b",
+            r"\b(?:xóa|xoa|hủy|huy|drop|delete|truncate|clear)\s+(?:toàn\s+bộ|toan\s+bo|hết|het|tất\s+cả|tat\s+ca)\b",
+            r"\b(?:xóa|xoa|hủy|huy|drop|delete|truncate)\s+(?:bảng|bang|table|cơ\s+sở\s+dữ\s+liệu|co\s+so\s+du\s+lieu|database)\b",
         ]
     )
     is_write_cmd = any(
@@ -344,18 +344,7 @@ def _rule_based_classify(question: str) -> RouteDecision:
 
     # 3. Câu hỏi văn bản chính sách/thủ tục (kể cả khi nhắc đến thực thể CSDL như đơn hàng/sản phẩm)
     if has_policy:
-        # Nếu câu hỏi hỏi về số lượng bản ghi CSDL (ví dụ "có bao nhiêu đơn hàng", "tổng số sản phẩm")
-        is_counting_db_rows = any(
-            re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
-            for p in [
-                r"\b(?:có\s+)?bao\s+nhiêu\s+(?:đơn|don|khách|khach|sản\s+phẩm|san\s+pham|mặt\s+hàng|mat\s+hang)\b",
-                r"\b(?:tổng\s+số|tong\s+so|số\s+lượng|so\s+luong)\s+(?:đơn|don|khách|khach|sản\s+phẩm|san\s+pham)\b",
-            ]
-        )
-        if is_counting_db_rows:
-            return RouteDecision(category=RouteCategory.NLQ, reasoning="Yêu cầu định lượng hoặc thống kê thực thể CSDL")
-
-        # Nếu câu hỏi hỏi về quy trình, hướng dẫn, thủ tục, chính sách, quy định (kể cả chứa thực thể CSDL như tồn kho)
+        # Nếu câu hỏi hỏi về quy trình, hướng dẫn, thủ tục, chính sách, quy định (kể cả chứa thực thể CSDL như tồn kho/đơn hàng)
         is_process_or_guide = any(
             re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
             for p in [
@@ -369,7 +358,7 @@ def _rule_based_classify(question: str) -> RouteDecision:
                 r"\bđiều\s+kiện\b", r"\bdieu\s+kien\b",
             ]
         )
-        if is_process_or_guide and not (has_quantitative and is_counting_db_rows):
+        if is_process_or_guide:
             return RouteDecision(category=RouteCategory.RAG, reasoning="Hỏi về quy trình/chính sách/hướng dẫn tài liệu")
 
         # Nếu câu hỏi hỏi về thời hạn/thời lượng chính sách ("bao nhiêu ngày", "bao lâu", "mấy ngày")
@@ -384,6 +373,17 @@ def _rule_based_classify(question: str) -> RouteDecision:
         )
         if is_asking_duration:
             return RouteDecision(category=RouteCategory.RAG, reasoning="Hỏi về thời hạn/quy định thời gian chính sách")
+
+        # Nếu câu hỏi hỏi về số lượng bản ghi CSDL (ví dụ "có bao nhiêu đơn hàng", "tổng số sản phẩm")
+        is_counting_db_rows = any(
+            re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
+            for p in [
+                r"\b(?:có\s+)?bao\s+nhiêu\s+(?:đơn|don|khách|khach|sản\s+phẩm|san\s+pham|mặt\s+hàng|mat\s+hang)\b",
+                r"\b(?:tổng\s+số|tong\s+so|số\s+lượng|so\s+luong)\s+(?:đơn|don|khách|khach|sản\s+phẩm|san\s+pham)\b",
+            ]
+        )
+        if is_counting_db_rows:
+            return RouteDecision(category=RouteCategory.NLQ, reasoning="Yêu cầu định lượng hoặc thống kê thực thể CSDL")
 
         # Nếu câu hỏi chứa từ khóa chính sách rõ rệt và không hỏi chỉ số DB thuần túy (doanh thu, tồn kho...)
         if not has_pure_db_metric:

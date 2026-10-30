@@ -134,6 +134,14 @@ def test_get_allowed_columns_filters_sensitive_fields():
     with pytest.raises(SchemaMismatch, match="Truy vấn tham chiếu cột ngoài schema"):
         validate_sql("SELECT non_existent_col FROM customers", {"customers"}, allowed_columns={"customers": {"customer_id", "city"}})
 
+    # Kiểm tra validate_sql chấp nhận truy vấn hợp lệ và bảng dẫn xuất (derived table alias)
+    valid_res = validate_sql(
+        "SELECT t.spend FROM (SELECT SUM(quantity * unit_price) AS spend FROM order_items) t",
+        {"order_items"},
+        allowed_columns={"order_items": {"order_id", "quantity", "unit_price"}},
+    )
+    assert "t.spend" in valid_res
+
 
 def test_get_allowed_columns_fallback_defaults():
     """Khi schema rỗng, trả về các cột mặc định an toàn của bảng customers."""
