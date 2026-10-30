@@ -6,7 +6,7 @@ tránh so sánh chéo giữa các bộ dữ liệu khác nhau. Mọi giá trị 
 
 | Mốc | Commit | Ghi chú |
 |---|---|---|
-| HEAD bàn giao Tuần 2 | `f09ca9a4b18c6d7a5b3a4a755d4d3d3a4b08f4cb` (`f09ca9a`) | nhánh `feature/TASK-AI24-AI26-testing-handover-demo` & `release/week-2-demo`; **400** test passed 100% (400/400) |
+| HEAD bàn giao Tuần 2 | `66c8f58f861ee28449efe93dc710f54c68736de0` (`66c8f58`) | nhánh `feature/TASK-AI24-AI26-testing-handover-demo` & `release/week-2-demo`; **400** test passed 100% (400/400) |
 | Kết quả chạy kiểm thử | `eval/pytest_run_log.txt` | Lưu chi tiết toàn bộ 400 test case thực thi đạt 100% trong 18.04s |
 | Bản đóng gói bàn giao | Mã nguồn hoàn thiện | Đầy đủ mã nguồn, tài liệu, kịch bản demo và log kiểm thử độc lập |
 
@@ -151,10 +151,13 @@ sàn nhiễu retrieval = 0 ca).
   lỗi khỏi mẫu số thay vì tính là "đã trả lời".
 
 ## 3. NLQ
-- `eval/nlq_eval_run_current.json`: **30 ca** đo kiểm trực tiếp trên golden set hiện hành với Gemini 3.5 Flash-Lite:
-  * **22 ca** thực thi hoàn tất: đạt **14/22 ca đúng chính xác (63.6%)**.
-  * **7 ca** chạm hạn mức 15 RPM của Gemini Free Tier (HTTP 429 RESOURCE_EXHAUSTED) khi chạy đánh giá hàng loạt không có giãn cách lớn. Trong runtime sản phẩm, các lỗi này được tự động khắc phục qua cơ chế `with_fallbacks`.
-- Kết quả đối chiếu với báo cáo v2: Baseline DDL tĩnh trước đó đạt **18–20/30 (60.0% – 66.7%)** strict execution accuracy và **24/30 (80.0%)** relaxed execution accuracy.
+- `eval/nlq_eval_run_current.json`: **30 ca** đo kiểm offline trực tiếp bằng script `evaluate_nlq_model.py` với Gemini 3.5 Flash-Lite:
+  * **Strict Execution Accuracy (toàn bộ 30 ca):** **14/30 = 46.7%**.
+  * **Strict Execution Accuracy (trên 22 ca thực thi xong):** **14/22 = 63.6%**.
+  * **Relaxed Execution Accuracy:** **4/30 = 13.3%** (chỉ có 4 ca mở rộng đạt tiêu chuẩn relaxed riêng biệt).
+  * **Cơ cấu chi tiết đủ 30 ca:** **14 pass**, **8 fail** (sai logic SQL), **1 rejected** (bị validator AST chặn an toàn), **7 error** (lỗi HTTP 429 RESOURCE_EXHAUSTED do Gemini Free Tier chạm ngưỡng 15 RPM).
+  * *Lưu ý về phạm vi đo:* Lần đo này chạy script offline trực tiếp với DDL tĩnh, không qua đường LangGraph production và không có cơ chế `with_fallbacks`, nên 7 ca lỗi 429 không được chuyển đổi sang model dự phòng.
+- Kết quả đối chiếu với baseline tĩnh trước đó (Báo cáo v2 §3.3): Từng đạt **18–20/30 (60.0% – 66.7%)** và relaxed **24/30 (80.0%)**, nhưng là trên bộ DDL thử nghiệm cũ chưa có tie-break trong golden set.
 
 ## 4. Hội thoại nhiều lượt
 

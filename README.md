@@ -216,9 +216,13 @@ Hệ thống tích hợp sâu với Langfuse Cloud để giám sát toàn diện
      * **Abstention Accuracy (Từ chối an toàn khi thiếu dữ liệu):** **98.5%** (64/65 ca quyết định đúng, Hallucination trên câu hỏi âm = 0/24).
      * **Hit@5 Retrieval (Tỷ lệ tìm thấy tài liệu liên quan):** **97.6%** (40/41 ca answerable, MRR = 0.9207).
      * **Fragment Match (Khớp nội dung trả lời chuẩn):** **31–32/41 (75.6% – 78.0%)**.
-   - **Đo lường NLQ (Bộ Golden Set 30 ca Text-to-SQL — xem `eval/report_v2.md` §3.3 và `eval/current_numbers.md` §3):**
-     * **Strict Execution Accuracy (Khớp chính xác kết quả):** **18–20/30 (60.0% – 66.7%)** trên baseline tĩnh; lần chạy kiểm thử thực tế gần nhất đạt **14/22 (63.6%)** ca thực thi thành công (các ca rate-limit được tự động chuyển đổi qua cơ chế `with_fallbacks`).
-     * **Relaxed Execution Accuracy (Cho phép chiếu thừa cột):** đạt **24/30 = 80.0%** với Gemini 3.1 và Gemini 3.5 Flash-Lite.
+   - **Đo lường NLQ (Bộ Golden Set 30 ca Text-to-SQL — xem `eval/current_numbers.md` §3):**
+     * **Kết quả đo trực tiếp với Gemini 3.5 Flash-Lite (`eval/nlq_eval_run_current.json`):**
+       - **Strict Execution Accuracy (Toàn bộ 30 ca):** **14/30 (46.7%)**.
+       - **Strict Execution Accuracy (Chỉ tính 22 ca hoàn tất thực thi):** **14/22 (63.6%)**.
+       - **Relaxed Execution Accuracy:** **4/30 (13.3%)**.
+       - **Cơ cấu chi tiết 30 ca:** 14 PASS, 8 FAIL, 1 REJECTED (bị SQL validator AST chặn an toàn), 7 ERROR (lỗi HTTP 429 RESOURCE_EXHAUSTED do Gemini Free Tier chạm ngưỡng 15 RPM; script đo kiểm offline này chạy trực tiếp không qua pipeline LangGraph production và không có cơ chế fallback).
+     * **Baseline DDL tĩnh trước đó (Báo cáo v2 §3.3):** Đạt **18–20/30 (60.0% – 66.7%)** và relaxed **24/30 (80.0%)** (trên bộ DDL thử nghiệm cũ chưa có tie-break trong golden set).
      * *Chi tiết đối chiếu số liệu và nhật ký thực thi:* Được lưu tại [`eval/nlq_eval_run_current.json`](eval/nlq_eval_run_current.json) và [`eval/current_numbers.md`](eval/current_numbers.md) §3.
 
 ---
