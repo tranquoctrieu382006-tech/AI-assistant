@@ -66,6 +66,25 @@ def test_rag_llm_sets_explicit_context_for_ollama(monkeypatch):
         max_retries=0, num_ctx=8192,
     )
 
+    # TC-07: Xác nhận cơ chế dự phòng with_fallbacks kích hoạt khi mô hình chính lỗi
+    from app.core.llm import get_llm_with_fallbacks
+    from langchain_community.chat_models import FakeListChatModel
+
+    class FailingChatModel(FakeListChatModel):
+        def _call(self, *args, **kwargs):
+            raise RuntimeError("HTTP 429 Resource Exhausted / Rate Limit")
+
+    failing_primary = FailingChatModel(responses=["fail"])
+    fallback_backup = FakeListChatModel(responses=["Fallback model response OK"])
+
+    with patch("app.core.llm.get_llm") as mock_get_llm:
+        mock_get_llm.side_effect = lambda role, **kwargs: (
+            failing_primary if role == "fast" else fallback_backup
+        )
+        resilient_llm = get_llm_with_fallbacks(primary_role="fast", fallback_roles=["local"])
+        response = resilient_llm.invoke("Kiểm tra dự phòng")
+        assert response.content == "Fallback model response OK"
+
 
 def test_rag_llm_does_not_pass_ollama_context_to_cloud_model(monkeypatch):
     from app.core.config import settings

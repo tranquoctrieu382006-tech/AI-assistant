@@ -153,14 +153,17 @@ def test_upload_prompt_injection_document_resistance(client):
     mock_chain = MagicMock()
     mock_chain.ainvoke = AsyncMock(return_value=safe_mock_answer)
 
-    with patch("app.core.vector_store.similarity_search", return_value=[{
+    mock_retrieved_chunk = {
         "content": injection_text,
         "source": "user_uploads/security_guide.txt",
         "chunk_index": 0,
         "score": 0.85,
         "corpus": "user",
         "display_name": "security_guide.txt",
-    }]), patch("app.api.rag.build_rag_chain", return_value=mock_chain):
+    }
+    with patch("app.core.vector_store.similarity_search", return_value=[mock_retrieved_chunk]), \
+         patch("app.api.rag.retrieve_and_gate", return_value=([mock_retrieved_chunk], False)), \
+         patch("app.api.rag.build_rag_chain", return_value=mock_chain):
         ask_resp = client.post("/api/rag/ask", json={"question": "Hướng dẫn bảo mật nói gì?"})
 
     assert ask_resp.status_code == 200

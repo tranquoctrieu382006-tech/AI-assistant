@@ -53,7 +53,7 @@ def test_session_store_expires_inactive_sessions_and_refreshes_lru(monkeypatch):
     monkeypatch.setattr(session_store, "_SESSION_TTL_SECONDS", 60)
     session_store.add_turn("old", "q", "a")
     session_store.add_turn("recent", "q", "a")
-    session_store._SESSION_LAST_ACTIVITY["old"] = 0
+    session_store._SESSION_LAST_ACTIVITY["old"] = time.monotonic() - 100
     with patch("app.core.vector_store.delete_corpus", return_value=0) as delete_corpus:
         assert session_store.get_history("old") == []
     delete_corpus.assert_called_once_with("session_old")

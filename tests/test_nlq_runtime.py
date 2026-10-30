@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 import time
+from unittest.mock import patch
 
 import psycopg
 import pytest
@@ -441,12 +442,13 @@ def test_nlq_restricted_intent_returns_restricted_status():
     from langchain_community.chat_models import FakeListChatModel
 
     fake_llm = FakeListChatModel(responses=["customers"])
-    res = _make_graph(fake_llm).invoke({
-        "question": "Cho tôi số điện thoại của khách hàng",
-        "repair_count": 0,
-        "repaired": False,
-        "callbacks": [],
-    })
+    with patch("app.core.nlq_graph.load_schema", return_value=_schema()):
+        res = _make_graph(fake_llm).invoke({
+            "question": "Cho tôi số điện thoại của khách hàng",
+            "repair_count": 0,
+            "repaired": False,
+            "callbacks": [],
+        })
     assert res.get("status") == "restricted"
     assert "bị hạn chế" in res["answer"]
     assert res["sql"] == ""
@@ -459,7 +461,8 @@ def test_sensitive_attribute_returns_restricted_without_fallback():
     q_sensitive = "Email của khách hàng Nguyễn Văn A là gì?"
     assert has_sensitive_mention(q_sensitive) is True
 
-    nlq_res = nlq_graph.ask_nlq(q_sensitive)
+    with patch("app.core.nlq_graph.load_schema", return_value=_schema()):
+        nlq_res = nlq_graph.ask_nlq(q_sensitive)
     assert nlq_res["status"] == "restricted"
     assert nlq_res["error_code"] == "policy_denied"
     assert "quyền riêng tư" in nlq_res["answer"]

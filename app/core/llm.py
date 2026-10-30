@@ -219,14 +219,44 @@ def get_llm(
     return llm
 
 
+def get_llm_with_fallbacks(
+    primary_role: str = "fast",
+    fallback_roles: list[str] | None = None,
+    temperature: float = 0.0,
+    **kwargs,
+) -> BaseChatModel:
+    """
+    Khởi tạo LLM với cơ chế fallback tự động của LangChain (`with_fallbacks`).
+    Nếu model chính (primary_role) gặp lỗi runtime như HTTP 429 hoặc timeout,
+    hệ thống tự động chuyển tiếp truy vấn sang danh sách fallback_roles theo thứ tự.
+    """
+    if fallback_roles is None:
+        fallback_roles = ["local"]
+
+    primary_llm = get_llm(primary_role, temperature=temperature, **kwargs)
+    fallbacks: list[BaseChatModel] = []
+    for role in fallback_roles:
+        if role and role != primary_role:
+            try:
+                fallbacks.append(get_llm(role, temperature=temperature, **kwargs))
+            except Exception as e:
+                logger.warning("Không thể khởi tạo fallback model %s: %s", role, e)
+
+    if fallbacks:
+        return primary_llm.with_fallbacks(fallbacks)
+    return primary_llm
+
+
 def get_rag_llm(
     model_role: str | None = None,
     temperature: float = 0.0,
     *,
     timeout: float | None = None,
     max_retries: int | None = None,
+    with_fallback: bool = False,
+    fallback_roles: list[str] | None = None,
 ) -> BaseChatModel:
-    """Build the configured RAG model with bounded provider-specific retries."""
+    """Build the configured RAG model with bounded provider-specific retries and optional fallback."""
     model_role = model_role or settings.rag_model
     raw_model_name = _resolve_model_name(model_role)
     provider, _ = _parse_provider_and_model(raw_model_name)
@@ -241,6 +271,17 @@ def get_rag_llm(
         # Disable hidden SDK retries; the non-stream RAG route owns the single
         # explicit 429/503 retry and the stream has no safe replay point.
         max_retries = 0
+
+    if with_fallback:
+        return get_llm_with_fallbacks(
+            primary_role=model_role,
+            fallback_roles=fallback_roles or (["local"] if model_role != "local" else None),
+            temperature=temperature,
+            timeout=timeout,
+            max_retries=max_retries,
+            **kwargs,
+        )
+
     return get_llm(
         model_role,
         temperature=temperature,

@@ -57,17 +57,17 @@ Bạn có thể lựa chọn 1 trong 2 cách triển khai dưới đây:
 Chỉ với 1 lệnh, hệ thống sẽ tự động khởi tạo PostgreSQL có sẵn `pgvector`, nạp 2.346 dòng dữ liệu bán hàng mẫu, tạo role chỉ đọc `ai_nlq_reader` và bật Ollama:
 
 ```bash
-# 1. Khởi động hạ tầng CSDL và Ollama
+# 1. Sao chép và cấu hình file môi trường
+cp .env.example .env
+
+# 2. Khởi động hạ tầng CSDL và Ollama
 docker compose up -d
 
-# 2. Tải model embedding bge-m3 vào container Ollama
+# 3. Tải model embedding bge-m3 vào container Ollama
 docker compose exec ollama ollama pull bge-m3
 
-# 3. Cài đặt thư viện Python trên máy
+# 4. Cài đặt thư viện Python trên máy
 pip install -r requirements.lock
-
-# 4. Sao chép và cấu hình file môi trường
-cp .env.example .env
 
 # 5. Lập chỉ mục tài liệu vào PostgreSQL pgvector
 python -m scripts.ingest_documents --strategy heading
@@ -216,9 +216,10 @@ Hệ thống tích hợp sâu với Langfuse Cloud để giám sát toàn diện
      * **Abstention Accuracy (Từ chối an toàn khi thiếu dữ liệu):** **98.5%** (64/65 ca quyết định đúng, Hallucination trên câu hỏi âm = 0/24).
      * **Hit@5 Retrieval (Tỷ lệ tìm thấy tài liệu liên quan):** **97.6%** (40/41 ca answerable, MRR = 0.9207).
      * **Fragment Match (Khớp nội dung trả lời chuẩn):** **31–32/41 (75.6% – 78.0%)**.
-   - **Đo lường NLQ (Golden set 30 ca Text-to-SQL — xem `eval/report_v2.md` §3.3):**
-     * **Strict Execution Accuracy:** **18–20/30 (60.0% – 66.7%)** (Gemini 3.1 Flash-Lite: **20/30 = 66.7%**, Gemini 3.5 Flash-Lite: **18/30 = 60.0%**, Local Gemma3:12b: **16/30 = 53.3%**).
-     * **Relaxed Execution Accuracy (cho phép chiếu thừa cột):** đạt **24/30 = 80.0%** với Gemini 3.1 và Gemini 3.5 Flash-Lite.
+   - **Đo lường NLQ (Thực nghiệm Text-to-SQL Baseline — xem `eval/report_v2.md` §3.3):**
+     * **Strict Execution Accuracy (Khớp chính xác kết quả):** **18–20/30 (60.0% – 66.7%)** trên bộ baseline tĩnh (Gemini 3.1 Flash-Lite: **20/30 = 66.7%**, Gemini 3.5 Flash-Lite: **18/30 = 60.0%**, Local Gemma3:12b: **16/30 = 53.3%**).
+     * **Relaxed Execution Accuracy (Cho phép chiếu thừa cột):** đạt **24/30 = 80.0%** với Gemini 3.1 và Gemini 3.5 Flash-Lite.
+     * *Ghi chú đồng bộ:* Chi tiết đối chiếu số liệu và tình trạng manifest dữ liệu được phân tích minh bạch tại `eval/current_numbers.md` §3.
 
 ---
 

@@ -251,6 +251,13 @@ def test_ingest_directory_sends_current_relative_source_set(tmp_path: Path, monk
     assert result["files"] == 2
     assert {item["source"] for item in captured["chunks"]} == {"nested/guide.txt", "policy.md"}
     assert all("section" in item for item in captured["chunks"])
+    first_chunk_count = len(captured["chunks"])
+
+    # TC-04: Nạp lại cùng tài liệu lần 2, kiểm tra tính lũy đọng (idempotent), không nhân bản chunk
+    result2 = ingest_directory(tmp_path)
+    assert result2["files"] == 2
+    assert len(captured["chunks"]) == first_chunk_count
+    assert {item["source"] for item in captured["chunks"]} == {"nested/guide.txt", "policy.md"}
 
 
 def test_ingest_rejects_missing_or_empty_directory_before_replacing_index(tmp_path, monkeypatch):

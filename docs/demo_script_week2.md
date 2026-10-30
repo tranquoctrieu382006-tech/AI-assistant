@@ -108,14 +108,14 @@ flowchart LR
 
 ---
 
-### Phần 6: Trình Diễn MCP & Cơ Chế Mô Hình Dự Phòng (Phút 24 – 26)
-- **Chuẩn MCP (Model Context Protocol):**
-  * Giải thích kiến trúc đóng gói công cụ nội bộ: `search_documents` (RAG) và `query_data` (NLQ) theo chuẩn mở MCP của Anthropic.
-  * Giúp các trợ lý AI bên ngoài (Claude Desktop, IDE Agent) có thể kết nối trực tiếp vào kho tri thức và CSDL của công ty một cách an toàn mà không cần build lại API từ đầu.
-- **Chuyển đổi mô hình dự phòng (Fallback LLM):**
-  * Mô phỏng tình huống ngắt mạng hoặc chạm hạn mức Google GenAI (HTTP 429).
-  * Chuỗi fallback cấu hình sẵn trong core: `Gemini Flash-Lite` $\rightarrow$ `Gemini Flash` $\rightarrow$ `Ollama Local (Gemma3:12b)`.
-  * Hệ thống tự động chuyển sang mô hình tiếp theo, đảm bảo tính liên tục của dịch vụ (High Availability) cho doanh nghiệp.
+### Phần 6: Trình Diễn Cơ Chế Dự Phòng Mô Hình & Định Hướng Mở Rộng MCP (Phút 24 – 26)
+- **Chuyển đổi mô hình dự phòng (Fallback LLM với `with_fallbacks`):**
+  * Mô phỏng tình huống chạm hạn mức Google GenAI (HTTP 429) hoặc lỗi mạng.
+  * Chuỗi dự phòng tự động triển khai qua LangChain `with_fallbacks` trong `app/core/llm.py`: `Gemini Flash-Lite` $\rightarrow$ `Gemini Flash` $\rightarrow$ `Ollama Local (Gemma3:12b)`.
+  * Hệ thống tự động chuyển đổi sang mô hình dự phòng mà không làm gián đoạn trải nghiệm người dùng, đảm bảo tính sẵn sàng cao (High Availability).
+- **Định hướng kiến trúc chuẩn mở MCP (Model Context Protocol Roadmap):**
+  * Giới thiệu thiết kế module hóa của các API nghiệp vụ: `search_documents` (RAG) và `query_data` (NLQ) với input/output schema chặt chẽ (Pydantic).
+  * Định hướng giai đoạn tiếp theo (Roadmap): Đóng gói 2 chức năng cốt lõi này thành MCP Server theo chuẩn mở Anthropic MCP, cho phép các AI Client bên ngoài (Claude Desktop, Antigravity IDE) kết nối và truy xuất kho tri thức nội bộ an toàn.
 
 ---
 
