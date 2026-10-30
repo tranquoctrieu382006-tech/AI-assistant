@@ -6,7 +6,7 @@ tránh so sánh chéo giữa các bộ dữ liệu khác nhau. Mọi giá trị 
 
 | Mốc | Commit | Ghi chú |
 |---|---|---|
-| HEAD bàn giao Tuần 2 | `a3a49edc4c271c7f14ded990852f168fae68258e` (`a3a49ed`) | nhánh `feature/TASK-AI24-AI26-testing-handover-demo` & `release/week-2-demo`; **403** test passed 100% (403/403) |
+| HEAD bàn giao Tuần 2 | `58fddff8f4420520893129afbf5ffecdd8361ed8` (`58fddff`) | nhánh `feature/TASK-AI24-AI26-testing-handover-demo` & `release/week-2-demo`; **403** test passed 100% (403/403) |
 | Kết quả chạy kiểm thử | `eval/pytest_run_log.txt` | Lưu chi tiết toàn bộ 403 test case thực thi đạt 100% trong 19.45s |
 | Bản đóng gói bàn giao | Mã nguồn hoàn thiện | Đầy đủ mã nguồn, tài liệu, kịch bản demo và log kiểm thử độc lập |
 

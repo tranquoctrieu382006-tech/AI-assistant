@@ -300,14 +300,16 @@ npx @modelcontextprotocol/inspector python -m app.mcp_server
 python -X utf8 -m scripts.verify_mcp_live
 ```
 
+- **Nhật ký minh chứng chạy thật:** Xem toàn bộ log thực thi trực tiếp với LLM và CSDL tại [`eval/mcp_live_verification_log.txt`](eval/mcp_live_verification_log.txt).
+
 ### Cấu hình mẫu cho Claude Desktop (`claude_desktop_config.json`):
 ```json
 {
   "mcpServers": {
     "enterprise-ai-assistant": {
-      "command": "python",
+      "command": "<duong-dan-python-interpreter-da-cai-mcp>",
       "args": ["-m", "app.mcp_server"],
-      "cwd": "D:\\ITSS\\ai-assistant",
+      "cwd": "<duong-dan-tuyet-doi-toi-thu-muc-ai-assistant>",
       "env": {
         "PYTHONPATH": "."
       }
@@ -315,6 +317,10 @@ python -X utf8 -m scripts.verify_mcp_live
   }
 }
 ```
+
+> ⚠️ **Lưu ý cấu hình trên máy người dùng:**
+> - **`command`**: Điền đường dẫn tuyệt đối tới file thực thi Python trong môi trường ảo của bạn (ví dụ: `C:\\Users\\<Username>\\AppData\\Local\\Programs\\Python\\Python312\\python.exe` hoặc `.venv\\Scripts\\python.exe` trên Windows, `/path/to/.venv/bin/python` trên Linux/macOS) để đảm bảo gọi đúng Python đã cài `mcp==2.3.0`.
+> - **`cwd`**: Điền đường dẫn tuyệt đối tới thư mục dự án `ai-assistant` trên máy tính của bạn (ví dụ: `D:\\ITSS\\ai-assistant`).
 
 ---
 

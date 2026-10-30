@@ -1,0 +1,45 @@
+=================================================================
+NHẬT KÝ THỰC THI KIỂM TRA THỰC TẾ MCP SERVER (TASK-AI19)
+Thời điểm kiểm tra: 2026-10-30T17:33:43.974118
+Chuẩn giao thức: Model Context Protocol (Anthropic MCP SDK 2.3.0)
+=================================================================
+
+[1] Danh sách tools đã đăng ký thành công (2 tools):
+  - Tên tool: search_documents
+    Mô tả: Tra cứu tài liệu quy trình, quy định bảo hành, đổi trả và chính sách nội bộ thông qua RAG (Retrieval-Augmented Generation).
+
+    Args:
+        query: Câu hỏi hoặc từ khóa cần tra cứu trong tài liệu nội bộ.
+        top_k: Số lượng đoạn trích liên quan tối đa cần truy xuất (mặc định: 5).
+
+    Returns:
+        Câu trả lời tổng hợp kèm theo danh sách nguồn tài liệu trích dẫn chi tiết (tên file, số trang, điểm tương đồng).
+    
+  - Tên tool: query_data
+    Mô tả: Truy vấn dữ liệu số, báo cáo doanh thu, sản phẩm và khách hàng từ cơ sở dữ liệu quan hệ (NLQ Text-to-SQL).
+
+    Args:
+        query: Câu hỏi tự nhiên bằng tiếng Việt yêu cầu trích xuất số liệu từ CSDL bán hàng.
+
+    Returns:
+        Câu trả lời giải thích số liệu kèm câu lệnh SQL an toàn đã sinh và dữ liệu chi tiết dạng bảng (rows/columns).
+    
+
+[2] Kiểm tra gọi thật tool 'query_data' (NLQ Text-to-SQL):
+  -> Câu hỏi đầu vào: 'Có bao nhiêu sản phẩm trong hệ thống?'
+  <- Trạng thái: ok
+  <- SQL sinh ra: SELECT COUNT(*) AS total_products FROM products LIMIT 201
+  <- Dữ liệu kết quả: [{'total_products': 80}]
+  <- Câu trả lời tự nhiên: Có 80 sản phẩm trong hệ thống.
+
+[3] Kiểm tra gọi thật tool 'search_documents' (RAG Documents):
+  -> Câu hỏi đầu vào: 'Quy định bảo hành và đổi trả thế nào?'
+  <- Câu trả lời: Bảo hành: Sản phẩm điện tử được bảo hành 12 tháng kể từ ngày giao nếu còn tem/serial và lỗi trong điều kiện sử dụng bình thường. Thời gian chẩn đoán tối đa 3 ngày làm việc, sửa dự kiến tối đa 15 ngày làm việc. Không bảo hành hư hỏng do chất lỏng, va đập, tự ý sửa chữa hoặc hao mòn tự nhiên.
+Đổi trả: Khách được yêu cầu đổi/trả trong 7 ngày lịch kể từ ngày giao nếu chưa qua sử dụng, đủ phụ kiện và có mã đơn hàng. Hàng lỗi do nhà sản xuất được tiếp nhận trong 30 ngày, kiểm tra xác minh trong 3 ngày làm việc. Không áp dụng đổi trả thông thường cho sản phẩm cá nhân hóa, hàng tiêu hao đã mở niêm phong và quà tặng kèm đã sử dụng. Hoàn tiền trong 5–7 ngày làm việc sau khi duyệt.
+  <- Số nguồn tài liệu trích dẫn: 2
+     1. File: 05_chinh_sach_bao_hanh.pdf | Trang: 1 | Điểm tương đồng: 0.6757
+     2. File: 04_chinh_sach_doi_tra.docx | Trang: None | Điểm tương đồng: 0.6524
+
+=================================================================
+KẾT LUẬN: CẢ 2 CÔNG CỤ MCP HOẠT ĐỘNG CHÍNH XÁC VỚI HẠ TẦNG THẬT
+=================================================================

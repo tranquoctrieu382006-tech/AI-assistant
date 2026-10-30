@@ -115,8 +115,9 @@ flowchart LR
   * Hệ thống tự động chuyển đổi sang mô hình dự phòng mà không làm gián đoạn trải nghiệm người dùng, đảm bảo tính sẵn sàng cao (High Availability).
 - **Tích hợp MCP Server chuẩn mở (TASK-AI19 — `app/mcp_server.py`):**
   * Đóng gói hoàn chỉnh 2 tools nghiệp vụ: `search_documents` (RAG) và `query_data` (NLQ) theo chuẩn Model Context Protocol (Anthropic MCP SDK).
-  * Kiểm thử đơn vị tự động tại `tests/test_mcp_server.py`.
+  * Kiểm thử đơn vị tự động tại `tests/test_mcp_server.py`; nhật ký gọi thật thực tế lưu tại `eval/mcp_live_verification_log.txt`.
   * Sẵn sàng khởi chạy với `python -m app.mcp_server` để tích hợp vào các AI Client bên ngoài (Claude Desktop, Antigravity IDE, Cursor) hoặc kiểm thử qua MCP Inspector.
+  * Phân tích & so sánh kiến trúc giữa Classifier Router và Tool-Calling Agent theo yêu cầu `TASK-AI17` được lưu tại [`docs/router_vs_tool_calling_comparison.md`](router_vs_tool_calling_comparison.md).
 
 ---
 
