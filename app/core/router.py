@@ -222,7 +222,10 @@ OFF_TOPIC_PATTERNS = [
     r"\bkể\s+chuyện\b", r"\bke\s+chuyen\b",
     r"\bchuyện\s+cười\b", r"\bchuyen\s+cuoi\b",
     r"\bhôm\s+nay\s+là\s+thứ\b", r"\bhom\s+nay\s+la\s+thu\b",
-    r"\bhát\b", r"\bhat\b",
+    r"\bca\s+h[áa]t\b",
+    r"\bh[áa]t\s+(?:h[òo]|karaoke|cho\s+t[oô]i|cho\s+nghe|m[ộo]t\s+b[àa]i|đi|n[àa]o)\b",
+    r"\bhat\s+(?:ho|karaoke|cho\s+toi|cho\s+nghe|mot\s+bai|di|nao)\b",
+    r"^h[áa]t$",
 ]
 
 
@@ -288,17 +291,36 @@ def _rule_based_classify(question: str) -> RouteDecision:
         )
 
     # 1. Nhận diện mệnh lệnh ghi/xóa/sửa CSDL (Write intent).
-    # Dấu hỏi phải kiểm tra trên raw_q vì q_clean đã bị bỏ hết dấu câu.
-    has_question_cue = any(
+    # Chốt chặn nghiêm ngặt: Mọi yêu cầu xóa toàn bộ, drop, truncate luôn bị chặn.
+    # Các thao tác ghi khác chỉ được bỏ chặn nếu người dùng đang hỏi thông tin quy trình/chính sách
+    # (ví dụ "Quy trình xóa dữ liệu khách hàng", "Xóa dữ liệu khi nào?", "Tại sao phải xóa?").
+    is_destructive_wipe = any(
         re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
-        for p in QUESTION_INDICATORS
+        for p in [
+            r"\b(?:xóa|xoa|drop|delete|truncate|clear)\s+(?:toàn\s+bộ|toan\s+bo|hết|het|tất\s+cả|tat\s+ca)\b",
+            r"\b(?:xóa|xoa|drop|delete|truncate)\s+(?:bảng|bang|table|cơ\s+sở\s+dữ\s+liệu|co\s+so\s+du\s+lieu|database)\b",
+        ]
     )
-    if not has_question_cue:
-        is_write_cmd = any(
-            re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
-            for p in WRITE_IMPERATIVE_PATTERNS
-        )
-        if is_write_cmd and (has_db_entity or any(re.search(p, q_clean, re.I) for p in [r"\btable\b", r"\bbảng\b", r"\bbang\b"])):
+    is_write_cmd = any(
+        re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
+        for p in WRITE_IMPERATIVE_PATTERNS
+    )
+    is_policy_inquiry = any(
+        re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
+        for p in [
+            r"\bkhi\s+nào\b", r"\bkhi\s+nao\b",
+            r"\btại\s+sao\b", r"\btai\s+sao\b",
+            r"\bvì\s+sao\b", r"\bvi\s+sao\b",
+            r"\bquy\s+trình\b", r"\bquy\s+trinh\b",
+            r"\bhướng\s+dẫn\b", r"\bhuong\s+dan\b",
+            r"\bthủ\s+tục\b", r"\bthu\s+tuc\b",
+            r"\bở\s+đâu\b", r"\bo\s+dau\b",
+            r"\blàm\s+sao\s+để\b", r"\blam\s+sao\s+de\b",
+        ]
+    )
+
+    if (is_destructive_wipe or is_write_cmd) and not is_policy_inquiry:
+        if is_destructive_wipe or has_db_entity or any(re.search(p, q_clean, re.I) for p in [r"\btable\b", r"\bbảng\b", r"\bbang\b"]):
             return RouteDecision(
                 category=RouteCategory.UNSUPPORTED_ACTION,
                 reasoning="Thao tác ghi/sửa/xóa cơ sở dữ liệu không được hỗ trợ (hệ thống chỉ đọc)",
@@ -322,18 +344,50 @@ def _rule_based_classify(question: str) -> RouteDecision:
 
     # 3. Câu hỏi văn bản chính sách/thủ tục (kể cả khi nhắc đến thực thể CSDL như đơn hàng/sản phẩm)
     if has_policy:
-        if any(
+        # Nếu câu hỏi hỏi về số lượng bản ghi CSDL (ví dụ "có bao nhiêu đơn hàng", "tổng số sản phẩm")
+        is_counting_db_rows = any(
             re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
             for p in [
-                r"\bthời\s+hạn\b", r"\bhợp\s+đồng\b", r"\bquy\s+trình\b", r"\bhướng\s+dẫn\b",
-                r"\btiêu\s+chuẩn\b", r"\bchính\s+sách\b", r"\bquy\s+định\b", r"\bđiều\s+khoản\b",
+                r"\b(?:có\s+)?bao\s+nhiêu\s+(?:đơn|don|khách|khach|sản\s+phẩm|san\s+pham|mặt\s+hàng|mat\s+hang)\b",
+                r"\b(?:tổng\s+số|tong\s+so|số\s+lượng|so\s+luong)\s+(?:đơn|don|khách|khach|sản\s+phẩm|san\s+pham)\b",
             ]
-        ):
-            if not (has_quantitative and has_db_entity and not any(
-                re.search(p, q_clean, re.I)
-                for p in [r"\bhướng\s+dẫn\b", r"\btiêu\s+chuẩn\b", r"\bthời\s+hạn\b", r"\bquy\s+trình\b", r"\bchính\s+sách\b"]
-            )):
-                return RouteDecision(category=RouteCategory.RAG, reasoning="Hỏi về quy trình/chính sách/hướng dẫn tài liệu")
+        )
+        if is_counting_db_rows:
+            return RouteDecision(category=RouteCategory.NLQ, reasoning="Yêu cầu định lượng hoặc thống kê thực thể CSDL")
+
+        # Nếu câu hỏi hỏi về quy trình, hướng dẫn, thủ tục, chính sách, quy định (kể cả chứa thực thể CSDL như tồn kho)
+        is_process_or_guide = any(
+            re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
+            for p in [
+                r"\bquy\s+trình\b", r"\bquy\s+trinh\b",
+                r"\bhướng\s+dẫn\b", r"\bhuong\s+dan\b",
+                r"\bthủ\s+tục\b", r"\bthu\s+tuc\b",
+                r"\bchính\s+sách\b", r"\bchinh\s+sach\b",
+                r"\bquy\s+định\b", r"\bquy\s+dinh\b",
+                r"\bquy\s+chế\b", r"\bquy\s+che\b",
+                r"\bđiều\s+khoản\b", r"\bdieu\s+khoan\b",
+                r"\bđiều\s+kiện\b", r"\bdieu\s+kien\b",
+            ]
+        )
+        if is_process_or_guide and not (has_quantitative and is_counting_db_rows):
+            return RouteDecision(category=RouteCategory.RAG, reasoning="Hỏi về quy trình/chính sách/hướng dẫn tài liệu")
+
+        # Nếu câu hỏi hỏi về thời hạn/thời lượng chính sách ("bao nhiêu ngày", "bao lâu", "mấy ngày")
+        is_asking_duration = any(
+            re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
+            for p in [
+                r"\bbao\s+nhiêu\s+(?:ngày|ngay|tháng|thang|năm|nam|giờ|gio)\b",
+                r"\bmấy\s+(?:ngày|ngay|tháng|thang|năm|nam)\b",
+                r"\bbao\s+lâu\b", r"\bbao\s+lau\b",
+                r"\bthời\s+hạn\b.*?\bbao\s+nhiêu\b", r"\bthoi\s+han\b.*?\bbao\s+nhieu\b",
+            ]
+        )
+        if is_asking_duration:
+            return RouteDecision(category=RouteCategory.RAG, reasoning="Hỏi về thời hạn/quy định thời gian chính sách")
+
+        # Nếu câu hỏi chứa từ khóa chính sách rõ rệt và không hỏi chỉ số DB thuần túy (doanh thu, tồn kho...)
+        if not has_pure_db_metric:
+            return RouteDecision(category=RouteCategory.RAG, reasoning="Hỏi về quy trình/chính sách/hướng dẫn tài liệu")
 
     # 3b. Nhóm liên hệ, tổng đài, CSKH -> RAG (chặn nhầm sang NLQ dù có chứa 'khách hàng')
     if any(re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I) for p in CONTACT_PATTERNS):

@@ -486,9 +486,17 @@ def _make_graph(llm):
     def validate(state: NlqState) -> NlqState:
         with langfuse_observation(name="nlq-sql-validation", input={"sql": state["sql"]}) as span:
             try:
+                allowed_columns = {
+                    t["name"]: {
+                        c["name"] if isinstance(c, dict) else c
+                        for c in t.get("columns", [])
+                    }
+                    for t in state.get("selected_tables", [])
+                }
                 safe_sql = validate_sql(
                     state["sql"],
                     {t["name"] for t in state["selected_tables"]},
+                    allowed_columns=allowed_columns,
                     question=state["question"],
                 )
                 update_langfuse_observation(span, output={"accepted": True, "sql": safe_sql})

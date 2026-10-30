@@ -129,6 +129,11 @@ def test_get_allowed_columns_filters_sensitive_fields():
     assert "phone" not in allowed
     assert "password_hash" not in allowed
 
+    # Kiểm tra validate_sql từ chối cột ngoài allowed_columns
+    from app.core.nlq_graph import validate_sql
+    with pytest.raises(SchemaMismatch, match="Truy vấn tham chiếu cột ngoài schema"):
+        validate_sql("SELECT non_existent_col FROM customers", {"customers"}, allowed_columns={"customers": {"customer_id", "city"}})
+
 
 def test_get_allowed_columns_fallback_defaults():
     """Khi schema rỗng, trả về các cột mặc định an toàn của bảng customers."""
