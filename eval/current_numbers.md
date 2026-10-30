@@ -6,8 +6,8 @@ tránh so sánh chéo giữa các bộ dữ liệu khác nhau. Mọi giá trị 
 
 | Mốc | Commit | Ghi chú |
 |---|---|---|
-| HEAD bàn giao Tuần 2 | `66c8f58f861ee28449efe93dc710f54c68736de0` (`66c8f58`) | nhánh `feature/TASK-AI24-AI26-testing-handover-demo` & `release/week-2-demo`; **400** test passed 100% (400/400) |
-| Kết quả chạy kiểm thử | `eval/pytest_run_log.txt` | Lưu chi tiết toàn bộ 400 test case thực thi đạt 100% trong 18.04s |
+| HEAD bàn giao Tuần 2 | `eecd36bd50f3dd7736e401b64bdcda4c1c0f8b10` (`eecd36b`) | nhánh `feature/TASK-AI24-AI26-testing-handover-demo` & `release/week-2-demo`; **403** test passed 100% (403/403) |
+| Kết quả chạy kiểm thử | `eval/pytest_run_log.txt` | Lưu chi tiết toàn bộ 403 test case thực thi đạt 100% trong 19.45s |
 | Bản đóng gói bàn giao | Mã nguồn hoàn thiện | Đầy đủ mã nguồn, tài liệu, kịch bản demo và log kiểm thử độc lập |
 
 ## 1. RAG abstention — 65 ca

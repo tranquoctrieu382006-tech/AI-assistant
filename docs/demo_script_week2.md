@@ -108,14 +108,15 @@ flowchart LR
 
 ---
 
-### Phần 6: Trình Diễn Cơ Chế Dự Phòng Mô Hình & Định Hướng Mở Rộng MCP (Phút 24 – 26)
+### Phần 6: Trình Diễn Cơ Chế Dự Phòng Mô Hình & Tích Hợp MCP Server (Phút 24 – 26)
 - **Chuyển đổi mô hình dự phòng (Fallback LLM với `with_fallbacks`):**
   * Mô phỏng tình huống chạm hạn mức Google GenAI (HTTP 429) hoặc lỗi mạng.
   * Chuỗi dự phòng tự động triển khai qua LangChain `with_fallbacks` trong `app/core/llm.py`: `Gemini Flash-Lite` $\rightarrow$ `Gemini Flash` $\rightarrow$ `Ollama Local (Gemma3:12b)`.
   * Hệ thống tự động chuyển đổi sang mô hình dự phòng mà không làm gián đoạn trải nghiệm người dùng, đảm bảo tính sẵn sàng cao (High Availability).
-- **Định hướng kiến trúc chuẩn mở MCP (Model Context Protocol Roadmap):**
-  * Giới thiệu thiết kế module hóa của các API nghiệp vụ: `search_documents` (RAG) và `query_data` (NLQ) với input/output schema chặt chẽ (Pydantic).
-  * Định hướng giai đoạn tiếp theo (Roadmap): Đóng gói 2 chức năng cốt lõi này thành MCP Server theo chuẩn mở Anthropic MCP, cho phép các AI Client bên ngoài (Claude Desktop, Antigravity IDE) kết nối và truy xuất kho tri thức nội bộ an toàn.
+- **Tích hợp MCP Server chuẩn mở (TASK-AI19 — `app/mcp_server.py`):**
+  * Đóng gói hoàn chỉnh 2 tools nghiệp vụ: `search_documents` (RAG) và `query_data` (NLQ) theo chuẩn Model Context Protocol (Anthropic MCP SDK).
+  * Kiểm thử đơn vị tự động tại `tests/test_mcp_server.py`.
+  * Sẵn sàng khởi chạy với `python -m app.mcp_server` để tích hợp vào các AI Client bên ngoài (Claude Desktop, Antigravity IDE, Cursor) hoặc kiểm thử qua MCP Inspector.
 
 ---
 
@@ -123,7 +124,7 @@ flowchart LR
 
 #### 1. Báo cáo kiểm thử tự động (Unit & Integration Tests)
 - Mở terminal chạy `pytest -q`:
-  * **400/400 unit tests passed 100%** trên 26 file test trong ~22 giây.
+  * **403/403 unit tests passed 100%** trên 27 file test trong ~20 giây.
   * Độc lập mạng, không gọi API LLM thật trong unit test, kiểm tra chặt chẽ mọi ranh giới lỗi.
 
 #### 2. Dàn ý Slide / Ghi chú thuyết trình (Slide Deck Outline)

@@ -184,8 +184,9 @@ Toàn bộ các module cốt lõi, bảo mật, định tuyến, upload và hợ
 | 24 | `tests/test_streamlit_ui.py` | **5** | Chờ artifact JUnit trên CI | Chạy thật module UI với runtime giả cho từng chế độ (auto/RAG/NLQ) để bắt `NameError`; lỗi API hiển thị Trace ID + `detail` thay vì raw body. |
 | 25 | `tests/test_tracing.py` | **12** | Chờ artifact JUnit trên CI | Context manager tracing, an toàn khi Langfuse ngoại tuyến, sinh pre-generated `trace_id`. |
 | 26 | `tests/test_vector_store.py` | **11** | Chờ artifact JUnit trên CI | Cosine distance, thay thế corpus, upsert và tìm kiếm theo danh sách `corpus = ANY(%s)`. |
+| 27 | `tests/test_mcp_server.py` | **3** | Chờ artifact JUnit trên CI | Chuẩn giao thức MCP (Model Context Protocol), đăng ký và thực thi 2 tools chuẩn `search_documents` (RAG) và `query_data` (NLQ). |
 
-👉 **Tổng số kiểm thử thu thập:** **400 tests** trên toàn bộ **26 file test** (số lượng thu thập, không phải số lượng đã chạy/đạt).
+👉 **Tổng số kiểm thử thu thập:** **403 tests** trên toàn bộ **27 file test** (số lượng thu thập, không phải số lượng đã chạy/đạt).
 
 - Trạng thái pass/fail của từng file được xác định bằng artifact JUnit `test-results.xml` do job CI tải lên, không phải bằng tuyên bố trong tài liệu này. Bảng trên chỉ phản ánh số test được `pytest --collect-only` thu thập tại thời điểm sinh báo cáo.
 - Lưu ý: Toàn bộ danh sách file trên được trích xuất trực tiếp từ cấu trúc thư mục `tests/` thực tế; báo cáo không còn chứa các file giả định (loại bỏ hoàn toàn các file giả định không có trong thư mục tests).
