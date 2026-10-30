@@ -200,9 +200,25 @@ python -m scripts.validate_golden_data
 
 ---
 
+## 💰 Ước Tính Chi Phí Vận Hành (Cost per 1k Queries)
+
+Dựa trên lưu lượng phân bổ thực tế trong doanh nghiệp (50% RAG, 35% NLQ, 10% Chào hỏi, 5% Chặn an toàn):
+
+| Phương Án Triển Khai | Mô Hình Sử Dụng | Chi Phí / 1.000 Câu Hỏi | Ước Tính VNĐ |
+| :--- | :--- | :---: | :---: |
+| **Cloud Tiết Kiệm (Khuyến nghị)** | **Gemini 3.5 Flash-Lite** | **$0.19** | **~4.900 VNĐ** |
+| **Cloud Tiêu Chuẩn** | **OpenAI GPT-4o-mini** | **$0.39** | **~9.800 VNĐ** |
+| **Cloud Hiệu Năng Cao** | **Gemini 3.6 Flash** | **$0.83** | **~20.700 VNĐ** |
+| **On-Premise (Nội bộ 100%)** | **Ollama Gemma3:12b + BGE-M3** | **$0.00** | **0 VNĐ** |
+
+*Chi tiết cách tính toán token input/output cho từng luồng: xem tại [docs/architecture.md#10](docs/architecture.md).*
+
+---
+
 ## 📚 Tài Liệu Tham Khảo Thêm
 
 - [Kiến trúc chi tiết hệ thống](docs/architecture.md)
+- [Kịch bản Demo chi tiết 20-30 phút (Cheat Sheet 10 câu mẫu)](docs/demo_script_week2.md)
 - [Đặc tả RAG API & Server-Sent Events (SSE)](docs/rag_api.md)
 - [Hướng dẫn cấu hình NLQ API](docs/nlq_api.md)
 - [Mô hình đe dọa và An toàn CSDL NLQ](docs/threat_model_nlq.md)

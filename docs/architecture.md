@@ -97,9 +97,12 @@ flowchart TB
 | `GET /api/health` | Readiness check (PostgreSQL, NLQ DB, Ollama; Langfuse status) | ✅ |
 | `GET /api/health/live` | Liveness probe | ✅ |
 | `GET /api/health/verify-model` | Kiểm tra model (debug only, cần API key) | ✅ |
+| `POST /api/ask` | Truy vấn hợp nhất (Auto/RAG/NLQ) kèm 1-step fallback an toàn | ✅ |
 | `POST /api/rag/ask` | Hỏi đáp từ tài liệu (JSON response) | ✅ |
 | `POST /api/rag/ask/stream` | Hỏi đáp tài liệu dạng streaming Server-Sent Events (SSE) | ✅ |
+| `POST /api/rag/upload` | Tải lên tài liệu và phân vùng corpus theo session (tối đa 5MB) | ✅ |
 | `POST /api/nlq/ask` | Hỏi dữ liệu PostgreSQL bằng ngôn ngữ tự nhiên, chỉ đọc | ✅ |
+| `POST /api/feedback` | Ghi nhận phản hồi người dùng (thumbs up/down) gắn trace trên Langfuse | ✅ |
 
 **Lifespan**: Khởi tạo tracing → kiểm tra Ollama async → flush traces khi shutdown.
 
@@ -357,3 +360,29 @@ sequenceDiagram
 | Concurrent requests lẫn trace | Handler per-request, propagate_attributes dùng contextvars |
 | Tài liệu tiếng Việt chunk sai | Tùy chỉnh text splitter cho tiếng Việt, test với bộ golden set |
 | PostgreSQL chưa cài | Dùng Docker Compose hoặc cài native cho dev |
+
+
+## 10. Ước tính chi phí vận hành trên 1.000 câu hỏi (Cost Estimation)
+
+Giả định phân bổ lưu lượng thực tế trong doanh nghiệp (Mixed Enterprise Traffic):
+- **50% RAG (500 câu)**: Hỏi đáp chính sách, bảo hành, quy định nội bộ (~2.150 input tokens, ~300 output tokens / câu).
+- **35% NLQ (350 câu)**: Truy vấn số liệu bán hàng, đơn hàng, khách hàng (~1.650 input tokens, ~230 output tokens / câu).
+- **10% Chào hỏi / Ngoài phạm vi (100 câu)**: (~150 input tokens, ~30 output tokens / câu).
+- **5% Thao tác cấm / Vi phạm chính sách (50 câu)**: Chặn ở router & regex policy guard: **0 LLM token**.
+
+**Tổng lượng Token ước tính cho 1.000 câu hỏi:**
+- **Input Tokens**: `(500 * 2.150) + (350 * 1.650) + (100 * 150) ≈ 1.667.500` tokens (~1.67M tokens).
+- **Output Tokens**: `(500 * 300) + (350 * 230) + (100 * 30) ≈ 233.500` tokens (~0.23M tokens).
+
+| Cấu hình Mô hình | Đơn giá Input (trên 1M) | Đơn giá Output (trên 1M) | Chi phí Input (1.67M) | Chi phí Output (0.23M) | **Tổng Chi Phí / 1.000 câu** | Quy đổi VNĐ |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Phương án 1: Google Gemini 3.5 Flash-Lite / 2.0 Flash (Khuyến nghị Production)** | $0.075 | $0.30 | $0.125 | $0.069 | **$0.194** | **~4.900 VNĐ** |
+| **Phương án 2: OpenAI GPT-4o-mini** | $0.150 | $0.60 | $0.251 | $0.138 | **$0.389** | **~9.800 VNĐ** |
+| **Phương án 3: Google Gemini 3.6 Flash** | $0.350 | $1.05 | $0.585 | $0.242 | **$0.827** | **~20.700 VNĐ** |
+| **Phương án 4: Anthropic Claude 3.5 Haiku** | $0.800 | $4.00 | $1.336 | $0.920 | **$2.256** | **~56.400 VNĐ** |
+| **Phương án 5: Local 100% (Ollama Gemma3:12b + BGE-M3)** | $0.000 | $0.000 | $0.000 | $0.000 | **$0.000** | **0 VNĐ** *(On-premise)* |
+
+> [!TIP]
+> **Khuyến nghị tối ưu chi phí & hiệu năng**:
+> - Dùng **Gemini 3.5 Flash-Lite** làm cấu hình mặc định (Production): Chỉ tốn **chưa tới 5.000 VNĐ cho mỗi 1.000 lượt hỏi**, tốc độ phản hồi cực nhanh (TTFT < 800ms).
+> - Với các dữ liệu nhạy cảm cao hoặc triển khai nội bộ hoàn toàn (On-Premise / Air-gapped): Sử dụng **Ollama (Gemma3:12b / Qwen 2.5) + BGE-M3**, chi phí API bằng **0 đồng**.
