@@ -109,11 +109,36 @@ flowchart LR
 
 ---
 
-### Phần 6: Báo Cáo Kiểm Thử & Kết Luận (Phút 24 – 28)
-- **Kiểm thử tự động:** Mở terminal chạy `pytest -q`:
-  * **400/400 unit tests passed 100%** trên 26 file test.
-  * Độc lập mạng, không gọi API LLM thật trong unit test, thời gian chạy dưới 20 giây.
-- **Hạn chế & Đề xuất tiếp theo:**
-  * Hạn mức gói Free Tier Gemini (khắc phục bằng cách gắn API Key có billing của công ty hoặc chạy local model).
-  * Kế hoạch nâng cấp giao diện sang Angular/React cho hệ thống lớn.
+### Phần 6: Trình Diễn MCP & Cơ Chế Mô Hình Dự Phòng (Phút 24 – 26)
+- **Chuẩn MCP (Model Context Protocol):**
+  * Giải thích kiến trúc đóng gói công cụ nội bộ: `search_documents` (RAG) và `query_data` (NLQ) theo chuẩn mở MCP của Anthropic.
+  * Giúp các trợ lý AI bên ngoài (Claude Desktop, IDE Agent) có thể kết nối trực tiếp vào kho tri thức và CSDL của công ty một cách an toàn mà không cần build lại API từ đầu.
+- **Chuyển đổi mô hình dự phòng (Fallback LLM):**
+  * Mô phỏng tình huống ngắt mạng hoặc chạm hạn mức Google GenAI (HTTP 429).
+  * Chuỗi fallback cấu hình sẵn trong core: `Gemini Flash-Lite` $\rightarrow$ `Gemini Flash` $\rightarrow$ `Ollama Local (Gemma3:12b)`.
+  * Hệ thống tự động chuyển sang mô hình tiếp theo, đảm bảo tính liên tục của dịch vụ (High Availability) cho doanh nghiệp.
+
+---
+
+### Phần 7: Báo Cáo Kiểm Thử, Slide Thuyết Trình & Kế Hoạch Cải Tiến (Phút 26 – 30)
+
+#### 1. Báo cáo kiểm thử tự động (Unit & Integration Tests)
+- Mở terminal chạy `pytest -q`:
+  * **400/400 unit tests passed 100%** trên 26 file test trong ~22 giây.
+  * Độc lập mạng, không gọi API LLM thật trong unit test, kiểm tra chặt chẽ mọi ranh giới lỗi.
+
+#### 2. Dàn ý Slide / Ghi chú thuyết trình (Slide Deck Outline)
+- **Slide 1:** Bối cảnh & Thách thức (Phân tán tri thức tài liệu và CSDL số liệu trong doanh nghiệp).
+- **Slide 2:** Kiến trúc Hợp nhất Mini AI Assistant (FastAPI, LangGraph Orchestrator, Dual Pipeline RAG & NLQ).
+- **Slide 3:** Công nghệ RAG nâng cao (EnsembleRetriever Dense + Sparse BM25, Cosine Similarity Gate 0.50, Hallucination = 0%).
+- **Slide 4:** Công nghệ NLQ an toàn (Schema Linking, sqlglot AST Validator, Readonly PostgreSQL Role).
+- **Slide 5:** An ninh & Bảo vệ quyền riêng tư (Write Guard, PII Filtering, Backend 1-step Fallback).
+- **Slide 6:** Observability & Tối ưu chi phí (Langfuse Tracing, Token Breakdown, chỉ **\$0.19 / 1.000 câu hỏi**).
+
+#### 3. Hạn chế hiện tại & Đề xuất áp dụng vào dự án thật (Production Roadmap)
+1. **Giao diện người dùng:** Nâng cấp từ Streamlit sang Frontend chuẩn doanh nghiệp (Angular hoặc React/Next.js) kết nối qua REST API và SSE streaming.
+2. **Quy mô CSDL lớn:** Đối với CSDL hàng trăm bảng, mở rộng module Schema Linking bằng Vector Search trên metadata từ điển dữ liệu (data dictionary embeddings).
+3. **Bộ nhớ đệm (Semantic Caching):** Tích hợp Redis Semantic Cache cho các câu hỏi phổ biến để giảm thời gian phản hồi xuống < 100ms và tiết kiệm 30–40% chi phí gọi LLM.
+4. **Phân quyền dữ liệu nâng cao:** Tích hợp Row-Level Security (RLS) của PostgreSQL để kiểm soát dữ liệu bán hàng theo từng chi nhánh/phòng ban của nhân viên đăng nhập.
+
 - **Kết thúc:** Cảm ơn và giải đáp câu hỏi của hội đồng/mentor (Q&A).

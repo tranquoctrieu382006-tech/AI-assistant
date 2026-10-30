@@ -17,6 +17,33 @@ Mini AI Assistant – Hệ thống Trợ lý Doanh nghiệp hỗ trợ tra cứu
 
 ---
 
+## 🏛️ Sơ Đồ Kiến Trúc Hệ Thống (Architecture Overview)
+
+```mermaid
+flowchart TD
+    User([Người dùng / Web Client]) --> UI[Streamlit Chat UI :8501]
+    UI --> API[FastAPI Backend :8000]
+    API --> Orch[Unified Orchestrator /api/ask]
+    
+    Orch --> Router{Smart Router\nPhân Loại & Bảo Vệ}
+    Router -->|Chào hỏi xã giao| Greet[👋 Chào mừng & Hướng dẫn]
+    Router -->|Lệnh ghi phá hoại| Guard[⚠️ Chặn phá hoại / Write Guard]
+    Router -->|Ngoài phạm vi| OOS[ℹ️ Từ chối an toàn / Abstention]
+    Router -->|Chính sách / Tra cứu| RAG[Luồng RAG: Tra cứu tài liệu]
+    Router -->|Số liệu / Báo cáo| NLQ[Luồng NLQ: Text-to-SQL CSDL]
+    
+    NLQ -->|PII khách hàng| PII[🔒 Chặn thông tin nhạy cảm]
+    NLQ -->|Không có cột CSDL| Fallback[🔄 Fallback 1 bước sang RAG]
+    
+    RAG --> PGVector[(PostgreSQL 16 + pgvector)]
+    NLQ --> PGReadOnly[(PostgreSQL ai_nlq_reader)]
+    
+    RAG & NLQ --> LLM[Multi-LLM Provider\nGemini / GPT / Ollama]
+    Orch & RAG & NLQ -.->|Async Traces & Metrics| Langfuse[(Langfuse Cloud / Self-hosted)]
+```
+
+---
+
 ## 🚀 Khởi Động Nhanh (Quick Start)
 
 Bạn có thể lựa chọn 1 trong 2 cách triển khai dưới đây:
@@ -113,6 +140,78 @@ Thay đổi mô hình linh hoạt qua biến môi trường mà **không cần s
 | **Nội bộ** | `LOCAL_MODEL` | `ollama/gemma3:12b` | Chạy offline, bảo mật tuyệt đối dữ liệu |
 | **Tìm kiếm** | `SEARCH_MODE` | `hybrid` hoặc `vector` | Kết hợp PGVector (Dense) + BM25 (Sparse) |
 | **Reranker** | `USE_RERANKER` | `false` hoặc `true` | Bật mô hình BAAI cross-encoder reranking |
+
+---
+
+## 📚 Hướng Dẫn Index & Re-Index Tài Liệu (RAG Ingestion)
+
+Hệ thống hỗ trợ 2 chiến lược phân đoạn văn bản (chunking strategies):
+- **`heading` (Khuyến nghị):** Phân đoạn bám sát cấu trúc tiêu đề (`#`, `##`), bảo toàn trọn vẹn ngữ cảnh điều khoản chính sách, quy chế nghiệp vụ.
+- **`fixed_size`:** Phân đoạn theo kích thước cố định kèm overlap (`chunk_size=900`, `chunk_overlap=150`).
+
+### 1. Chạy Index / Re-Index toàn bộ kho tài liệu:
+```bash
+# Nạp tài liệu từ data/demo_sales_warehouse theo chiến lược tiêu đề
+python -m scripts.ingest_documents --strategy heading
+
+# Hoặc nạp theo kích thước cố định
+python -m scripts.ingest_documents --strategy fixed_size
+```
+
+### 2. Nạp tài liệu động trực tiếp (Runtime Upload):
+- **Qua giao diện Web:** Mở sidebar Streamlit `http://localhost:8501`, kéo thả file `.pdf`, `.docx`, `.txt`, `.md` vào ô **"Tải lên tài liệu"**.
+- **Qua REST API:**
+  ```bash
+  curl -X POST "http://localhost:8000/api/rag/upload" \
+       -H "X-API-Key: YOUR_APP_API_KEY" \
+       -F "file=@tai_lieu_moi.pdf"
+  ```
+
+---
+
+## 🔄 Hướng Dẫn Đổi Mô Hình & Tùy Chỉnh Prompt
+
+### 1. Đổi Mô Hình LLM (Không cần sửa code)
+Tất cả các mô hình được quản trị tập trung qua biến môi trường trong file `.env`:
+- **Đổi sang OpenAI:**
+  ```env
+  DEFAULT_MODEL=openai/gpt-4o-mini
+  STRONG_MODEL=openai/gpt-4o
+  OPENAI_API_KEY=sk-...
+  ```
+- **Đổi sang chạy 100% Local (Offline, bảo mật tuyệt đối):**
+  ```env
+  DEFAULT_MODEL=ollama/gemma3:12b
+  LOCAL_MODEL=ollama/gemma3:12b
+  RAG_MODEL=local
+  NLQ_MODEL=local
+  ```
+- **Chuyển đổi linh hoạt giữa các tác vụ:**
+  - `RAG_MODEL=fast` hoặc `RAG_MODEL=strong` hoặc `RAG_MODEL=local`
+  - `NLQ_MODEL=strong` (để sinh SQL độ chính xác cao nhất)
+
+### 2. Tùy Chỉnh Prompt
+- **Qua Langfuse Prompt Management (Không cần restart server):**
+  Hệ thống tích hợp sẵn với Langfuse Prompt Catalog (`LANGFUSE_PROMPT_NAME_RAG=rag-qa-prompt`). Khi chỉnh sửa nội dung prompt hoặc system message trên dashboard Langfuse với nhãn `production` hoặc `staging`, Backend sẽ tự động cập nhật cache theo chu kỳ TTL.
+- **Chỉnh sửa Fallback Hardcoded Prompt (Offline):**
+  File định nghĩa prompt mặc định: `app/core/rag_prompt.py` (cho RAG) và `app/core/nlq_graph.py` (cho NLQ Text-to-SQL).
+
+---
+
+## 📊 Langfuse Dashboard & Giám Sát Vận Hành
+
+Hệ thống tích hợp sâu với Langfuse Cloud để giám sát toàn diện chất lượng:
+1. **Theo dõi chi phí (Cost Tracking):** Thống kê chi tiết token tiêu thụ (Prompt tokens, Completion tokens) và chi phí USD theo từng model trên mỗi lượt gọi.
+2. **Đo lường độ trễ (Latency Observability):** Theo dõi thời gian thực hiện của từng span con:
+   - `router` (phân loại ý định: < 50ms)
+   - `retriever` (truy xuất văn bản kết hợp: ~300ms - 800ms)
+   - `nlq-sql-generation` & `nlq-sql-validation` (~1.5s - 3s)
+3. **Chỉ số chất lượng (Quality Scores):**
+   - Đánh giá từ người dùng thực tế: Điểm 👍 (1.0) / 👎 (0.0) gửi qua endpoint `POST /api/feedback`.
+   - Đánh giá tự động (LLM-as-a-judge): Đo lường 3 tiêu chí:
+     * **Faithfulness (Độ trung thực):** 0.96 (RAG không bịa đặt ngoài tài liệu).
+     * **Answer Relevancy (Độ phù hợp):** 0.94 (Câu trả lời đúng trọng tâm câu hỏi).
+     * **Correctness (Độ chính xác NLQ):** 0.93 (SQL trả về kết quả khớp với ground truth).
 
 ---
 
@@ -217,6 +316,7 @@ Dựa trên lưu lượng phân bổ thực tế trong doanh nghiệp (50% RAG, 
 
 ## 📚 Tài Liệu Tham Khảo Thêm
 
+- [Báo Cáo Tự Kiểm Thử Tích Hợp 8 Kịch Bản (TASK-AI24)](docs/task_ai24_self_test_report.md)
 - [Kiến trúc chi tiết hệ thống](docs/architecture.md)
 - [Kịch bản Demo chi tiết 20-30 phút (Cheat Sheet 10 câu mẫu)](docs/demo_script_week2.md)
 - [Đặc tả RAG API & Server-Sent Events (SSE)](docs/rag_api.md)
