@@ -210,12 +210,14 @@ Hệ thống tích hợp sâu với Langfuse Cloud để giám sát toàn diện
    - `router` (phân loại ý định: < 50ms)
    - `retriever` (truy xuất văn bản kết hợp: ~300ms - 800ms)
    - `nlq-sql-generation` & `nlq-sql-validation` (~1.5s - 3s)
-3. **Chỉ số chất lượng (Quality Scores):**
-   - Đánh giá từ người dùng thực tế: Điểm 👍 (1.0) / 👎 (0.0) gửi qua endpoint `POST /api/feedback`.
-   - Đánh giá tự động (LLM-as-a-judge): Đo lường 3 tiêu chí:
-     * **Faithfulness (Độ trung thực):** 0.96 (RAG không bịa đặt ngoài tài liệu).
-     * **Answer Relevancy (Độ phù hợp):** 0.94 (Câu trả lời đúng trọng tâm câu hỏi).
-     * **Correctness (Độ chính xác NLQ):** 0.93 (SQL trả về kết quả khớp với ground truth).
+3. **Chỉ số chất lượng thực nghiệm (Empirical Quality Metrics):**
+   - **Đánh giá từ người dùng thực tế:** Điểm 👍 (1.0) / 👎 (0.0) gửi qua endpoint `POST /api/feedback` ghi nhận trực tiếp vào trace Langfuse.
+   - **Đo lường RAG (Golden set 65 ca — xem chi tiết tại `eval/current_numbers.md`):**
+     * **Abstention Accuracy (Từ chối an toàn khi thiếu dữ liệu):** **98.5%** (64/65 ca quyết định đúng, Hallucination trên câu hỏi âm = 0/24).
+     * **Hit@5 Retrieval (Tỷ lệ tìm thấy tài liệu liên quan):** **97.6%** (40/41 ca answerable, MRR = 0.9207).
+     * **Fragment Match (Khớp nội dung trả lời chuẩn):** **31–32/41 (75.6% – 78.0%)**.
+   - **Đo lường NLQ (Golden set 30 ca Text-to-SQL — xem `eval/report_v2.md`):**
+     * **Execution Accuracy (Khớp chính xác kết quả SQL):** **20/30 (66.7%)** với Gemini 3.1/3.5 Flash-Lite (hoặc 16/30 với Local Gemma3:12b).
 
 ---
 

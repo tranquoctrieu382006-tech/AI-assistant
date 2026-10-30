@@ -31,8 +31,8 @@ flowchart LR
 | STT | Luồng Kiểm Thử | Câu Hỏi Mẫu | Kết Quả Kỳ Vọng | Điểm Nhấn Công Nghệ |
 | :---: | :--- | :--- | :--- | :--- |
 | **1** | **Chào hỏi xã giao** | `Xin chào trợ lý!` hoặc `hi` | Chào mừng ấm áp, badge `👋 Chào bạn!`, hướng dẫn phạm vi tra cứu. | Router nhận diện `reason_code="greeting"`, không từ chối máy móc. |
-| **2** | **RAG có đáp án** | `Thời hạn đổi trả hàng áp dụng trong bao nhiêu ngày?` | Trả lời chính xác **30 ngày**, streaming SSE mượt mà, kèm nguồn `chinh_sach_doi_tra.docx`. | Retrieval cosine + gating, trích dẫn rõ tên file, trang, điểm tương đồng. |
-| **3** | **Tiếng Việt không dấu** | `chinh sach bao hanh san pham dien tu the nao?` | Trả lời chính xác bảo hành 12-24 tháng từ `quy_che_bao_hanh.pdf`. | Dual retrieval + rewriter tự động phục hồi dấu tiếng Việt. |
+| **2** | **RAG có đáp án** | `Thời hạn đổi trả hàng áp dụng trong bao nhiêu ngày?` | Trả lời chính xác **30 ngày**, streaming SSE mượt mà, kèm nguồn `04_chinh_sach_doi_tra.docx`. | Retrieval cosine + gating, trích dẫn rõ tên file, trang, điểm tương đồng. |
+| **3** | **Tiếng Việt không dấu** | `chinh sach bao hanh san pham dien tu the nao?` | Trả lời chính xác bảo hành 12-24 tháng từ `05_chinh_sach_bao_hanh.pdf`. | Dual retrieval + rewriter tự động phục hồi dấu tiếng Việt. |
 | **4** | **Từ chối an toàn** *(Abstention)* | `Quy định trợ cấp mua nhà cho nhân viên thế nào?` | Trả lời: *"Xin lỗi, tôi không tìm thấy thông tin phù hợp trong tài liệu."* | Ngưỡng Cosine Gate 0.50 chặn đứng ảo giác (Hallucination = 0%). |
 | **5** | **NLQ cơ bản** | `Top 5 khách hàng chi tiêu nhiều nhất năm 2026?` | Hiển thị bảng Top 5, vẽ biểu đồ cột tự động, xem SQL trong expander. | Schema linking tự động chọn bảng `customers`, `orders`, `order_items`. |
 | **6** | **NLQ tổng hợp doanh thu** | `Tổng doanh thu theo từng tháng trong năm 2026?` | Sinh SQL `SUM(quantity * unit_price)`, loại đơn hủy, biểu đồ doanh thu theo tháng. | SQL guard enforcing business rule: loại đơn hủy khỏi doanh thu hàng hóa. |
