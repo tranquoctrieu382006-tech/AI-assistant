@@ -17,7 +17,13 @@ EVALUATOR_FILES = [
 ]
 
 
-def main(output_path: Path = OUTPUT) -> None:
+def main(
+    output_path: Path = OUTPUT,
+    *,
+    label: str = "M2",
+    m1_manifest: Path = M1_MANIFEST,
+    m1_commit: str = M1_COMMIT,
+) -> None:
     if output_path.exists():
         raise FileExistsError(
             f"Refusing to overwrite frozen manifest {output_path}; choose a new --output path."
@@ -25,10 +31,11 @@ def main(output_path: Path = OUTPUT) -> None:
     cases = json.loads(HELDOUT.read_text(encoding="utf-8"))
     counts = dict(sorted(Counter(case["category"] for case in cases).items()))
     manifest = {
-        "manifest": "M2",
+        "manifest": label,
         "hash_format": "sha256-canonical-text-lf-v1",
-        "m1_commit": M1_COMMIT,
-        "m1_manifest_sha256": sha256_file(M1_MANIFEST),
+        "m1_commit": m1_commit,
+        "m1_manifest_sha256": sha256_file(m1_manifest),
+        "m1_manifest_path": m1_manifest.relative_to(ROOT).as_posix(),
         "heldout_path": "eval/rag_heldout_m1.json",
         "heldout_sha256": sha256_file(HELDOUT),
         "case_count": len(cases),
@@ -55,5 +62,17 @@ def main(output_path: Path = OUTPUT) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, default=OUTPUT)
+    parser.add_argument("--label", default="M2", help="Manifest label, e.g. M2 or M3.")
+    parser.add_argument("--m1-manifest", type=Path, default=M1_MANIFEST)
+    parser.add_argument("--m1-commit", default=M1_COMMIT)
     args = parser.parse_args()
-    main(args.output if args.output.is_absolute() else ROOT / args.output)
+
+    def _abs(path: Path) -> Path:
+        return path if path.is_absolute() else ROOT / path
+
+    main(
+        _abs(args.output),
+        label=args.label,
+        m1_manifest=_abs(args.m1_manifest),
+        m1_commit=args.m1_commit,
+    )

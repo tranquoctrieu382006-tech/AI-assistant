@@ -103,11 +103,12 @@ def test_report_matches_rerank_and_hybrid_metrics(repo_root: Path, report_text: 
     assert "0.9207" in report_text
     assert "0.8740" in report_text
 
-    # Chuẩn hóa số hàng nghìn không có 2 dấu chấm (2.571 ms, 4.641 ms)
+    # Độ trễ phải ghi rõ đơn vị, tránh "2.571 ms" mơ hồ giữa dấu thập phân
+    # và dấu phân cách hàng nghìn: 2571 ms = 2,571 s.
     assert "2.571.0" not in report_text, "Phát hiện định dạng lỗi 2.571.0 trong báo cáo"
     assert "4.641.1" not in report_text, "Phát hiện định dạng lỗi 4.641.1 trong báo cáo"
-    assert "2.571 ms" in report_text
-    assert "4.641 ms" in report_text
+    assert "2571 ms" in report_text and "≈2,57 s" in report_text
+    assert "4641 ms" in report_text and "≈4,64 s" in report_text
 
 
 def test_report_matches_actual_test_files_count(repo_root: Path, report_text: str):

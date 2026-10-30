@@ -39,12 +39,7 @@ _VIETNAMESE_SCHEMA_ALIASES = {
 }
 
 
-def _ascii_fold(value: str) -> str:
-    value = value.casefold().replace("đ", "d")
-    return "".join(
-        char for char in unicodedata.normalize("NFKD", value)
-        if not unicodedata.combining(char)
-    )
+from app.core.text_utils import ascii_fold as _ascii_fold
 
 
 def _question_schema_terms(question: str) -> set[str]:
@@ -229,9 +224,14 @@ def select_relevant_tables(
             if isinstance(names, list):
                 allowed = {t["name"] for t in tables}
                 if not names:
-                    return []
-                selected = [n for n in names if isinstance(n, str) and n in allowed]
-                use_lexical_fallback = not selected
+                    schema_terms = _question_schema_terms(question)
+                    if any(t in allowed for t in schema_terms):
+                        use_lexical_fallback = True
+                    else:
+                        return []
+                else:
+                    selected = [n for n in names if isinstance(n, str) and n in allowed]
+                    use_lexical_fallback = not selected
             else:
                 use_lexical_fallback = True
         except Exception as exc:

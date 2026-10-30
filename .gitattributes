@@ -1,0 +1,13 @@
+# Keep text line endings stable across Windows and POSIX checkouts so the
+# SHA-256 hashes recorded in eval/development_manifest_*.json and
+# eval/heldout_manifest_*.json stay portable (see scripts/manifest_hashing.py).
+* text=auto eol=lf
+
+# Binary formats must be stored and hashed byte-for-byte.
+*.pdf binary
+*.docx binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.zip binary
+*.pyc binary

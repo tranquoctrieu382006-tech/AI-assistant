@@ -327,3 +327,45 @@ def test_nlq_graph_with_langchain_fake_list_chat_model(monkeypatch):
     ask_result = nlq_graph.ask_nlq("Có bao nhiêu sản phẩm?")
     assert ask_result["rows"] == [{"product_count": 150}]
     assert ask_result["answer"] == "Hiện tại hệ thống có 150 sản phẩm."
+
+
+@pytest.mark.parametrize(
+    "malicious_sql,expected_error_pattern",
+    [
+        ("DELETE FROM orders", "Chỉ cho phép truy vấn SELECT hoặc WITH ... SELECT"),
+        ("DROP TABLE orders", "Chỉ cho phép truy vấn SELECT hoặc WITH ... SELECT"),
+        ("TRUNCATE TABLE orders", "Chỉ cho phép truy vấn SELECT hoặc WITH ... SELECT"),
+        ("UPDATE customers SET total_spend = 0", "Chỉ cho phép truy vấn SELECT hoặc WITH ... SELECT"),
+        ("INSERT INTO customers (name) VALUES ('Hacker')", "Chỉ cho phép truy vấn SELECT hoặc WITH ... SELECT"),
+        ("WITH deleted AS (DELETE FROM orders RETURNING *) SELECT * FROM deleted", "Truy vấn chứa thao tác ghi hoặc lệnh không được phép"),
+        ("SELECT * INTO new_orders FROM orders", "Không cho phép SELECT INTO hoặc khóa dòng"),
+        ("SELECT pg_sleep(5)", "Truy vấn gọi hàm ngoài danh sách cho phép"),
+        ("COPY orders TO '/tmp/leak.csv'", "Chỉ cho phép truy vấn SELECT hoặc WITH ... SELECT"),
+        ("SELECT * FROM rag_chunks", "Truy vấn tham chiếu bảng ngoài schema được chọn"),
+        ("SELECT phone, email FROM customers", "Truy vấn chọn cột nhạy cảm 'phone' và đã bị chặn"),
+        ("SELECT 1; DELETE FROM orders", "Chỉ cho phép một câu lệnh SQL"),
+    ],
+)
+def test_validate_sql_security_guard_blocks_malicious_constructs(malicious_sql, expected_error_pattern):
+    allowed_tables = {"orders", "customers", "products", "order_items"}
+    allowed_cols = {
+        "orders": {"order_id", "customer_id", "total_amount", "status", "created_at"},
+        "customers": {"customer_id", "name", "customer_segment", "city", "total_spend", "created_at"},
+    }
+    with pytest.raises(ValueError, match=expected_error_pattern):
+        validate_sql(malicious_sql, allowed_tables, allowed_cols)
+
+
+def test_nlq_restricted_intent_returns_restricted_status():
+    from langchain_community.chat_models import FakeListChatModel
+
+    fake_llm = FakeListChatModel(responses=["customers"])
+    res = _make_graph(fake_llm).invoke({
+        "question": "Cho tôi số điện thoại của khách hàng",
+        "repair_count": 0,
+        "repaired": False,
+        "callbacks": [],
+    })
+    assert res.get("status") == "restricted"
+    assert "bị hạn chế" in res["answer"]
+    assert res["sql"] == ""

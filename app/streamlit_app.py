@@ -302,9 +302,12 @@ if prompt:
 
     if "Tự động thông minh" in mode:
         decision = route_question(prompt)
-        if decision.category == RouteCategory.OUT_OF_SCOPE:
+        if decision.category == RouteCategory.UNSUPPORTED_ACTION:
+            target_pipeline = "unsupported_action"
+            route_info_str = f"Từ chối: Thao tác không được hỗ trợ ({decision.reasoning})"
+        elif decision.category == RouteCategory.OUT_OF_SCOPE:
             target_pipeline = "out_of_scope"
-            route_info_str = f"Phân loại: Ngoài phạm vi kinh doanh ({decision.reasoning})"
+            route_info_str = f"Phân loại: Ngoài phạm vi kinh doanh ({decision.reasoning})" 
         elif decision.category == RouteCategory.NLQ:
             target_pipeline = "nlq"
             route_info_str = f"Tự động định tuyến: **Truy vấn CSDL (NLQ)** – {decision.reasoning}"
@@ -337,6 +340,25 @@ if prompt:
         assistant_msg = {
             "role": "assistant",
             "content": out_of_scope_reply,
+            "route_info": route_info_str,
+        }
+        with st.chat_message("assistant"):
+            render_chat_message(assistant_msg, idx=len(st.session_state.messages))
+        st.session_state.messages.append(assistant_msg)
+
+    # -------------------------------------------------
+    # LUỒNG -1: THAO TÁC GHI KHÔNG HỖ TRỢ (READ-ONLY GUARD)
+    # -------------------------------------------------
+    elif target_pipeline == "unsupported_action":
+        unsupported_reply = (
+            "⚠️ **Thao tác không được hỗ trợ**\n\n"
+            "Hệ thống trợ lý AI hoạt động ở chế độ **chỉ đọc (Read-only)** để bảo vệ tính toàn vẹn của dữ liệu.\n"
+            "Tôi không thể thực hiện các thao tác thêm, sửa, xóa, hoặc thay đổi cơ sở dữ liệu.\n\n"
+            "💡 *Gợi ý: Nếu bạn cần thống kê hoặc xem dữ liệu, hãy đặt câu hỏi dạng truy vấn thông tin (ví dụ: 'Có bao nhiêu đơn hàng đã hủy?').*"
+        )
+        assistant_msg = {
+            "role": "assistant",
+            "content": unsupported_reply,
             "route_info": route_info_str,
         }
         with st.chat_message("assistant"):
@@ -480,7 +502,17 @@ if prompt:
                         if columns and rows:
                             df = pd.DataFrame(rows, columns=columns)
 
-                        status_box.update(label="✅ Hoàn tất truy vấn CSDL", state="complete", expanded=False)
+                        status_val = data.get("status", "ok")
+                        if status_val == "restricted":
+                            status_box.update(label="🔒 Dữ liệu bị hạn chế quyền riêng tư", state="complete", expanded=False)
+                        elif status_val == "out_of_scope":
+                            status_box.update(label="ℹ️ Câu hỏi ngoài phạm vi CSDL", state="complete", expanded=False)
+                        elif status_val == "unsupported_action":
+                            status_box.update(label="⚠️ Thao tác không được hỗ trợ", state="complete", expanded=False)
+                        elif not sql_query and not rows:
+                            status_box.update(label="ℹ️ Không có truy vấn phù hợp", state="complete", expanded=False)
+                        else:
+                            status_box.update(label="✅ Hoàn tất truy vấn CSDL", state="complete", expanded=False)
 
                         assistant_msg = {
                             "role": "assistant",

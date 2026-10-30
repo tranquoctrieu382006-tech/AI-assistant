@@ -22,6 +22,7 @@ class RouteCategory(str, Enum):
     RAG = "rag"
     NLQ = "nlq"
     OUT_OF_SCOPE = "out_of_scope"
+    UNSUPPORTED_ACTION = "unsupported_action" 
 
 
 class RouteDecision(BaseModel):
@@ -153,6 +154,27 @@ GREETING_PATTERNS = [
 ]
 
 # 7. Lạc đề ngoài phạm vi
+# 8. Mệnh lệnh ghi / xóa / sửa dữ liệu (Write intent)
+WRITE_IMPERATIVE_PATTERNS = [
+    r"^(?:hãy\s+)?(?:xóa|xoa|drop|delete|truncate|clear)\b",
+    r"^(?:hãy\s+)?(?:cập\s+nhật|cap\s+nhat|update|sửa|sua|thay\s+đổi|thay\s+doi)\s+.*(?:thành|thanh|=|sang)",
+    r"^(?:hãy\s+)?(?:thêm|them|chèn|chen|insert)\s+.*(?:vào|vao|to)",
+    r"\b(?:drop\s+table|delete\s+from|update\s+\w+\s+set|insert\s+into|truncate\s+table)\b",
+]
+
+QUESTION_INDICATORS = [
+    r"\blàm\s+sao\b", r"\blam\s+sao\b",
+    r"\blàm\s+thế\s+nào\b", r"\blam\s+the\s+nao\b",
+    r"\bnhư\s+thế\s+nào\b", r"\bnhu\s+the\s+nao\b",
+    r"\bquy\s+trình\b", r"\bquy\s+trinh\b",
+    r"\bthủ\s+tục\b", r"\bthu\s+tuc\b",
+    r"\bhướng\s+dẫn\b", r"\bhuong\s+dan\b",
+    r"\bbao\s+nhiêu\b", r"\bbao\s+nhieu\b",
+    r"\bcó\s+được\b", r"\bco\s+duoc\b",
+    r"\bđược\s+không\b", r"\bduoc\s+khong\b",
+    r"\bbao\s+lâu\b", r"\bbao\s+lau\b",
+]
+
 OFF_TOPIC_PATTERNS = [
     r"\bthời\s+tiết\b", r"\bthoi\s+tiet\b",
     r"\blàm\s+thơ\b", r"\blam\s+tho\b",
@@ -163,10 +185,7 @@ OFF_TOPIC_PATTERNS = [
 ]
 
 
-def strip_accents(text: str) -> str:
-    """Loại bỏ dấu tiếng Việt để đối sánh linh hoạt cả câu có dấu và không dấu."""
-    nfkd = unicodedata.normalize("NFKD", text)
-    return "".join(c for c in nfkd if not unicodedata.combining(c)).replace("đ", "d").replace("Đ", "D").lower()
+from app.core.text_utils import strip_accents
 
 
 def _rule_based_classify(question: str) -> RouteDecision:
@@ -218,6 +237,26 @@ def _rule_based_classify(question: str) -> RouteDecision:
         re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
         for p in OFF_TOPIC_PATTERNS
     )
+
+    # 0. Nhận diện mệnh lệnh ghi/xóa/sửa CSDL (Write intent)
+    is_q_mark = q_clean.endswith("?") and not any(
+        re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
+        for p in [r"\bdrop\s+table\b", r"\bdelete\s+from\b", r"\btruncate\s+table\b"]
+    )
+    has_question_cue = any(
+        re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
+        for p in QUESTION_INDICATORS
+    )
+    if not is_q_mark and not has_question_cue:
+        is_write_cmd = any(
+            re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
+            for p in WRITE_IMPERATIVE_PATTERNS
+        )
+        if is_write_cmd and (has_db_entity or any(re.search(p, q_clean, re.I) for p in [r"\btable\b", r"\bbảng\b", r"\bbang\b"])):
+            return RouteDecision(
+                category=RouteCategory.UNSUPPORTED_ACTION,
+                reasoning="Thao tác ghi/sửa/xóa cơ sở dữ liệu không được hỗ trợ (hệ thống chỉ đọc)",
+            )
 
     # 1. Câu hỏi quá ngắn, vô nghĩa (< 5 ký tự) không chứa thực thể hay chính sách
     if len(q_no_accents) <= 5 and not has_policy and not has_db_entity and not has_pure_db_metric:

@@ -234,6 +234,7 @@ def retrieve_and_gate(
     reranker_top_n: int = 5,
     reranker_pool_size: int | None = None,
     corpus: str | list[str] | tuple[str, ...] | None = None,
+    raw_query: str | None = None,
 ) -> tuple[list[dict], bool]:
     """Retrieve evidence, enforce per-chunk cosine gating, and optionally rerank."""
     if mode not in {"vector", "hybrid"}:
@@ -250,6 +251,25 @@ def retrieve_and_gate(
     else:
         query_vector = None
         vector_matches = vector_store.similarity_search(query, k=candidate_k, **search_kwargs)
+
+    # Dual Retrieval: If raw_query differs from rewritten query, also retrieve using raw_query
+    # and take max cosine score per chunk to prevent entity distortion or diacritic misinterpretation.
+    if raw_query and raw_query.strip().casefold() != query.strip().casefold():
+        try:
+            raw_matches = vector_store.similarity_search(raw_query, k=candidate_k, **search_kwargs)
+            merged: dict[tuple[str, int], dict] = {}
+            for m in vector_matches:
+                merged[(m["source"], m["chunk_index"])] = copy.deepcopy(m)
+            for m in raw_matches:
+                key = (m["source"], m["chunk_index"])
+                if key not in merged:
+                    merged[key] = copy.deepcopy(m)
+                else:
+                    merged[key]["score"] = max(merged[key]["score"], m["score"])
+            vector_matches = sorted(merged.values(), key=lambda x: x["score"], reverse=True)[:candidate_k]
+        except Exception as exc:
+            logger.warning("Dual retrieval for raw query failed; falling back to primary query (%s)", exc)
+
     gated_vector_matches = [
         match for match in vector_matches
         if match["score"] >= settings.rag_min_relevance_score

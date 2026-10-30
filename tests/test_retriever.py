@@ -451,3 +451,33 @@ def test_hybrid_reranker_candidate_pairs_are_limited_to_configured_pool(monkeypa
     assert refused is False
     assert len(matches) == 2
     assert len(model.predict.call_args.args[0]) == 3
+
+
+def test_dual_retrieval_merges_matches_taking_max_score(monkeypatch):
+    """Khi raw_query được cung cấp và khác với rewritten query, Dual Retrieval lấy điểm cosine cao nhất."""
+    monkeypatch.setattr(settings, "rag_min_relevance_score", 0.5)
+
+    matches_query = [
+        {"content": "Chunk A", "source": "a.md", "chunk_index": 0, "score": 0.55},
+        {"content": "Chunk B", "source": "b.md", "chunk_index": 0, "score": 0.40},
+    ]
+    matches_raw = [
+        {"content": "Chunk A", "source": "a.md", "chunk_index": 0, "score": 0.65},
+        {"content": "Chunk C", "source": "c.md", "chunk_index": 0, "score": 0.70},
+    ]
+
+    def fake_search(q, **kwargs):
+        if "khong dau" in q:
+            return matches_raw
+        return matches_query
+
+    with patch("app.core.vector_store.similarity_search", side_effect=fake_search):
+        matches, refused = retrieve_and_gate(
+            "câu hỏi có dấu", 5, "vector", False, 5, None, None, "cau hoi khong dau"
+        )
+
+    assert refused is False
+    scores = {(m["source"], m["chunk_index"]): m["score"] for m in matches}
+    assert scores[("a.md", 0)] == 0.65
+    assert ("c.md", 0) in scores
+    assert ("b.md", 0) not in scores

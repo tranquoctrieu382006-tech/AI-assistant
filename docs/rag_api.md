@@ -64,6 +64,12 @@ Hỏi đáp và nhận toàn bộ câu trả lời kèm danh sách nguồn tríc
 }
 ```
 
+`top_k` là số **đoạn trích** đưa vào ngữ cảnh, không phải số nguồn hiển thị.
+Danh sách `sources` được gộp theo tài liệu: mỗi nguồn chỉ xuất hiện một lần và
+giữ đoạn trích có điểm cao nhất, chỉ giữ các nguồn nằm trong 0,10 điểm so với
+nguồn cao nhất, và tối đa 3 nguồn. Đây là "nguồn tham khảo" đã dùng để dựng ngữ
+cảnh, không phải danh sách trích dẫn do mô hình chỉ định.
+
 ---
 
 ### 3.2. `POST /api/rag/ask/stream` (Server-Sent Events - SSE)
@@ -84,7 +90,11 @@ Truyền câu trả lời theo thời gian thực (từng token) qua giao thức
 Mỗi gói tin tuân thủ chuẩn SSE: `data: <JSON>\n\n`. Luồng stream bao gồm các loại sự kiện (`type`) sau:
 
 1. **Sự kiện `sources` (Nguồn trích dẫn):**  
-   Được phát ra đầu tiên ngay khi các đoạn trích vượt qua ngưỡng lọc tương đồng (`score >= RAG_MIN_RELEVANCE_SCORE`):
+   Được phát ra đầu tiên ngay khi các đoạn trích vượt qua ngưỡng lọc tương đồng (`score >= RAG_MIN_RELEVANCE_SCORE`).
+   Danh sách dùng chung quy tắc với endpoint JSON: gộp theo tài liệu, giữ đoạn
+   điểm cao nhất của mỗi nguồn, cắt theo biên 0,10 điểm và tối đa 3 nguồn.
+   Sự kiện này đi trước câu trả lời, nên nó là nguồn **đã dựng ngữ cảnh**, không
+   phải nguồn mô hình thực sự trích dẫn:
    ```sse
    data: {"type": "sources", "sources": [{"source": "02_chinh_sach_bao_hanh.md", "chunk_index": 1, "score": 0.825, "section": "Màn hình", "page_number": null}], "trace_id": "1bc12f0391e0773c3458cc76c295d8c6"}
    ```

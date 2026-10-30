@@ -1,5 +1,12 @@
-"""Aggregate-only RAG held-out evaluator; never emits per-case results."""
-import hashlib
+"""Aggregate-only RAG held-out evaluator; never emits per-case results.
+
+Frozen-input verification hashes text with LF line endings and binary inputs
+verbatim (see ``scripts.manifest_hashing``) so a manifest stays valid across
+Windows CRLF and POSIX LF checkouts. Manifests frozen with raw-byte hashing are
+no longer verifiable here; regenerate them with
+``python -m scripts.write_development_manifest`` /
+``python -m scripts.write_heldout_manifest`` before evaluating.
+"""
 import json
 import random
 from collections import Counter
@@ -7,6 +14,7 @@ from pathlib import Path
 
 from app.core.config import settings
 from scripts.evaluate_rag_retrieval import _source_targets
+from scripts.manifest_hashing import sha256_file
 from scripts.rag_eval_metrics import context_recall_at_k
 from scripts.validate_golden_data import validate_rag_cases
 
@@ -18,31 +26,27 @@ M1_MANIFEST_PATH = ROOT / "eval/development_manifest_m1.json"
 RESULTS_PATH = ROOT / "eval/rag_heldout_m2_results.json"
 
 
-def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def verify_frozen_inputs() -> tuple[dict, list[dict]]:
     m1 = json.loads(M1_MANIFEST_PATH.read_text(encoding="utf-8"))
     manifest = json.loads(HELDOUT_MANIFEST_PATH.read_text(encoding="utf-8"))
     cases = json.loads(HELDOUT_PATH.read_text(encoding="utf-8"))
-    if sha256(M1_MANIFEST_PATH) != manifest["m1_manifest_sha256"]:
+    if sha256_file(M1_MANIFEST_PATH) != manifest["m1_manifest_sha256"]:
         raise ValueError("M1 manifest hash mismatch")
     if manifest["m1_commit"] != "4c663793007d46b30ed7a7854e543110af437aff":
         raise ValueError("Unexpected M1 commit in held-out manifest")
-    if sha256(HELDOUT_PATH) != manifest["heldout_sha256"]:
+    if sha256_file(HELDOUT_PATH) != manifest["heldout_sha256"]:
         raise ValueError("Held-out data hash mismatch")
     for relative, expected in m1["corpus_files"].items():
-        if sha256(ROOT / relative) != expected:
+        if sha256_file(ROOT / relative) != expected:
             raise ValueError(f"Frozen corpus hash mismatch: {relative}")
     for relative, info in m1["development_sets"].items():
-        if sha256(ROOT / relative) != info["sha256"]:
+        if sha256_file(ROOT / relative) != info["sha256"]:
             raise ValueError(f"Development set hash mismatch: {relative}")
     for relative, expected in m1["evaluation_code"].items():
-        if sha256(ROOT / relative) != expected:
+        if sha256_file(ROOT / relative) != expected:
             raise ValueError(f"M1 evaluator hash mismatch: {relative}")
     for relative, expected in manifest["heldout_evaluator_code"].items():
-        if sha256(ROOT / relative) != expected:
+        if sha256_file(ROOT / relative) != expected:
             raise ValueError(f"Held-out evaluator hash mismatch: {relative}")
     errors = validate_rag_cases(cases)
     if errors:
@@ -141,7 +145,7 @@ def main() -> int:
             k=manifest["top_k"],
             cutoff=manifest["relevance_cutoff"],
         )
-        result["heldout_manifest_sha256"] = sha256(HELDOUT_MANIFEST_PATH)
+        result["heldout_manifest_sha256"] = sha256_file(HELDOUT_MANIFEST_PATH)
         result["m1_commit"] = manifest["m1_commit"]
         RESULTS_PATH.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(result, ensure_ascii=False, indent=2))

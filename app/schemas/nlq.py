@@ -1,3 +1,4 @@
+from typing import Literal
 from pydantic import BaseModel, Field
 
 
@@ -15,3 +16,4 @@ class NlqAskResponse(BaseModel):
     repaired: bool = False
     truncated: bool = False
     trace_id: str | None = None
+    status: Literal["ok", "restricted", "out_of_scope", "unsupported_action", "error"] = "ok"

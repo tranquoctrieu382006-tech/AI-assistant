@@ -20,7 +20,7 @@
 ## Phân tích & Kết luận
 - **V5/V10:** Hit@1 và MRR cao nhất trong các cấu hình đã đo (35/41, MRR 0.9207). V10 không cải thiện retrieval so với V5. Độ trễ 70.1 ms so với 24.5 ms không đáng tin để so sánh: script chạy một lượt theo thứ tự cấu hình, không warm-up riêng và lấy trung bình các câu; có thể bị ảnh hưởng bởi khởi động nguội.
 - **H5:** Hit@3 tăng đúng **1/41 câu** (39 lên 40), trong khi Hit@1 giảm **4/41 câu** (35 xuống 31) và MRR giảm 0.0467. Kết quả này chưa chứng minh BM25 cải thiện retrieval nói chung.
-- **R10/HR10:** Hit@3 tăng 1/41 câu, Hit@1 giảm 2/41 câu và MRR giảm 0.0061. R10 mất trung bình **2.571 giây** mỗi câu; HR10 mất **4.641 giây**. Đơn vị “ms” ở phần mô tả cũ bị sai 1.000 lần.
+- **R10/HR10:** Hit@3 tăng 1/41 câu, Hit@1 giảm 2/41 câu và MRR giảm 0.0061. R10 mất trung bình **2571 ms (≈2,57 giây)** mỗi câu; HR10 mất **4641 ms (≈4,64 giây)**. Hai cách ghi này nhất quán: `avg_latency_ms` lưu mili-giây (script đo bằng giây rồi nhân 1000), nên 2571 ms = 2,571 s. Cách đọc cũ — coi 2571 là *giây* — mới sai 1.000 lần về độ lớn; giá trị trong JSON và bảng không sai.
 - FP out-of-scope là 0/5 ở **mọi cấu hình**, do cùng dùng cổng cosine; không thể quy kết điều này cho reranker hay gọi reranker là bảo đảm an toàn. Nhóm chỉ có 5 câu nên đây cũng không phải bằng chứng an toàn tuyệt đối.
 
 ### Quyết định

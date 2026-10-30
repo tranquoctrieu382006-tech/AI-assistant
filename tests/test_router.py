@@ -160,3 +160,19 @@ def test_router_frozen_dataset_accuracy_and_confusion_matrix(capsys):
         assert accuracy >= 0.90, f"Split {split} accuracy {accuracy:.1%} < 90%"
         for cls in classes:
             assert recalls[cls] >= 0.80, f"Split {split} class {cls} recall {recalls[cls]:.1%} < 80%"
+
+
+def test_router_detects_write_intent_and_allows_valid_questions():
+    from app.core.router import route_question, RouteCategory
+
+    # Mệnh lệnh ghi bị từ chối
+    assert route_question("Xóa toàn bộ đơn hàng cũ").category == RouteCategory.UNSUPPORTED_ACTION
+    assert route_question("xoa toan bo don hang").category == RouteCategory.UNSUPPORTED_ACTION
+    assert route_question("DROP TABLE orders").category == RouteCategory.UNSUPPORTED_ACTION
+
+    # Câu hỏi hợp lệ về chính sách/quy trình hủy vẫn vào RAG
+    assert route_question("Làm sao để hủy đơn hàng?").category == RouteCategory.RAG
+    assert route_question("Quy trình cập nhật tồn kho thế nào?").category == RouteCategory.RAG
+
+    # Câu hỏi thống kê định lượng về đơn hủy vẫn vào NLQ
+    assert route_question("Có bao nhiêu đơn hàng bị hủy trong tháng 9?").category == RouteCategory.NLQ

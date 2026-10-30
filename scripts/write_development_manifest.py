@@ -19,7 +19,7 @@ EVALUATION_FILES = [
 ]
 
 
-def main(output_path: Path = MANIFEST) -> None:
+def main(output_path: Path = MANIFEST, label: str = "M1") -> None:
     if output_path.exists():
         raise FileExistsError(
             f"Refusing to overwrite frozen manifest {output_path}; choose a new --output path."
@@ -43,7 +43,7 @@ def main(output_path: Path = MANIFEST) -> None:
         "risk_metric": "false_positive_count_by_abstention_type",
     }
     manifest = {
-        "manifest": "M1",
+        "manifest": label,
         "hash_format": "sha256-canonical-text-lf-v1",
         "purpose": "Frozen corpus, development data, scorer, and retrieval configuration before held-out creation.",
         "configuration": config,
@@ -75,5 +75,9 @@ def main(output_path: Path = MANIFEST) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, default=MANIFEST)
+    parser.add_argument("--label", default="M1", help="Manifest label, e.g. M1 or M1-prime.")
     args = parser.parse_args()
-    main(args.output if args.output.is_absolute() else ROOT / args.output)
+    main(
+        args.output if args.output.is_absolute() else ROOT / args.output,
+        args.label,
+    )

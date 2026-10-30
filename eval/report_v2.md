@@ -23,7 +23,7 @@ Báo cáo này tổng hợp kết quả đánh giá hệ thống trợ lý ảo 
 | Thành phần | Phiên bản v1 (Tuần 1) | Phiên bản v2 (Tuần 2) | Đánh giá thực nghiệm & Quyết định kiến trúc |
 | :--- | :--- | :--- | :--- |
 | **Tìm kiếm RAG** | Vector thuần túy (`V5`) | Hybrid Search (`BM25 + PGVector`) kết hợp Weighted Reciprocal Rank Fusion (`RRF`) | `Hit@3` tăng nhẹ (+2.44%), nhưng `Hit@1` bị giảm từ **0.8537 xuống 0.7561** (mất 4 ca ở top-1), `MRR` giảm từ **0.9207 xuống 0.8740**. Hệ thống giữ mặc định `SEARCH_MODE=vector`. |
-| **Reranker** | Không có reranker | Tích hợp thử nghiệm `bge-reranker-v2-m3` | `Hit@1` đạt 0.8049 (vẫn thấp hơn Vector thuần 0.8537). Độ trễ tăng vọt lên **2.571 ms** (R10) và **4.641 ms** (HR10), vượt ngưỡng 3.000 ms. Hệ thống giữ mặc định `USE_RERANKER=false`. |
+| **Reranker** | Không có reranker | Tích hợp thử nghiệm `bge-reranker-v2-m3` | `Hit@1` đạt 0.8049 (vẫn thấp hơn Vector thuần 0.8537). Độ trễ tăng vọt lên **2571 ms (≈2,57 s)** (R10) và **4641 ms (≈4,64 s)** (HR10), vượt ngưỡng 3.000 ms. Hệ thống giữ mặc định `USE_RERANKER=false`. |
 | **Kiến trúc NLQ** | Single-turn Prompt-to-SQL | LangGraph StateGraph (5 nodes: `schema_link` ➔ `generate` ➔ `validate` ➔ `execute` ➔ `interpret`) | Bổ sung vòng lặp **tự sửa lỗi (self-repair)** tối đa 2 lần khi SQL lỗi cú pháp; AST SQL Guard (`sqlglot`) kết hợp phân quyền DB read-only (`ai_nlq_reader`). |
 | **Định tuyến (Router)** | Chưa có bộ định tuyến tự động | Module Router (`app/core/router.py`) phân loại 3 hướng: `rag`, `nlq`, `out_of_scope` | Phân loại nhanh qua regex và LLM fallback. Đã phát hiện hiện tượng nhận nhầm câu hỏi có từ ngữ xã giao hoặc từ hỏi số lượng; đã thiết kế lại quy tắc ưu tiên nghiệp vụ và chuyển về RAG khi phân vân. |
 | **Giao diện & Tương tác**| API Swagger | Web Chat Streamlit: Streaming SSE, hiển thị bảng & biểu đồ, nạp tài liệu tức thì, nút feedback 👍/👎 | Tích hợp end-to-end, hỗ trợ đính kèm nguồn trích dẫn và câu lệnh SQL thu gọn. |
@@ -58,6 +58,7 @@ Thực nghiệm trên 65 ca Dev Set và 50 ca Held-out Set M2 cho thấy ranh gi
      - **Tỷ lệ từ chối đầu-cuối thực tế:** **19/19 (100.0%)** trên nhóm thiếu dữ liệu.
      - **Tỷ lệ ảo giác (Hallucination) thực tế:** **0/19 (0.0%)** (không có ca nào bịa đặt câu trả lời).
      - **Trên nhóm có đáp án (41 ca):** 40/41 ca được trả lời đầy đủ (chỉ 1 ca bị loại nhầm ở tầng retrieval gate do điểm cosine 0.479 < 0.50), không có ca nào bị mô hình từ chối nhầm.
+   - *Số hiện hành (chạy lại 2026-10-29 trên corpus đã dựng lại, `eval/dev_abstention_prompt_gemini35_m2.json`):* xem `eval/current_numbers.md`. Quyết định gate và từ chối không đổi; `fragment_match` là 31/41 thay vì 32/41 do model diễn đạt lại, không phải hồi quy.
 
 ---
 
@@ -70,8 +71,8 @@ Thực nghiệm trên 65 ca Dev Set và 50 ca Held-out Set M2 cho thấy ranh gi
 | **V5 (Baseline)** | Vector (`bge-m3`) | 5 | Không | 5 | **0.8537 (35/41)** | 0.9512 | **0.9756** | **0.9207** | **70.1 ms** |
 | **V10** | Vector (`bge-m3`) | 10 | Không | 10 | 0.8537 (35/41) | 0.9512 | 0.9756 | 0.9207 | 24.5 ms |
 | **H5** | Hybrid RRF | 5 | Không | 5 | 0.7561 (31/41) | **0.9756** | 0.9756 | 0.8740 | 56.7 ms |
-| **R10** | Vector | 10 | `bge-reranker` | 5 | 0.8049 (33/41) | 0.9756 | 0.9756 | 0.9146 | **2.571 ms** |
-| **HR10** | Hybrid RRF | 10 | `bge-reranker` | 5 | 0.8049 (33/41) | 0.9756 | 0.9756 | 0.9146 | **4.641 ms** |
+| **R10** | Vector | 10 | `bge-reranker` | 5 | 0.8049 (33/41) | 0.9756 | 0.9756 | 0.9146 | **2571 ms (≈2,57 s)** |
+| **HR10** | Hybrid RRF | 10 | `bge-reranker` | 5 | 0.8049 (33/41) | 0.9756 | 0.9756 | 0.9146 | **4641 ms (≈4,64 s)** |
 
 **Kết luận thực nghiệm:** Cả H5, R10 và HR10 đều **không đạt tiêu chí cải tiến chất lượng** (Hit@1 và MRR đều thấp hơn V5, độ trễ Reranker vượt ngưỡng 3.000 ms). Quyết định duy trì cấu hình mặc định là **V5 (Vector thuần, $k=5$)** là tối ưu nhất cho môi trường hiện tại.
 
@@ -149,30 +150,30 @@ Toàn bộ các module cốt lõi, bảo mật, định tuyến, upload và hợ
 | STT | File Kiểm Thử | Thu thập (Collected) | Trạng thái Chạy | Mô Tả & Phạm Vi Kiểm Thử |
 | :---: | :--- | :---: | :---: | :--- |
 | 1 | `tests/test_api_client.py` | **13** | Chờ artifact JUnit trên CI | Xác thực `X-API-Key`, mã lỗi 401, 422, mock RAG/NLQ/Router/Feedback. |
-| 2 | `tests/test_chat_history.py` | **17** | Chờ artifact JUnit trên CI | Quản lý session LRU, dọn corpus nền không chặn event loop, quét corpus mồ côi, cắt tỉa ngữ cảnh hội thoại. |
+| 2 | `tests/test_chat_history.py` | **20** | Chờ artifact JUnit trên CI | Quản lý session LRU, dọn corpus nền không chặn event loop, quét corpus mồ côi, cắt tỉa ngữ cảnh hội thoại. |
 | 3 | `tests/test_chunking.py` | **8** | Chờ artifact JUnit trên CI | Chiến lược phân đoạn heading-bounded, fixed-size, bảo toàn tiếng Việt Unicode NFC. |
 | 4 | `tests/test_evaluate_rag_answers.py` | **2** | Chờ artifact JUnit trên CI | Đánh giá chất lượng sinh câu trả lời RAG. |
 | 5 | `tests/test_evaluate_rag_production.py` | **1** | Chờ artifact JUnit trên CI | Đo đạc kiểm thử pipeline RAG với mô hình production. |
 | 6 | `tests/test_evaluators.py` | **31** | Chờ artifact JUnit trên CI | Đánh giá SQL guard, so sánh kết quả bảng, cơ chế retry khi lỗi. |
-| 7 | `tests/test_golden_data_validation.py` | **10** | Chờ artifact JUnit trên CI | Kiểm tra tính toàn vẹn và phân bổ nhãn của tập golden set 65 ca. |
+| 7 | `tests/test_golden_data_validation.py` | **13** | Chờ artifact JUnit trên CI | Kiểm tra tính toàn vẹn và phân bổ nhãn của tập golden set 65 ca, hash manifest chuẩn hoá LF, phát hiện drift, nhãn abstention của nhóm far và loại ca lỗi khỏi mẫu số. |
 | 8 | `tests/test_health.py` | **9** | Chờ artifact JUnit trên CI | Liveness, readiness probes, kiểm tra kết nối Postgres và Ollama. |
 | 9 | `tests/test_ingestion.py` | **20** | Chờ artifact JUnit trên CI | Trích xuất văn bản từ docx, pdf, xử lý lỗi định dạng và ký tự đặc biệt. |
 | 10 | `tests/test_integration_postgres.py` | **4** | Chờ artifact JUnit trên CI | Kiểm thử live database pgvector, cô lập corpus session A/B và phân quyền `ai_nlq_reader` (chạy trên CI/Live DB). |
 | 11 | `tests/test_llm.py` | **15** | Chờ artifact JUnit trên CI | Phân giải vai trò model (fast/strong/local), cache instance mô hình. |
-| 12 | `tests/test_nlq_runtime.py` | **27** | Chờ artifact JUnit trên CI | NLQ graph sinh SQL, validator, test với `FakeListChatModel`, mã lỗi 503/504. |
+| 12 | `tests/test_nlq_runtime.py` | **40** | Chờ artifact JUnit trên CI | NLQ graph sinh SQL, validator, test với `FakeListChatModel`, mã lỗi 503/504. |
 | 13 | `tests/test_prompt_and_streaming.py` | **6** | Chờ artifact JUnit trên CI | Định dạng SSE, bắt sự kiện `start`, `sources`, `token`, `no_answer`, `error`. |
-| 14 | `tests/test_rag.py` | **22** | Chờ artifact JUnit trên CI | Cosine gating, từ chối khi thiếu context, test với `FakeListChatModel` (JSON chuẩn, JSON hỏng, abstain). |
+| 14 | `tests/test_rag.py` | **24** | Chờ artifact JUnit trên CI | Cosine gating, từ chối khi thiếu context, dedupe và giới hạn nguồn, test với `FakeListChatModel` (JSON chuẩn, JSON hỏng, abstain). |
 | 15 | `tests/test_rag_heldout.py` | **2** | Chờ artifact JUnit trên CI | Đánh giá độ trễ và tỷ lệ recall trên tập held-out M1/M2. |
 | 16 | `tests/test_rag_upload.py` | **20** | Chờ artifact JUnit trên CI | Endpoint upload 5MB limit, byte-counting middleware (413), cô lập corpus theo session, NamedTemporaryFile tự hủy. |
 | 17 | `tests/test_report_v2_metrics.py` | **6** | Chờ artifact JUnit trên CI | Kiểm tra tự động đảm bảo số liệu báo cáo khớp 100% với dữ liệu nguồn và test table. |
-| 18 | `tests/test_response_contracts.py` | **7** | Chờ artifact JUnit trên CI | Chuẩn hóa schema Pydantic, xác thực trường `trace_id` trong response. |
-| 19 | `tests/test_retriever.py` | **18** | Chờ artifact JUnit trên CI | Tìm kiếm vector, BM25 cache theo corpus có giới hạn, hybrid fusion, reranker. |
-| 20 | `tests/test_router.py` | **8** | Chờ artifact JUnit trên CI | Ma trận phân loại 2 trục, đánh giá tập đóng băng 70 câu, test với `FakeListChatModel`. |
+| 18 | `tests/test_response_contracts.py` | **8** | Chờ artifact JUnit trên CI | Chuẩn hóa schema Pydantic, xác thực trường `trace_id` trong response. |
+| 19 | `tests/test_retriever.py` | **19** | Chờ artifact JUnit trên CI | Tìm kiếm vector, BM25 cache theo corpus có giới hạn, hybrid fusion, reranker. |
+| 20 | `tests/test_router.py` | **9** | Chờ artifact JUnit trên CI | Ma trận phân loại 2 trục, đánh giá tập đóng băng 70 câu, test với `FakeListChatModel`. |
 | 21 | `tests/test_security.py` | **5** | Chờ artifact JUnit trên CI | Rate limiting theo IP, chống timing attack, `MaxBodySizeMiddleware`. |
 | 22 | `tests/test_tracing.py` | **12** | Chờ artifact JUnit trên CI | Context manager tracing, an toàn khi Langfuse ngoại tuyến, sinh pre-generated `trace_id`. |
 | 23 | `tests/test_vector_store.py` | **11** | Chờ artifact JUnit trên CI | Cosine distance, thay thế corpus, upsert và tìm kiếm theo danh sách `corpus = ANY(%s)`. |
 
-👉 **Tổng số kiểm thử thu thập:** **274 tests** trên toàn bộ **23 file test** (số lượng thu thập, không phải số lượng đã chạy/đạt).
+👉 **Tổng số kiểm thử thu thập:** **298 tests** trên toàn bộ **23 file test** (số lượng thu thập, không phải số lượng đã chạy/đạt).
 
 - Trạng thái pass/fail của từng file được xác định bằng artifact JUnit `test-results.xml` do job CI tải lên, không phải bằng tuyên bố trong tài liệu này. Bảng trên chỉ phản ánh số test được `pytest --collect-only` thu thập tại thời điểm sinh báo cáo.
 - Lưu ý: Toàn bộ danh sách file trên được trích xuất trực tiếp từ cấu trúc thư mục `tests/` thực tế; báo cáo không còn chứa các file giả định (loại bỏ hoàn toàn các file giả định không có trong thư mục tests).

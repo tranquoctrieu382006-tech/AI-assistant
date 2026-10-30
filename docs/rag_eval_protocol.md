@@ -16,6 +16,28 @@ development change with:
 .venv\Scripts\python.exe -m scripts.write_development_manifest
 ```
 
+Manifest hashes are canonical: text files are hashed with LF line endings and
+binary files (`.pdf`, `.docx`, `.png`, `.zip`) verbatim, so the baseline does
+not depend on the checkout's line endings. `.gitattributes` enforces LF for
+text, and CI checks out on Linux. After cloning on Windows, or after changing
+`.gitattributes`, normalise the index once:
+
+```powershell
+git add --renormalize .
+```
+
+Before regenerating a baseline, inspect drift without overwriting anything:
+
+```powershell
+.venv\Scripts\python.exe -m scripts.report_manifest_drift
+```
+
+That command prints, per recorded entry, whether the canonical hash still
+matches and which line endings the working file uses. It exits non-zero when
+anything drifted. Do not regenerate a baseline to make drift disappear: review
+each drifted file, commit the intended change, then freeze a new baseline with a
+new label (`--label`) and write the held-out manifest against it.
+
 The M1 manifest and its matching Git commit must be committed before creating
 or running a held-out set. A later held-out manifest must record its own hash
 and the M1 commit/hash. A corpus or scorer change requires a new M1 baseline and

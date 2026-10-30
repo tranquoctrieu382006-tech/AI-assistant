@@ -156,6 +156,33 @@ def test_rag_filters_each_low_score_chunk_and_uses_separate_messages():
     assert "poor" not in model.prompt[1].content
 
 
+def test_select_sources_dedupes_by_document_and_caps_list():
+    matches = [
+        {"source": "a.md", "chunk_index": 0, "score": 0.90},
+        {"source": "a.md", "chunk_index": 3, "score": 0.70},
+        {"source": "b.md", "chunk_index": 1, "score": 0.88},
+        {"source": "c.md", "chunk_index": 0, "score": 0.86},
+        {"source": "d.md", "chunk_index": 0, "score": 0.85},
+    ]
+
+    selected = rag._select_sources(matches)
+
+    # Một nguồn chỉ xuất hiện một lần, giữ chunk điểm cao nhất, tối đa 3 nguồn.
+    assert [match["source"] for match in selected] == ["a.md", "b.md", "c.md"]
+    assert selected[0]["chunk_index"] == 0
+
+
+def test_select_sources_drops_sources_far_below_top_score():
+    matches = [
+        {"source": "top.md", "chunk_index": 0, "score": 0.80},
+        {"source": "near.md", "chunk_index": 0, "score": 0.75},
+        {"source": "weak.md", "chunk_index": 0, "score": 0.55},
+    ]
+
+    assert [match["source"] for match in rag._select_sources(matches)] == ["top.md", "near.md"]
+    assert rag._select_sources([]) == []
+
+
 def test_rag_clears_sources_when_model_abstains():
     fake_store = types.ModuleType("app.core.vector_store")
     fake_store.similarity_search = lambda question, k, **kwargs: [{

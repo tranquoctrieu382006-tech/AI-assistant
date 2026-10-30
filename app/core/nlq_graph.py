@@ -18,6 +18,16 @@ from app.core.nlq_schema import _connect, load_schema, schema_catalog, select_re
 from app.core.tracing import get_langfuse_handler, langfuse_observation, update_langfuse_observation
 
 _SENSITIVE = re.compile(r"password|passwd|secret|token|email|phone|mobile|address|account_number|national_id|full_name", re.I)
+_SENSITIVE_PROJECTION_RE = re.compile(
+    r"\b(?:số\s+điện\s+thoại|so\s+dien\s+thoai|sđt|sdt|email|thư\s+điện\s+tử|thu\s+dien\s+tu|"
+    r"mật\s+khẩu|mat\s+khau|địa\s+chỉ|dia\s+chi|cmnd|cccd|căn\s+cước|can\s+cuoc|"
+    r"tài\s+khoản\s+ngân\s+hàng|tai\s+khoan\s+ngan\s+hang|password|phone)\b",
+    re.IGNORECASE,
+)
+_AGGREGATE_COUNT_RE = re.compile(
+    r"\b(?:bao\s+nhiêu|mấy|tổng\s+số|đếm|thống\s+kê|tỷ\s+lệ|số\s+lượng)\b",
+    re.IGNORECASE,
+)
 _ALLOWED_FUNCTIONS = {
     "abs", "avg", "coalesce", "concat", "count", "date_part", "extract",
     "greatest", "least", "length", "lower", "max", "min", "nullif", "round",
@@ -44,6 +54,9 @@ class NlqState(TypedDict, total=False):
     repaired: bool
     model: Any
     callbacks: list[Any]
+    restricted: bool
+    suggested_columns: list[str]
+    status: str
 
 
 class NlqRequestTimeout(TimeoutError):
@@ -332,7 +345,47 @@ def _make_graph(llm):
             )
             text = schema_catalog(selected)
             update_langfuse_observation(span, output={"selected_tables": [t["name"] for t in selected]})
+
+        q = state["question"]
+        is_sensitive = bool(_SENSITIVE_PROJECTION_RE.search(q))
+        is_aggregate = bool(_AGGREGATE_COUNT_RE.search(q))
+        if is_sensitive and not is_aggregate:
+            selected_names = {t["name"] for t in selected}
+            if "customers" in selected_names or any(w in q.lower() for w in ["khách", "khach"]):
+                suggested_cols = []
+                for t in state.get("schema", []):
+                    if t["name"] == "customers":
+                        suggested_cols.extend(c["name"] for c in t["columns"] if not _SENSITIVE.search(c["name"]))
+                vi_labels = {
+                    "customer_id": "mã khách hàng",
+                    "name": "tên khách hàng",
+                    "customer_segment": "phân khúc khách hàng",
+                    "city": "thành phố",
+                    "total_spend": "tổng chi tiêu",
+                    "created_at": "ngày tạo",
+                }
+                display = [vi_labels.get(c, c) for c in suggested_cols if c in vi_labels]
+                return {
+                    "selected_tables": selected,
+                    "schema_text": text,
+                    "restricted": True,
+                    "suggested_columns": display or ["tên khách hàng", "phân khúc", "thành phố", "tổng chi tiêu"],
+                }
+
         return {"selected_tables": selected, "schema_text": text, "out_of_scope": not selected}
+
+    def restricted(state: NlqState) -> NlqState:
+        cols = ", ".join(state.get("suggested_columns", ["tên khách hàng", "phân khúc", "thành phố", "tổng chi tiêu"]))
+        return {
+            "sql": "",
+            "columns": [],
+            "rows": [],
+            "answer": f"Thông tin liên hệ khách hàng (số điện thoại, email, địa chỉ) bị hạn chế để bảo vệ quyền riêng tư. Bạn có thể tra cứu các trường thông tin được phép như: {cols}.",
+            "repaired": False,
+            "truncated": False,
+            "error": "",
+            "status": "restricted",
+        }
 
     def out_of_scope(state: NlqState) -> NlqState:
         return {
@@ -343,6 +396,7 @@ def _make_graph(llm):
             "repaired": False,
             "truncated": False,
             "error": "",
+            "status": "out_of_scope",
         }
 
     def generate(state: NlqState) -> NlqState:
@@ -436,7 +490,7 @@ def _make_graph(llm):
         with langfuse_observation(name="nlq-answer-interpretation", input={"row_count": len(rows)}) as span:
             answer = _invoke_model(llm, prompt, state.get("callbacks", []))
             update_langfuse_observation(span, output={"answer": answer})
-        return {"answer": answer}
+        return {"answer": answer, "status": "ok"}
 
     builder = StateGraph(NlqState)
     def timed_node(name, fn):
@@ -462,6 +516,7 @@ def _make_graph(llm):
 
     builder.add_node("load_schema", timed_node("load_schema", load))
     builder.add_node("schema_link", timed_node("schema_link", link))
+    builder.add_node("restricted", timed_node("restricted", restricted))
     builder.add_node("out_of_scope", timed_node("out_of_scope", out_of_scope))
     builder.add_node("generate_sql", timed_node("generate_sql", generate))
     builder.add_node("validate_sql", timed_node("validate_sql", validate))
@@ -470,11 +525,20 @@ def _make_graph(llm):
     builder.add_node("interpret", timed_node("interpret", interpret))
     builder.add_edge(START, "load_schema")
     builder.add_edge("load_schema", "schema_link")
+
+    def after_schema_link(state):
+        if state.get("restricted"):
+            return "restricted"
+        if state.get("out_of_scope"):
+            return "out_of_scope"
+        return "generate_sql"
+
     builder.add_conditional_edges(
         "schema_link",
-        lambda state: "out_of_scope" if state.get("out_of_scope") else "generate_sql",
-        {"out_of_scope": "out_of_scope", "generate_sql": "generate_sql"},
+        after_schema_link,
+        {"restricted": "restricted", "out_of_scope": "out_of_scope", "generate_sql": "generate_sql"},
     )
+    builder.add_edge("restricted", END)
     builder.add_edge("out_of_scope", END)
     builder.add_edge("generate_sql", "validate_sql")
 
@@ -542,10 +606,11 @@ def ask_nlq(question: str, *, session_id: str | None = None, user_id: str | None
     if result.get("error"):
         raise ValueError(f"Không thể chạy truy vấn an toàn: {result['error']}")
     return {
-        "sql": result["sql"],
+        "sql": result.get("sql", ""),
         "columns": result.get("columns", []),
         "rows": result.get("rows", []),
         "answer": result.get("answer", "Không thể diễn giải kết quả."),
         "repaired": result.get("repaired", False),
         "truncated": result.get("truncated", False),
+        "status": result.get("status", "ok"),
     }

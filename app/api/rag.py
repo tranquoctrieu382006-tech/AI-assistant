@@ -43,6 +43,29 @@ from app.core.rag_prompt import (
 )
 
 router = APIRouter(dependencies=[Security(require_api_key)])
+
+# Một nguồn chỉ hiển thị một lần; chỉ giữ các nguồn sát điểm cao nhất và tối đa
+# MAX_SOURCES để danh sách "nguồn tham khảo" không lặp và không loãng.
+MAX_SOURCES = 3
+SOURCE_SCORE_MARGIN = 0.10
+
+
+def _select_sources(matches: list[dict]) -> list[dict]:
+    """Collapse chunks into one row per document, best chunk only.
+
+    Keeps sources within ``SOURCE_SCORE_MARGIN`` of the top score and caps the
+    list at ``MAX_SOURCES``. Used by both the JSON and the SSE endpoints so the
+    two paths cannot drift apart.
+    """
+    if not matches:
+        return []
+    ranked = sorted(matches, key=lambda match: match["score"], reverse=True)
+    best_by_source: dict[str, dict] = {}
+    for match in ranked:
+        best_by_source.setdefault(match["source"], match)
+    selected = list(best_by_source.values())[:MAX_SOURCES]
+    floor = selected[0]["score"] - SOURCE_SCORE_MARGIN
+    return [match for match in selected if match["score"] >= floor]
 logger = logging.getLogger(__name__)
 
 DEFAULT_CORPORA = ("demo", "user")
@@ -153,10 +176,22 @@ async def _invoke_rag_with_retry(chain, inputs: dict, config: dict):
     raise RuntimeError("RAG model call did not return")
 
 
-async def _retrieve_with_timeout(question: str, request: RagAskRequest, trace_id: str | None = None):
+async def _retrieve_with_timeout(question: str, request: RagAskRequest, trace_id: str | None = None, raw_question: str | None = None):
     target_corpus = _resolve_target_corpus(request)
 
     async with asyncio.timeout(settings.rag_retrieval_timeout_seconds):
+        if raw_question and raw_question.strip().casefold() != question.strip().casefold():
+            return await run_in_threadpool(
+                retrieve_and_gate,
+                question,
+                request.top_k,
+                settings.search_mode,
+                settings.use_reranker,
+                request.top_k,
+                max(request.top_k, settings.reranker_pool_size),
+                target_corpus,
+                raw_question,
+            )
         return await run_in_threadpool(
             retrieve_and_gate,
             question,
@@ -418,7 +453,9 @@ async def ask_rag_stream(request: RagAskRequest):
             trace_id=trace_id,
             parent_span_id=root_span_id,
         ) as observation:
-            matches, is_refused = await _retrieve_with_timeout(standalone_question, request)
+            matches, is_refused = await _retrieve_with_timeout(
+                standalone_question, request, trace_id=trace_id, raw_question=request.question
+            )
             context = format_context(matches)
             update_langfuse_observation(
                 observation,
@@ -457,7 +494,7 @@ async def ask_rag_stream(request: RagAskRequest):
                 "page_number": m.get("page_number"),
                 "display_name": m.get("display_name"),
             }
-            for m in matches
+            for m in _select_sources(matches)
         ]
         full_answer = []
         pending = ""
@@ -598,7 +635,9 @@ async def _answer_rag(request: RagAskRequest, trace_id: str | None = None) -> Ra
                 "top_k": request.top_k,
             },
         ) as observation:
-            matches, is_refused = await _retrieve_with_timeout(standalone_question, request)
+            matches, is_refused = await _retrieve_with_timeout(
+                standalone_question, request, trace_id=trace_id, raw_question=request.question
+            )
             context = format_context(matches)
             update_langfuse_observation(
                 observation,
@@ -665,11 +704,11 @@ async def _answer_rag(request: RagAskRequest, trace_id: str | None = None) -> Ra
         session_store.add_turn(request.session_id, request.question, NO_ANSWER)
         return RagAskResponse(answer=NO_ANSWER, sources=[], trace_id=trace_id)
 
-    sources = list({(m["source"], m["chunk_index"]): RagSource(
+    sources = [RagSource(
         source=m["source"], chunk_index=m["chunk_index"], score=m["score"],
         page_number=m.get("page_number"), section=m.get("section"),
         display_name=m.get("display_name"), corpus=m.get("corpus")
-    ) for m in matches}.values())
+    ) for m in _select_sources(matches)]
 
     final_answer = answer or NO_ANSWER
     session_store.add_turn(request.session_id, request.question, final_answer)

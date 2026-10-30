@@ -87,3 +87,25 @@ def test_route_decision_schema():
     decision = RouteDecision(category=RouteCategory.RAG, reasoning="Hỏi chính sách")
     assert decision.category == "rag"
     assert decision.reasoning == "Hỏi chính sách"
+
+
+def test_nlq_ask_response_status_field():
+    """Kiểm tra trường status tường minh trong NlqAskResponse (ok, restricted, out_of_scope...)."""
+    res_default = NlqAskResponse(
+        sql="SELECT 1;",
+        columns=["?column?"],
+        rows=[{"?column?": 1}],
+        answer="1",
+    )
+    assert res_default.status == "ok"
+    assert res_default.model_dump()["status"] == "ok"
+
+    res_restricted = NlqAskResponse(
+        sql="",
+        columns=[],
+        rows=[],
+        answer="Thông tin bị hạn chế",
+        status="restricted",
+    )
+    assert res_restricted.status == "restricted"
+    assert res_restricted.model_dump()["status"] == "restricted"

@@ -263,3 +263,44 @@ def test_rewrite_timeout_falls_back_to_original_question(monkeypatch):
     with patch("app.core.question_rewriter.build_rewriter_chain", return_value=mock_chain):
         rewritten = asyncio.run(rewrite_question_if_needed("Thế còn hàng lỗi?", history))
     assert rewritten == "Thế còn hàng lỗi?"
+
+
+@pytest.mark.asyncio
+async def test_rewrite_triggers_on_unaccented_vietnamese_even_without_history():
+    """Câu hỏi không dấu ở lượt đầu tiên (history=[]) vẫn được kích hoạt rewriter để khôi phục dấu."""
+    q_unaccented = "quy trinh tra hang nhu the nao"
+    mock_chain = AsyncMock()
+    mock_chain.ainvoke.return_value = "Quy trình trả hàng như thế nào?"
+    with patch("app.core.question_rewriter.build_rewriter_chain", return_value=mock_chain) as build_mock:
+        rewritten = await rewrite_question_if_needed(q_unaccented, history=[])
+        build_mock.assert_called_once()
+        assert rewritten == "Quy trình trả hàng như thế nào?"
+
+
+@pytest.mark.asyncio
+async def test_unaccented_followup_cue_triggers_rewrite():
+    """Đại từ thay thế dạng không dấu (the con, vay thi, do la...) phải khớp _FOLLOWUP_CUES."""
+    history = [
+        {"role": "user", "content": "Chính sách đổi trả thế nào?"},
+        {"role": "assistant", "content": "Trong 7 ngày."},
+    ]
+    mock_chain = AsyncMock()
+    mock_chain.ainvoke.return_value = "Chính sách đổi trả đối với hàng lỗi như thế nào?"
+    with patch("app.core.question_rewriter.build_rewriter_chain", return_value=mock_chain) as build_mock:
+        rewritten = await rewrite_question_if_needed("the con hang loi thi sao", history)
+        build_mock.assert_called_once()
+        assert "hàng lỗi" in rewritten
+
+
+def test_text_utils_and_unaccented_detection():
+    from app.core.text_utils import is_probably_unaccented_vietnamese, strip_accents
+
+    assert is_probably_unaccented_vietnamese("quy trinh tra hang nhu the nao") is True
+    assert is_probably_unaccented_vietnamese("thoi han doi tra la bao lau") is True
+    assert is_probably_unaccented_vietnamese("What is the refund policy?") is False
+    assert is_probably_unaccented_vietnamese("ORD-12345") is False
+    assert is_probably_unaccented_vietnamese("Chính sách bảo hành?") is False  # Already accented
+
+    # Kiểm tra xử lý chữ đ/Đ
+    assert strip_accents("Đơn hàng đổi trả") == "don hang doi tra"
+    assert strip_accents("ĐỒNG NAI") == "dong nai"
