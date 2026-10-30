@@ -170,6 +170,11 @@ Cho phép tải trực tiếp file tài liệu mới lên để chunking, embedd
 | `401` | `Unauthorized` | Thiếu hoặc sai header `X-API-Key`. |
 | `422` | `Unprocessable Entity` | Dữ liệu đầu vào không hợp lệ (câu hỏi rỗng hoặc vượt quá 2000 ký tự). |
 | `429` | `Too Many Requests` | Vượt hạn mức 60 req/phút theo IP hoặc hàng đợi **Admission Gate** bị đầy (trả về kèm header `Retry-After`). |
-| `502` | `Bad Gateway` | Mô hình LLM bên ngoài (Gemini/OpenAI) trả về lỗi hoặc ngắt kết nối đột ngột. |
-| `503` | `Service Unavailable` | `APP_API_KEY` chưa được cấu hình hoặc PostgreSQL pgvector chưa sẵn sàng. |
-| `504` | `Gateway Timeout` | Quá trình truy xuất hoặc tạo sinh vượt quá ngân sách thời gian (`RAG_CLOUD_REQUEST_DEADLINE_SECONDS`). |
+| `502` | `Bad Gateway` | Mô hình LLM bên ngoài (Gemini/OpenAI) trả về lỗi hoặc ngắt kết nối đột ngột; chỉ dùng cho lỗi nhà cung cấp/hạ tầng, không dùng cho lỗi nội dung câu hỏi. |
+| `503` | `Service Unavailable` | `APP_API_KEY` chưa được cấu hình, PostgreSQL pgvector chưa sẵn sàng, hoặc NLQ chưa có tài khoản CSDL chỉ đọc / mất kết nối CSDL. |
+| `504` | `Gateway Timeout` | Quá trình truy xuất hoặc tạo sinh vượt quá ngân sách thời gian (`RAG_CLOUD_REQUEST_DEADLINE_SECONDS`, ngân sách NLQ). |
+
+Các lỗi do handler sinh ra (`502/503/504`) ở `/api/nlq/ask` và `/api/ask` đều
+mang header `X-Trace-Id` khi Langfuse được cấu hình. Lỗi thuộc về nội dung câu
+hỏi (ví dụ cần một trường nhạy cảm không được cấp quyền) trả HTTP `200` với
+`status="restricted"` và `error_code="policy_denied"`, không phải `502`.

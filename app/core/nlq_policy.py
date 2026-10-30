@@ -20,12 +20,11 @@ _HUMAN_ENTITY_PATTERN = (
 )
 _HUMAN_ENTITY_RE = re.compile(_HUMAN_ENTITY_PATTERN, re.IGNORECASE)
 
-# Mẫu câu hỏi đếm số lượng tổng hợp (Aggregate Count) - cho phép qua CSDL, không phải là truy vấn lộ PII
-_COUNT_AGGREGATE_RE = re.compile(
-    r"\b(?:(?:có\s+)?(?:bao\s+nhiêu|mấy)|đếm|thống\s+kê|tổng\s+số|số\s+lượng|tỷ\s+lệ)\s+"
-    r"(?:khách\s+hàng|khach\s+hang|người|nguoi|user|tài\s+khoản|tai\s+khoan|thành\s+viên|thanh\s+vien)\b",
-    re.IGNORECASE,
-)
+# Không có miễn trừ cho câu đếm tổng hợp. Nếu vị ngữ của câu dựa vào một
+# thuộc tính nhạy cảm (email, số điện thoại...) thì cột đó không nằm trong dữ
+# liệu được cấp quyền: model không thể đếm theo điều kiện đó và rất dễ trả về
+# tổng số bản ghi như thể là câu trả lời đúng. Vì vậy mọi cách diễn đạt
+# ("bao nhiêu", "đếm", "thống kê"...) đều bị chặn như nhau.
 
 # Nhãn tiếng Việt cho các cột thường gặp
 COLUMN_DISPLAY_LABELS = {
@@ -59,7 +58,9 @@ def is_human_pii_query(question: str) -> bool:
     Điều kiện:
     - Có chứa trường PII (số điện thoại, email, địa chỉ, mật khẩu, CCCD, tài khoản).
     - Đi kèm thực thể người (khách hàng, người dùng, nhân viên, thành viên).
-    - VÀ KHÔNG PHẢI là câu hỏi đếm tổng hợp số lượng (ví dụ: 'Có bao nhiêu khách hàng có email?' là hợp lệ).
+    - Không miễn trừ cách diễn đạt: "bao nhiêu", "đếm", "thống kê"... đều bị
+      chặn nếu vị ngữ dựa vào trường nhạy cảm, vì trường đó không có trong dữ
+      liệu được cấp quyền.
     """
     if not question:
         return False
@@ -73,16 +74,24 @@ def is_human_pii_query(question: str) -> bool:
         # Nếu hỏi thực thể phi cá nhân (ví dụ: 'Số điện thoại kho hàng', 'Hotline công ty') thì không phải PII người
         return False
 
-    # Miễn trừ nếu là câu hỏi đếm tổng hợp số lượng (COUNT)
-    if _COUNT_AGGREGATE_RE.search(question):
-        return False
-
+    # Không miễn trừ câu đếm tổng hợp: nếu vị ngữ dựa vào cột nhạy cảm thì cột
+    # đó không được cấp quyền, nên "đếm" cũng không thể trả lời đúng.
     return True
 
 
 def has_sensitive_mention(question: str) -> bool:
     """Kiểm tra câu hỏi có chứa yêu cầu PII cá nhân hay không (dùng làm chốt chặn an toàn)."""
     return is_human_pii_query(question)
+
+
+def restricted_answer(columns: list[str] | None = None) -> str:
+    """Thông báo thống nhất khi câu hỏi cần một trường nhạy cảm không được cấp quyền."""
+    allowed = ", ".join(columns) if columns else ", ".join(ALLOWED_CUSTOMER_COLUMNS.values())
+    return (
+        "Câu hỏi cần một trường nhạy cảm (số điện thoại, email, địa chỉ...) "
+        "không có trong dữ liệu được phép truy vấn, nên bị hạn chế để bảo vệ "
+        f"quyền riêng tư. Bạn có thể tra cứu các trường được cấp quyền như: {allowed}."
+    )
 
 
 def get_allowed_columns_for_table(schema: list[dict] | None = None, table_name: str = "customers") -> list[str]:

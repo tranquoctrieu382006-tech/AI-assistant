@@ -19,7 +19,7 @@ from app.core.nlq_policy import (
     has_sensitive_mention,
     is_human_pii_query,
     get_allowed_columns_for_table,
-    ALLOWED_CUSTOMER_COLUMNS,
+    restricted_answer,
     PolicyViolation,
     PrivacyViolation,
     InvalidSqlError,
@@ -439,12 +439,11 @@ def _make_graph(llm):
         return {"selected_tables": selected, "schema_text": text, "out_of_scope": not selected}
 
     def restricted(state: NlqState) -> NlqState:
-        cols = ", ".join(state.get("suggested_columns", list(ALLOWED_CUSTOMER_COLUMNS.values())))
         return {
             "sql": "",
             "columns": [],
             "rows": [],
-            "answer": f"Thông tin cá nhân/nhạy cảm (số điện thoại, email, địa chỉ...) bị hạn chế để bảo vệ quyền riêng tư. Bạn có thể tra cứu các trường thông tin được phép như: {cols}.",
+            "answer": restricted_answer(state.get("suggested_columns")),
             "repaired": False,
             "truncated": False,
             "error": "",
@@ -719,18 +718,7 @@ def ask_nlq(question: str, *, session_id: str | None = None, user_id: str | None
         }
     if result.get("error"):
         error_type = result.get("error_type", "other")
-        if error_type == "policy":
-            return {
-                "sql": "",
-                "columns": [],
-                "rows": [],
-                "answer": f"Yêu cầu bị từ chối do vi phạm chính sách: {result['error']}",
-                "repaired": False,
-                "truncated": False,
-                "status": "restricted",
-                "error_code": "policy_denied",
-            }
-        elif error_type == "schema":
+        if error_type == "schema":
             return {
                 "sql": "",
                 "columns": [],

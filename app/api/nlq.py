@@ -5,7 +5,7 @@ import psycopg
 
 from app.core.config import settings
 from app.core.nlq_graph import NlqRequestTimeout, ask_nlq
-from app.core.nlq_policy import InvalidSqlError, PrivacyViolation, SchemaMismatch
+from app.core.nlq_policy import InvalidSqlError, PrivacyViolation, SchemaMismatch, restricted_answer
 from app.core.security import require_api_key
 from app.core.tracing import create_trace_id, langfuse_observation, update_langfuse_observation
 from app.schemas.nlq import NlqAskRequest, NlqAskResponse
@@ -68,7 +68,7 @@ def ask_database(request: NlqAskRequest, response: Response = None) -> NlqAskRes
             sql="",
             columns=[],
             rows=[],
-            answer=f"Yêu cầu bị từ chối do vi phạm chính sách: {exc}",
+            answer=restricted_answer(),
             repaired=False,
             truncated=False,
             trace_id=trace_id,

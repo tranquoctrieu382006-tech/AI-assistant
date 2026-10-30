@@ -516,3 +516,44 @@ def test_api_ask_unified_endpoint():
     assert data["route"] == "unsupported_action"
     assert data["status"] == "unsupported_action"
     assert "chỉ đọc" in data["answer"]
+
+
+def test_nlq_http_5xx_carries_trace_id(monkeypatch):
+    """Lỗi hạ tầng (503/504) phải mang X-Trace-Id để truy vết."""
+    trace = "b" * 32
+    monkeypatch.setattr("app.api.nlq.create_trace_id", lambda: trace)
+    monkeypatch.setattr(settings, "nlq_database_url", "postgresql://readonly/test")
+
+    def timed_out(*args, **kwargs):
+        raise NlqRequestTimeout("deadline")
+
+    monkeypatch.setattr("app.api.nlq.ask_nlq", timed_out)
+    with pytest.raises(HTTPException) as exc:
+        ask_database(NlqAskRequest(question="Có bao nhiêu đơn hàng?"))
+    assert exc.value.status_code == 504
+    assert exc.value.headers.get("X-Trace-Id") == trace
+
+    monkeypatch.setattr(settings, "nlq_database_url", "")
+    with pytest.raises(HTTPException) as exc:
+        ask_database(NlqAskRequest(question="Có bao nhiêu đơn hàng?"))
+    assert exc.value.status_code == 503
+    assert exc.value.headers.get("X-Trace-Id") == trace
+
+
+def test_nlq_http_invalid_sql_returns_200_error_with_trace(monkeypatch):
+    """Câu không thể chuyển thành SQL an toàn là lỗi nội dung: 200 + status=error."""
+    from app.core.nlq_policy import InvalidSqlError
+
+    trace = "c" * 32
+    monkeypatch.setattr("app.api.nlq.create_trace_id", lambda: trace)
+    monkeypatch.setattr(settings, "nlq_database_url", "postgresql://readonly/test")
+
+    def invalid(*args, **kwargs):
+        raise InvalidSqlError("Không thể tạo truy vấn an toàn")
+
+    monkeypatch.setattr("app.api.nlq.ask_nlq", invalid)
+    body = ask_database(NlqAskRequest(question="Có bao nhiêu đơn hàng?"))
+    assert body.status == "error"
+    assert body.error_code == "exec_error"
+    assert body.trace_id == trace
+

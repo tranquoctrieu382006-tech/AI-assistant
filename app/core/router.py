@@ -28,6 +28,13 @@ class RouteCategory(str, Enum):
 class RouteDecision(BaseModel):
     category: RouteCategory = Field(description="Phân loại câu hỏi: rag, nlq, hoặc out_of_scope")
     reasoning: str = Field(default="", description="Giải thích ngắn gọn lý do phân loại")
+    reason_code: str = Field(
+        default="",
+        description=(
+            "Mã lý do ổn định cho máy đọc (vd: 'greeting'); client không được so "
+            "khớp chuỗi `reasoning` vì đó là văn bản hiển thị có thể đổi."
+        ),
+    )
 
 
 ROUTER_SYSTEM_PROMPT = """Bạn là chuyên gia phân loại câu hỏi (Router) cho hệ thống AI Doanh nghiệp.
@@ -148,8 +155,8 @@ POLICY_PATTERNS = [
 
 # 6. Chào hỏi và xã giao
 GREETING_PATTERNS = [
-    r"^xin\s+chào\b", r"^xin\s+chao\b",
-    r"^chào\b", r"^chao\b",
+    r"^xin\s+chào\b", r"^xin\s+chao\b", r"^xin\s+chaof\b",
+    r"^chào\b", r"^chao\b", r"^chaof\b",
     r"^(?:hello|hi|hey)\b",
     r"^(?:tạm\s+biệt|tam\s+biet|bye|goodbye)\b",
     r"^(?:cảm\s+ơn|cam\s+on|thank\s+you|thanks)\b",
@@ -301,7 +308,11 @@ def _rule_based_classify(question: str) -> RouteDecision:
 
     # 1. Chào hỏi xã giao (ưu tiên nhận diện trước kiểm tra độ dài câu)
     if is_greeting and not has_policy and not (has_quantitative and has_db_entity) and not has_pure_db_metric:
-        return RouteDecision(category=RouteCategory.OUT_OF_SCOPE, reasoning="Chào hỏi xã giao")
+        return RouteDecision(
+            category=RouteCategory.OUT_OF_SCOPE,
+            reasoning="Chào hỏi xã giao",
+            reason_code="greeting",
+        )
 
     # 2. Câu hỏi quá ngắn, vô nghĩa (< 5 ký tự) không chứa thực thể hay chính sách
     if len(q_no_accents) <= 5 and not has_policy and not has_db_entity and not has_pure_db_metric:

@@ -1,7 +1,7 @@
 """
 Unit tests for app.core.nlq_policy.
 Kiểm tra chốt chặn chính sách NLQ, phân biệt PII cá nhân vs thông tin liên hệ cơ sở/tổ chức,
-miễn trừ câu hỏi đếm tổng hợp (COUNT aggregate), và phân cấp ngoại lệ có kiểu (typed exceptions).
+chặn nhất quán câu đếm dựa trên trường nhạy cảm, và phân cấp ngoại lệ có kiểu (typed exceptions).
 """
 
 import pytest
@@ -16,6 +16,7 @@ from app.core.nlq_policy import (
     get_allowed_columns_for_table,
     has_sensitive_mention,
     is_human_pii_query,
+    restricted_answer,
 )
 
 
@@ -66,18 +67,43 @@ def test_human_pii_exempts_facility_and_business_contacts():
         assert has_sensitive_mention(q) is False
 
 
-def test_human_pii_exempts_count_aggregates():
-    """Miễn trừ câu hỏi đếm số lượng tổng hợp (COUNT aggregate), cho phép truy vấn CSDL."""
+def test_human_pii_blocks_count_aggregates_over_sensitive_fields():
+    """Câu đếm dựa vào trường nhạy cảm bị chặn ở mọi cách diễn đạt.
+
+    Cột email/số điện thoại không có trong dữ liệu được cấp quyền. Nếu cho qua,
+    model dễ trả tổng số bản ghi như thể đó là câu trả lời đúng.
+    """
     count_queries = [
         "Có bao nhiêu khách hàng có email?",
         "Đếm số lượng khách hàng có số điện thoại",
+        "Đếm số khách hàng có email",
         "Thống kê khách hàng có email",
         "Có mấy user có số điện thoại?",
         "Tổng số khách hàng có email hợp lệ",
         "Tỷ lệ khách hàng có số điện thoại",
     ]
     for q in count_queries:
-        assert is_human_pii_query(q) is False, f"Kỳ vọng câu hỏi aggregate {q} không bị chặn PII"
+        assert is_human_pii_query(q) is True, f"Kỳ vọng {q} bị chặn vì dựa vào trường nhạy cảm"
+        assert has_sensitive_mention(q) is True
+
+
+def test_plain_counts_without_sensitive_fields_are_allowed():
+    """Đếm tổng hợp không dựa vào trường nhạy cảm vẫn được phép."""
+    allowed = [
+        "Có bao nhiêu khách hàng?",
+        "Đếm số khách hàng theo thành phố",
+        "Thống kê số lượng đơn hàng theo tháng",
+    ]
+    for q in allowed:
+        assert is_human_pii_query(q) is False, f"Kỳ vọng {q} không bị chặn PII"
+
+
+def test_restricted_answer_is_consistent_and_lists_allowed_fields():
+    """Thông báo từ chối phải nêu rõ trường không được cấp quyền và gợi ý cột hợp lệ."""
+    message = restricted_answer()
+    assert "không có trong dữ liệu được phép" in message
+    for label in ALLOWED_CUSTOMER_COLUMNS.values():
+        assert label in message
 
 
 def test_get_allowed_columns_filters_sensitive_fields():

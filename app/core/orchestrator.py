@@ -12,6 +12,7 @@ from app.core.nlq_policy import (
     SchemaMismatch,
     has_sensitive_mention,
     is_human_pii_query,
+    restricted_answer,
 )
 from app.core.rag_service import answer_rag_request
 from app.core.router import RouteCategory, route_question
@@ -38,6 +39,7 @@ class AskUnifiedResponse(BaseModel):
     rows: list[dict] = Field(default_factory=list)
     sources: list[dict] = Field(default_factory=list)
     reasoning: str | None = None
+    route_reason: str | None = None
     fallback_from: str | None = None
     error_code: str | None = None
     trace_id: str | None = None
@@ -87,7 +89,7 @@ async def _run_nlq_step(
             "sql": "",
             "columns": [],
             "rows": [],
-            "answer": f"Yêu cầu bị từ chối do vi phạm chính sách: {exc}",
+            "answer": restricted_answer(),
             "repaired": False,
             "truncated": False,
             "status": "restricted",
@@ -117,31 +119,36 @@ async def _run_nlq_step(
         }
 
 
-async def ask_orchestrated(request: AskUnifiedRequest) -> AskUnifiedResponse:
+def _policy_denied(trace_id: str | None, reasoning: str) -> AskUnifiedResponse:
+    """Câu hỏi trên đường NLQ cần một trường nhạy cảm không được cấp quyền."""
+    return AskUnifiedResponse(
+        route="nlq",
+        status="restricted",
+        answer=restricted_answer(),
+        columns=[],
+        rows=[],
+        reasoning=reasoning,
+        error_code="policy_denied",
+        trace_id=trace_id,
+    )
+
+
+async def ask_orchestrated(
+    request: AskUnifiedRequest, trace_id: str | None = None
+) -> AskUnifiedResponse:
     """
     Điều phối truy vấn hợp nhất tại tầng Backend:
+    Hành vi:
     - Tiếp nhận câu hỏi, tự động định tuyến nếu ở chế độ 'auto'.
-    - Chặn các câu hỏi PII cá nhân con người ngay tại cửa ngõ.
+    - Cổng PII chỉ áp cho đường NLQ (CSDL): dữ liệu cá nhân khách hàng chỉ tồn
+      tại trong CSDL, nên câu hỏi đi RAG không bị chặn bởi cổng này. Nhờ vậy
+      câu hỏi hotline/liên hệ công ty hoặc chính sách bảo mật vẫn tới RAG.
     - Chặn các câu lệnh ghi/xóa (unsupported_action) ngay lập tức.
     - Chặn câu hỏi nhạy cảm và không bao giờ fallback sang RAG để chống lộ dữ liệu.
     - Nếu NLQ trả về out_of_scope (unanswerable) mà không nhạy cảm -> tự động fallback sang RAG đúng 1 lần.
     """
     q = request.question.strip()
-    trace_id = create_trace_id()
-
-    # 0. Chốt chặn bảo vệ PII cá nhân con người ngay tại cửa ngõ
-    # Áp dụng cho mọi chế độ (auto, nlq, rag) để chống thất thoát dữ liệu người dùng
-    if is_human_pii_query(q):
-        return AskUnifiedResponse(
-            route="nlq" if request.mode == "nlq" else ("rag" if request.mode == "rag" else "nlq"),
-            status="restricted",
-            answer="Thông tin cá nhân/nhạy cảm (số điện thoại, email, địa chỉ...) bị hạn chế để bảo vệ quyền riêng tư.",
-            columns=[],
-            rows=[],
-            reasoning="Chặn truy cập dữ liệu nhạy cảm / PII cá nhân",
-            error_code="policy_denied",
-            trace_id=trace_id,
-        )
+    trace_id = trace_id or create_trace_id()
 
     # 1. Chế độ ép RAG
     if request.mode == "rag":
@@ -162,6 +169,10 @@ async def ask_orchestrated(request: AskUnifiedRequest) -> AskUnifiedResponse:
 
     # 2. Chế độ ép NLQ
     if request.mode == "nlq":
+        if is_human_pii_query(q):
+            return _policy_denied(
+                trace_id, "Chặn truy cập dữ liệu nhạy cảm trên đường NLQ"
+            )
         nlq_res = await _run_nlq_step(q, request.session_id, request.user_id, trace_id)
         return AskUnifiedResponse(
             route="nlq",
@@ -189,7 +200,8 @@ async def ask_orchestrated(request: AskUnifiedRequest) -> AskUnifiedResponse:
 
     # B. Ngoài phạm vi hỗ trợ (Chào hỏi xã giao hoặc lạc đề)
     if decision.category == RouteCategory.OUT_OF_SCOPE:
-        if decision.reasoning == "Chào hỏi xã giao":
+        is_greeting = decision.reason_code == "greeting"
+        if is_greeting:
             greeting_answer = (
                 "Xin chào! Tôi là trợ lý ảo hỗ trợ tra cứu tài liệu quy định và số liệu kinh doanh. "
                 "Bạn có thể đặt câu hỏi về quy chế công ty, chính sách bán hàng, đổi trả, bảo hành hoặc tra cứu đơn hàng, doanh thu, sản phẩm. "
@@ -200,6 +212,7 @@ async def ask_orchestrated(request: AskUnifiedRequest) -> AskUnifiedResponse:
                 status="out_of_scope",
                 answer=greeting_answer,
                 reasoning=decision.reasoning,
+                route_reason=decision.reason_code,
                 trace_id=trace_id,
             )
 
@@ -208,11 +221,14 @@ async def ask_orchestrated(request: AskUnifiedRequest) -> AskUnifiedResponse:
             status="out_of_scope",
             answer="Xin lỗi, câu hỏi của bạn nằm ngoài phạm vi hỗ trợ của hệ thống (hệ thống chỉ hỗ trợ tra cứu tài liệu quy định và dữ liệu bán hàng).",
             reasoning=decision.reasoning,
+            route_reason=decision.reason_code or None,
             trace_id=trace_id,
         )
 
     # C. Định tuyến CSDL (NLQ)
     if decision.category == RouteCategory.NLQ:
+        if is_human_pii_query(q):
+            return _policy_denied(trace_id, decision.reasoning)
         nlq_res = await _run_nlq_step(q, request.session_id, request.user_id, trace_id)
         nlq_status = nlq_res.get("status", "ok")
 

@@ -169,9 +169,9 @@ Toàn bộ các module cốt lõi, bảo mật, định tuyến, upload và hợ
 | 9 | `tests/test_ingestion.py` | **20** | Chờ artifact JUnit trên CI | Trích xuất văn bản từ docx, pdf, xử lý lỗi định dạng và ký tự đặc biệt. |
 | 10 | `tests/test_integration_postgres.py` | **4** | Chờ artifact JUnit trên CI | Kiểm thử live database pgvector, cô lập corpus session A/B và phân quyền `ai_nlq_reader` (chạy trên CI/Live DB). |
 | 11 | `tests/test_llm.py` | **15** | Chờ artifact JUnit trên CI | Phân giải vai trò model (fast/strong/local), cache instance mô hình. |
-| 12 | `tests/test_nlq_policy.py` | **6** | Chờ artifact JUnit trên CI | Chốt chặn chính sách NLQ, phân biệt PII cá nhân vs liên hệ công khai cơ sở, miễn trừ đếm aggregate, phân cấp typed exceptions (PrivacyViolation, SchemaMismatch, InvalidSqlError). |
-| 13 | `tests/test_nlq_runtime.py` | **48** | Chờ artifact JUnit trên CI | NLQ graph sinh SQL, validator, ngân sách deadline theo từng lời gọi, kiểm tra nhạy cảm trước LLM chọn bảng, mã lỗi 503/504. |
-| 14 | `tests/test_orchestrator.py` | **12** | Chờ artifact JUnit trên CI | Điều phối hợp nhất Auto/RAG/NLQ, decoupling core khỏi api, chặn PII cá nhân ngay tại cửa ngõ cho mọi mode, chặn lệnh ghi phá hoại, fallback an toàn unanswerable sang RAG, chuẩn hóa lỗi hạ tầng 503/504 kèm X-Trace-Id. |
+| 12 | `tests/test_nlq_policy.py` | **8** | Chờ artifact JUnit trên CI | Chốt chặn chính sách NLQ, phân biệt PII cá nhân vs liên hệ công khai cơ sở, chặn nhất quán câu đếm dựa trên trường nhạy cảm, phân cấp typed exceptions (PrivacyViolation, SchemaMismatch, InvalidSqlError). |
+| 13 | `tests/test_nlq_runtime.py` | **50** | Chờ artifact JUnit trên CI | NLQ graph sinh SQL, validator, ngân sách deadline theo từng lời gọi, kiểm tra nhạy cảm trước LLM chọn bảng, mã lỗi 503/504 kèm X-Trace-Id. |
+| 14 | `tests/test_orchestrator.py` | **24** | Chờ artifact JUnit trên CI | Điều phối hợp nhất Auto/RAG/NLQ, decoupling core khỏi api, cổng PII chỉ chạy sau router trên đường NLQ (hotline/CSKH/chính sách luôn tới RAG), lời chào dựa trên `reason_code`, chặn lệnh ghi phá hoại, fallback an toàn unanswerable sang RAG, chuẩn hóa lỗi hạ tầng 502/503/504 kèm X-Trace-Id. |
 | 15 | `tests/test_prompt_and_streaming.py` | **6** | Chờ artifact JUnit trên CI | Định dạng SSE, bắt sự kiện `start`, `sources`, `token`, `no_answer`, `error`. |
 | 16 | `tests/test_rag.py` | **25** | Chờ artifact JUnit trên CI | Cosine gating, từ chối khi thiếu context, nguồn = mọi tài liệu trong ngữ cảnh, trace ghi câu độc lập và cờ rewrite, test với `FakeListChatModel` (JSON chuẩn, JSON hỏng, abstain). |
 | 17 | `tests/test_rag_heldout.py` | **2** | Chờ artifact JUnit trên CI | Đánh giá độ trễ và tỷ lệ recall trên tập held-out M1/M2. |
@@ -179,12 +179,13 @@ Toàn bộ các module cốt lõi, bảo mật, định tuyến, upload và hợ
 | 19 | `tests/test_report_v2_metrics.py` | **6** | Chờ artifact JUnit trên CI | Kiểm tra tự động đảm bảo số liệu báo cáo khớp 100% với dữ liệu nguồn và test table. |
 | 20 | `tests/test_response_contracts.py` | **8** | Chờ artifact JUnit trên CI | Chuẩn hóa schema Pydantic, xác thực trường `trace_id` trong response. |
 | 21 | `tests/test_retriever.py` | **19** | Chờ artifact JUnit trên CI | Tìm kiếm vector, BM25 cache theo corpus có giới hạn, hybrid fusion, reranker. |
-| 22 | `tests/test_router.py` | **53** | Chờ artifact JUnit trên CI | Ma trận phân loại 2 trục, đánh giá tập đóng băng 70 câu, test với `FakeListChatModel`; bảng hai chiều 20 câu chặn ghi/SQL và 20 câu hợp lệ. |
+| 22 | `tests/test_router.py` | **55** | Chờ artifact JUnit trên CI | Ma trận phân loại 2 trục, đánh giá tập đóng băng 70 câu, test với `FakeListChatModel`; bảng hai chiều 20 câu chặn ghi/SQL và 20 câu hợp lệ; `reason_code` ổn định cho lời chào và telex "chaof ban". |
 | 23 | `tests/test_security.py` | **5** | Chờ artifact JUnit trên CI | Rate limiting theo IP, chống timing attack, `MaxBodySizeMiddleware`. |
-| 24 | `tests/test_tracing.py` | **12** | Chờ artifact JUnit trên CI | Context manager tracing, an toàn khi Langfuse ngoại tuyến, sinh pre-generated `trace_id`. |
-| 25 | `tests/test_vector_store.py` | **11** | Chờ artifact JUnit trên CI | Cosine distance, thay thế corpus, upsert và tìm kiếm theo danh sách `corpus = ANY(%s)`. |
+| 24 | `tests/test_streamlit_ui.py` | **5** | Chờ artifact JUnit trên CI | Chạy thật module UI với runtime giả cho từng chế độ (auto/RAG/NLQ) để bắt `NameError`; lỗi API hiển thị Trace ID + `detail` thay vì raw body. |
+| 25 | `tests/test_tracing.py` | **12** | Chờ artifact JUnit trên CI | Context manager tracing, an toàn khi Langfuse ngoại tuyến, sinh pre-generated `trace_id`. |
+| 26 | `tests/test_vector_store.py` | **11** | Chờ artifact JUnit trên CI | Cosine distance, thay thế corpus, upsert và tìm kiếm theo danh sách `corpus = ANY(%s)`. |
 
-👉 **Tổng số kiểm thử thu thập:** **377 tests** trên toàn bộ **25 file test** (số lượng thu thập, không phải số lượng đã chạy/đạt).
+👉 **Tổng số kiểm thử thu thập:** **400 tests** trên toàn bộ **26 file test** (số lượng thu thập, không phải số lượng đã chạy/đạt).
 
 - Trạng thái pass/fail của từng file được xác định bằng artifact JUnit `test-results.xml` do job CI tải lên, không phải bằng tuyên bố trong tài liệu này. Bảng trên chỉ phản ánh số test được `pytest --collect-only` thu thập tại thời điểm sinh báo cáo.
 - Lưu ý: Toàn bộ danh sách file trên được trích xuất trực tiếp từ cấu trúc thư mục `tests/` thực tế; báo cáo không còn chứa các file giả định (loại bỏ hoàn toàn các file giả định không có trong thư mục tests).

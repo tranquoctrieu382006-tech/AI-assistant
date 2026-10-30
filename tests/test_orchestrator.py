@@ -21,6 +21,7 @@ from app.core.orchestrator import (
     AskUnifiedRequest,
     ask_orchestrated,
 )
+from app.core.router import RouteCategory, RouteDecision
 from app.main import app
 from app.schemas.rag import RagAskResponse, RagSource
 
@@ -35,19 +36,103 @@ def test_core_orchestrator_does_not_import_api_modules():
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_blocks_human_pii_upfront_in_all_modes():
-    """Chặn câu hỏi PII cá nhân con người ngay tại cửa ngõ cho auto, rag và nlq modes."""
-    with patch("app.core.orchestrator.create_trace_id", return_value=MOCK_TRACE_ID):
-        for mode in ["auto", "rag", "nlq"]:
-            req = AskUnifiedRequest(
-                question="Email của khách hàng VIP là gì?",
-                mode=mode,
+async def test_orchestrator_blocks_human_pii_on_nlq_route():
+    """Câu PII định tuyến vào NLQ bị chặn, không gọi ask_nlq và không fallback RAG."""
+    with (
+        patch("app.core.orchestrator.create_trace_id", return_value=MOCK_TRACE_ID),
+        patch("app.core.orchestrator.ask_nlq") as mock_nlq,
+        patch("app.core.orchestrator.answer_rag_request", new_callable=AsyncMock) as mock_rag,
+    ):
+        res = await ask_orchestrated(
+            AskUnifiedRequest(
+                question="Số điện thoại của khách hàng là bao nhiêu?", mode="auto"
             )
-            res = await ask_orchestrated(req)
-            assert res.status == "restricted"
-            assert res.error_code == "policy_denied"
-            assert res.trace_id == MOCK_TRACE_ID
-            assert "hạn chế để bảo vệ quyền riêng tư" in res.answer
+        )
+    assert res.route == "nlq"
+    assert res.status == "restricted"
+    assert res.error_code == "policy_denied"
+    assert res.trace_id == MOCK_TRACE_ID
+    assert "không có trong dữ liệu được phép" in res.answer
+    mock_nlq.assert_not_called()
+    mock_rag.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_forced_nlq_blocks_pii_before_calling_graph():
+    """Chế độ ép NLQ cũng phải chặn PII trước khi gọi graph."""
+    with patch("app.core.orchestrator.ask_nlq") as mock_nlq:
+        res = await ask_orchestrated(
+            AskUnifiedRequest(question="Email của khách hàng VIP là gì?", mode="nlq")
+        )
+    assert res.status == "restricted"
+    assert res.error_code == "policy_denied"
+    mock_nlq.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_rag_mode_not_blocked_by_pii_gate():
+    """Cổng PII chỉ áp cho NLQ: câu chính sách nhắc số điện thoại vẫn đi RAG."""
+    mock_rag_res = RagAskResponse(
+        answer="Chính sách bảo mật quy định không chia sẻ thông tin khách hàng.",
+        sources=[RagSource(source="bao_mat.md", chunk_index=0, score=0.9)],
+    )
+    with patch(
+        "app.core.orchestrator.answer_rag_request",
+        new_callable=AsyncMock,
+        return_value=mock_rag_res,
+    ) as mock_rag:
+        res = await ask_orchestrated(
+            AskUnifiedRequest(
+                question="Chính sách bảo mật số điện thoại của khách hàng là gì?",
+                mode="rag",
+            )
+        )
+    assert res.route == "rag"
+    assert res.status == "ok"
+    assert res.error_code is None
+    mock_rag.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_auto_hotline_goes_to_rag():
+    """Câu hỏi hotline/CSKH của công ty phải đi RAG, không vào NLQ."""
+    mock_rag_res = RagAskResponse(
+        answer="Tổng đài chăm sóc khách hàng: 1900 1234.",
+        sources=[RagSource(source="lien_he.md", chunk_index=0, score=0.87)],
+    )
+    with (
+        patch(
+            "app.core.orchestrator.answer_rag_request",
+            new_callable=AsyncMock,
+            return_value=mock_rag_res,
+        ),
+        patch("app.core.orchestrator.ask_nlq") as mock_nlq,
+    ):
+        res = await ask_orchestrated(
+            AskUnifiedRequest(
+                question="Số điện thoại chăm sóc khách hàng của công ty là gì?",
+                mode="auto",
+            )
+        )
+    assert res.route == "rag"
+    assert res.status == "ok"
+    mock_nlq.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_forced_nlq_hotline_is_restricted():
+    """Nếu hotline bị đẩy vào NLQ (chế độ ép), vẫn restricted, không lộ dữ liệu."""
+    with patch("app.core.orchestrator.ask_nlq") as mock_nlq:
+        res = await ask_orchestrated(
+            AskUnifiedRequest(
+                question="Số điện thoại chăm sóc khách hàng của công ty là gì?",
+                mode="nlq",
+            )
+        )
+    assert res.route == "nlq"
+    assert res.status == "restricted"
+    assert res.error_code == "policy_denied"
+    mock_nlq.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -211,6 +296,7 @@ def test_api_ask_endpoint_propagates_504_with_trace_id():
     """Kiểm tra endpoint /api/ask khi gặp timeout trả về 504 và bảo toàn X-Trace-Id trong header."""
     client = TestClient(app)
     with (
+        patch("app.api.ask.create_trace_id", return_value=MOCK_TRACE_ID),
         patch("app.core.orchestrator.create_trace_id", return_value=MOCK_TRACE_ID),
         patch("app.core.orchestrator.ask_nlq", side_effect=NlqRequestTimeout("Timeout")),
     ):
@@ -222,3 +308,97 @@ def test_api_ask_endpoint_propagates_504_with_trace_id():
     assert resp.status_code == 504
     assert resp.headers.get("X-Trace-Id") == MOCK_TRACE_ID
     assert "timed out" in resp.json()["detail"].lower()
+
+
+SUPPORT_OR_POLICY_QUESTIONS = [
+    "Số điện thoại tổng đài chăm sóc khách hàng là bao nhiêu?",
+    "Số điện thoại chăm sóc khách hàng của công ty là gì?",
+    "Chính sách bảo mật số điện thoại của khách hàng là gì?",
+    "Quy trình xác minh địa chỉ nhân viên mới là gì?",
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("question", SUPPORT_OR_POLICY_QUESTIONS)
+async def test_support_and_policy_questions_always_reach_rag(question):
+    """Câu hotline/CSKH và câu chính sách có chữ "khách hàng"/"nhân viên" phải đi RAG.
+
+    Đây là các câu từng bị cổng PII chặn oan khi cổng còn chạy trước router:
+    "chăm sóc khách hàng" khớp _HUMAN_ENTITY_RE, còn "địa chỉ nhân viên" khớp
+    cả trường PII lẫn thực thể người. Cổng PII chỉ được chạy SAU khi router đã
+    quyết định đường NLQ, nên các câu này phải nguyên vẹn tới RAG.
+    """
+    mock_rag_res = RagAskResponse(
+        answer="Thông tin từ tài liệu.",
+        sources=[RagSource(source="lien_he.md", chunk_index=0, score=0.9)],
+    )
+    with (
+        patch(
+            "app.core.orchestrator.answer_rag_request",
+            new_callable=AsyncMock,
+            return_value=mock_rag_res,
+        ) as mock_rag,
+        patch("app.core.orchestrator.ask_nlq") as mock_nlq,
+    ):
+        res = await ask_orchestrated(AskUnifiedRequest(question=question, mode="auto"))
+
+    assert res.route == "rag"
+    assert res.status == "ok"
+    assert res.error_code is None
+    mock_rag.assert_awaited_once()
+    mock_nlq.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Số điện thoại tổng đài chăm sóc khách hàng là bao nhiêu?",
+        "Số điện thoại chăm sóc khách hàng của công ty là gì?",
+    ],
+)
+async def test_misrouted_support_contact_in_nlq_mode_is_still_restricted(question):
+    """Nếu câu hotline/CSKH bị đẩy vào NLQ, cổng PII vẫn chặn (không lộ dữ liệu)."""
+    with patch("app.core.orchestrator.ask_nlq") as mock_nlq:
+        res = await ask_orchestrated(AskUnifiedRequest(question=question, mode="nlq"))
+    assert res.route == "nlq"
+    assert res.status == "restricted"
+    assert res.error_code == "policy_denied"
+    assert "không có trong dữ liệu được phép" in res.answer
+    mock_nlq.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_greeting_uses_reason_code_not_reasoning_text():
+    """Lời chào phải dựa trên `reason_code`, không so khớp chuỗi `reasoning` hiển thị."""
+    decision = RouteDecision(
+        category=RouteCategory.OUT_OF_SCOPE,
+        reasoning="Chuỗi hiển thị đã được đổi hoàn toàn",
+        reason_code="greeting",
+    )
+    with patch("app.core.orchestrator.route_question", return_value=decision):
+        res = await ask_orchestrated(AskUnifiedRequest(question="Xin chào", mode="auto"))
+    assert res.route == "out_of_scope"
+    assert res.route_reason == "greeting"
+    assert res.answer.startswith("Xin chào!")
+
+
+def test_api_ask_unexpected_failure_returns_502_with_trace_id():
+    """Lỗi không lường trước (provider LLM/hạ tầng) phải ra 502 kèm X-Trace-Id."""
+
+    async def boom(request, trace_id=None):
+        raise RuntimeError("provider exploded")
+
+    client = TestClient(app)
+    with (
+        patch("app.api.ask.create_trace_id", return_value=MOCK_TRACE_ID),
+        patch("app.api.ask.ask_orchestrated", side_effect=boom),
+    ):
+        resp = client.post(
+            "/api/ask",
+            headers={"X-API-Key": settings.app_api_key},
+            json={"question": "Có bao nhiêu đơn hàng?", "mode": "nlq"},
+        )
+    assert resp.status_code == 502
+    assert resp.headers.get("X-Trace-Id") == MOCK_TRACE_ID
+    assert "hạ tầng" in resp.json()["detail"]

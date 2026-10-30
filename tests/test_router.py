@@ -288,3 +288,18 @@ def test_write_intent_always_trumps_llm():
     decision = route_question("Xóa toàn bộ đơn hàng cũ", llm=fake_llm)
     assert decision.category == RouteCategory.UNSUPPORTED_ACTION
     assert "chỉ đọc" in decision.reasoning or "không được hỗ trợ" in decision.reasoning
+
+
+def test_greeting_exposes_stable_reason_code():
+    """Lời chào phải có `reason_code` ổn định, client không phụ thuộc chuỗi `reasoning`."""
+    decision = route_question("Xin chào")
+    assert decision.category == RouteCategory.OUT_OF_SCOPE
+    assert decision.reason_code == "greeting"
+
+
+def test_telex_greeting_is_recognized():
+    """Telex không dấu phổ biến ("chaof ban") phải được nhận là lời chào, không rơi vào RAG."""
+    for question in ["chaof ban", "chaof", "xin chaof"]:
+        decision = route_question(question)
+        assert decision.category == RouteCategory.OUT_OF_SCOPE, question
+        assert decision.reason_code == "greeting", question

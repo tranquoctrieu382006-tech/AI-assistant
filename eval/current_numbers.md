@@ -6,7 +6,7 @@ tránh so sánh chéo giữa các bộ dữ liệu khác nhau. Mọi giá trị 
 
 | Mốc | Commit | Ghi chú |
 |---|---|---|
-| HEAD khi lập bảng | `fb08b01` | nhánh `feature/TASK-AI21-AI23-chat-ui-eval-unit-test`; **377** test thu thập |
+| HEAD khi lập bảng | `fb08b01` | nhánh `feature/TASK-AI21-AI23-chat-ui-eval-unit-test`; **400** test thu thập |
 | Bản zip đang lưu hành | Không xác minh được | Không có file zip mã nguồn trong workspace; mọi số dưới đây tính từ artifact + code tại HEAD `fb08b01` |
 
 ## 1. RAG abstention — 65 ca
@@ -234,6 +234,6 @@ session store dùng chung.
 
 ```powershell
 .venv\Scripts\python.exe -m scripts.report_manifest_drift   # trạng thái hash
-.venv\Scripts\python.exe -m pytest -q                       # 377 test thu thập
+.venv\Scripts\python.exe -m pytest -q                       # 400 test thu thập
 .venv\Scripts\python.exe -m scripts.check_current_numbers   # đối chiếu bảng này với artifact
 ```

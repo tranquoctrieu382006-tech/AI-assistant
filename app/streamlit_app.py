@@ -45,6 +45,31 @@ BACKEND_URL = os.getenv("BACKEND_URL", f"http://127.0.0.1:{settings.app_port}")
 API_KEY = settings.app_api_key
 
 
+def format_api_error(status_code: int, headers, body: str, label: str) -> str:
+    """Thông báo lỗi thân thiện kèm Trace ID, không dán raw body vào UI."""
+    detail = ""
+    try:
+        payload = json.loads(body) if body else {}
+        detail = payload.get("detail") or payload.get("answer") or ""
+        if isinstance(detail, list):
+            detail = "; ".join(
+                str(item.get("msg", item)) if isinstance(item, dict) else str(item)
+                for item in detail
+            )
+    except Exception:
+        detail = ""
+
+    trace_id = headers.get("X-Trace-Id") if headers is not None else None
+    message = f"{label} (HTTP {status_code})"
+    if detail:
+        message += f": {detail}"
+    if trace_id:
+        message += f"\n\n🔎 Mã tra cứu (Trace ID): `{trace_id}`"
+    else:
+        message += "\n\n🔎 Mã tra cứu: không có (Langfuse chưa được cấu hình trên máy chủ)."
+    return message
+
+
 # ---------------------------------------------------------
 # QUẢN LÝ SESSION STATE
 # ---------------------------------------------------------
@@ -88,7 +113,12 @@ def submit_feedback(msg_idx: int, score: float, trace_id: str | None = None, com
             data = resp.json()
             recorded = data.get("recorded", False)
         elif resp.status_code == 422:
-            st.error(f"Lỗi xác thực dữ liệu feedback: {resp.text}")
+            st.error(
+                format_api_error(
+                    resp.status_code, resp.headers, resp.text,
+                    "Lỗi xác thực dữ liệu feedback",
+                )
+            )
     except Exception as exc:
         st.warning(f"Không thể kết nối đến máy chủ backend để gửi phản hồi: {exc}")
 
@@ -184,11 +214,14 @@ with st.sidebar:
                         st.info("Bây giờ bạn có thể đặt câu hỏi về tài liệu này ngay lập tức.")
                         uploaded_via_api = True
                     else:
-                        try:
-                            err_msg = upload_resp.json().get("detail", upload_resp.text)
-                        except Exception:
-                            err_msg = upload_resp.text
-                        st.error(f"❌ Backend từ chối tải tệp ({upload_resp.status_code}): {err_msg}")
+                        st.error(
+                            format_api_error(
+                                upload_resp.status_code,
+                                upload_resp.headers,
+                                upload_resp.text,
+                                "❌ Backend từ chối tải tệp",
+                            )
+                        )
                         uploaded_via_api = True
                 except Exception as ex:
                     st.warning(f"⚠️ Không thể kết nối tới Backend API ({ex}).")
@@ -301,6 +334,8 @@ if prompt:
         "Content-Type": "application/json",
         "X-API-Key": API_KEY,
     }
+    # Chế độ thủ công (RAG/NLQ) không đi qua router nên không có thông tin route.
+    route_info_str = ""
 
     # -------------------------------------------------
     # LUỒNG 1: TỰ ĐỘNG THÔNG MINH QUA BACKEND ORCHESTRATOR (/api/ask)
@@ -318,7 +353,10 @@ if prompt:
                 try:
                     resp = httpx.post(f"{BACKEND_URL}/api/ask", json=payload, headers=headers, timeout=60.0)
                     if resp.status_code != 200:
-                        err_msg = f"Lỗi máy chủ (HTTP {resp.status_code}): {resp.text}"
+                        err_msg = format_api_error(
+                            resp.status_code, resp.headers, resp.text,
+                            "Lỗi máy chủ khi xử lý câu hỏi",
+                        )
                         status_box.update(label="❌ Lỗi xử lý", state="error", expanded=False)
                         st.error(err_msg)
                         assistant_msg = {"role": "assistant", "content": err_msg}
@@ -334,6 +372,7 @@ if prompt:
                         fallback_from = data.get("fallback_from")
                         trace_id = data.get("trace_id")
                         reasoning = data.get("reasoning", "")
+                        route_reason = data.get("route_reason")
 
                         df = None
                         if columns and rows:
@@ -347,7 +386,7 @@ if prompt:
                         elif status_val == "unsupported_action":
                             status_box.update(label="⚠️ Thao tác không được hỗ trợ", state="complete", expanded=False)
                         elif status_val == "out_of_scope":
-                            if reasoning == "Chào hỏi xã giao" or "Xin chào" in ans:
+                            if route_reason == "greeting":
                                 status_box.update(label="👋 Chào bạn!", state="complete", expanded=False)
                             else:
                                 status_box.update(label="ℹ️ Câu hỏi ngoài phạm vi", state="complete", expanded=False)
@@ -392,7 +431,7 @@ if prompt:
     # -------------------------------------------------
     # LUỒNG 1: HỎI ĐÁP TÀI LIỆU (RAG - STREAMING SSE)
     # -------------------------------------------------
-    elif target_pipeline == "rag":
+    elif "RAG" in mode:
         payload = {
             "question": prompt,
             "session_id": st.session_state.session_id,
@@ -422,7 +461,11 @@ if prompt:
                         headers=headers,
                     ) as response:
                         if response.status_code != 200:
-                            err_msg = f"Lỗi máy chủ (HTTP {response.status_code}): {response.read().decode('utf-8', errors='ignore')}"
+                            body = response.read().decode("utf-8", errors="ignore")
+                            err_msg = format_api_error(
+                                response.status_code, response.headers, body,
+                                "Lỗi máy chủ khi tra cứu tài liệu",
+                            )
                             answer_placeholder.error(err_msg)
                             assistant_msg = {"role": "assistant", "content": err_msg, "route_info": route_info_str}
                         else:
@@ -510,7 +553,10 @@ if prompt:
                         timeout=60.0,
                     )
                     if resp.status_code != 200:
-                        err_msg = f"Lỗi máy chủ NLQ (HTTP {resp.status_code}): {resp.text}"
+                        err_msg = format_api_error(
+                            resp.status_code, resp.headers, resp.text,
+                            "Lỗi khi truy vấn CSDL",
+                        )
                         status_box.update(label="❌ Lỗi truy vấn CSDL", state="error", expanded=False)
                         assistant_msg = {"role": "assistant", "content": err_msg, "route_info": route_info_str}
                     else:
