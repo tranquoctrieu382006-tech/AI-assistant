@@ -1,5 +1,4 @@
 import re
-from typing import Any
 
 # Biểu thức chính quy cho cột và bảng nhạy cảm trong CSDL (Single Source of Truth)
 _SENSITIVE_PATTERN = r"password|passwd|secret|token|email|phone|mobile|address|account_number|national_id|full_name"

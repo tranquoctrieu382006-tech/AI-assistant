@@ -84,7 +84,7 @@ async def _run_nlq_step(
             ) from exc
         logger.exception("NLQ runtime failure in orchestrator")
         raise HTTPException(status_code=503, detail="NLQ hiện chưa sẵn sàng.", headers=headers) from exc
-    except PrivacyViolation as exc:
+    except PrivacyViolation:
         return {
             "sql": "",
             "columns": [],

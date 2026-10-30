@@ -316,7 +316,7 @@ def main(output_path: Path = OUTPUT_PATH, model: str = "fast", pacing_seconds: f
     print(f"   - False Abstentions      : {ans['retrieval_false_refusals'] + ans['llm_false_refusals']}/{usable}")
     if ans["error_cases"]:
         print(f"   - Errored (undecided)    : {ans['error_cases']}/{ans['total_cases']}")
-    print(f"\n4. Overall:")
+    print("\n4. Overall:")
     print(f"   - Expected Abstain Groups: {overall['expected_abstain_cases']} ca, refused {overall['expected_abstain_refused']}")
     if decided:
         print(f"   - Abstention Accuracy    : {round(overall['abstention_accuracy'] * 100, 1)}% ({overall['correct_cases']}/{decided} decided)")

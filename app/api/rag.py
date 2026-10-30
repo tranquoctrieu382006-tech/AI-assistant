@@ -33,7 +33,7 @@ from app.core.security import require_api_key
 from app.schemas.rag import RagAskRequest, RagAskResponse, RagSource, RagUploadResponse, SESSION_ID_PATTERN
 from app.core import vector_store
 from app.core import session_store
-from app.core.question_rewriter import RewriteResult, rewrite_question
+from app.core.question_rewriter import RewriteResult, rewrite_question  # noqa: F401
 from app.core.retriever import retrieve_and_gate
 from app.core.rag_prompt import (
     NO_ANSWER,

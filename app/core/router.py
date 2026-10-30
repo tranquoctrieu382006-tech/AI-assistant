@@ -11,18 +11,16 @@ from enum import Enum
 import json
 import re
 from typing import Any
-import unicodedata
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from app.core.llm import get_llm
 
 
 class RouteCategory(str, Enum):
     RAG = "rag"
     NLQ = "nlq"
     OUT_OF_SCOPE = "out_of_scope"
-    UNSUPPORTED_ACTION = "unsupported_action" 
+    UNSUPPORTED_ACTION = "unsupported_action"
 
 
 class RouteDecision(BaseModel):

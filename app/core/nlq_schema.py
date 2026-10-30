@@ -6,7 +6,6 @@ import copy
 import hashlib
 import threading
 import time
-import unicodedata
 from pathlib import Path
 
 import psycopg

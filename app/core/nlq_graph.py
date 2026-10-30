@@ -16,7 +16,6 @@ from app.core.config import settings
 from app.core.llm import extract_message_text, get_llm, get_model_provider
 from app.core.nlq_policy import (
     _SENSITIVE,
-    has_sensitive_mention,
     is_human_pii_query,
     get_allowed_columns_for_table,
     restricted_answer,
@@ -24,7 +23,6 @@ from app.core.nlq_policy import (
     PrivacyViolation,
     InvalidSqlError,
     SchemaMismatch,
-    NlqValidationError,
 )
 from app.core.nlq_schema import _connect, load_schema, schema_catalog, select_relevant_tables
 from app.core.tracing import get_langfuse_handler, langfuse_observation, update_langfuse_observation
