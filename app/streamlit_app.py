@@ -90,6 +90,86 @@ def reset_session():
     st.rerun()
 
 
+def render_data_chart(df: pd.DataFrame) -> None:
+    """Tự động trực quan hóa dữ liệu bảng với nhãn trục X xoay ngang (labelAngle=0)."""
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty or len(df) > 50:
+        return
+
+    plot_df = df.copy()
+
+    # 1. Chuyển đổi các cột số bị lưu dưới dạng chuỗi/Decimal sang số thực
+    for col in plot_df.columns:
+        converted = pd.to_numeric(plot_df[col], errors="coerce")
+        if converted.notna().sum() > 0 and (converted.notna().sum() / len(plot_df)) >= 0.8:
+            plot_df[col] = converted
+
+    # 2. Nhận diện cột thước đo (metrics) và cột chiều phân tích (dimensions)
+    numeric_cols = plot_df.select_dtypes(include=["number"]).columns.tolist()
+    if not numeric_cols:
+        return
+
+    id_keywords = ["id", "ma_", "code", "stt", "year", "month", "day", "nam", "thang", "ngay", "quy", "quarter"]
+    metric_cols = [c for c in numeric_cols if not any(k in c.lower() for k in id_keywords)]
+
+    if not metric_cols:
+        if len(numeric_cols) >= 2:
+            dim_col = numeric_cols[0]
+            val_col = numeric_cols[-1]
+        else:
+            return
+    else:
+        val_col = metric_cols[0]
+        non_metric_cols = [c for c in plot_df.columns if c != val_col]
+        text_cols = plot_df.select_dtypes(include=["object", "string", "category", "datetime"]).columns.tolist()
+        if text_cols:
+            dim_col = text_cols[0]
+        elif non_metric_cols:
+            dim_col = non_metric_cols[0]
+        else:
+            return
+
+    plot_df[dim_col] = plot_df[dim_col].astype(str)
+
+    try:
+        import altair as alt
+
+        st.caption(f"📈 Biểu đồ cột: **{val_col}** theo **{dim_col}**")
+        chart = (
+            alt.Chart(plot_df)
+            .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4, color="#38bdf8")
+            .encode(
+                x=alt.X(
+                    f"{dim_col}:N",
+                    title=dim_col,
+                    axis=alt.Axis(
+                        labelAngle=0,       # Đảm bảo các con số/nhãn ở dưới luôn xoay ngang (0 độ), không bị quay dọc
+                        labelOverlap=False,
+                        labelLimit=120,
+                    ),
+                    sort=None,
+                ),
+                y=alt.Y(
+                    f"{val_col}:Q",
+                    title=val_col,
+                    axis=alt.Axis(format="~s"),
+                ),
+                tooltip=[
+                    alt.Tooltip(f"{dim_col}:N", title=dim_col),
+                    alt.Tooltip(f"{val_col}:Q", title=val_col, format=","),
+                ],
+            )
+            .properties(height=320)
+        )
+        st.altair_chart(chart, use_container_width=True)
+    except Exception:
+        try:
+            chart_df = plot_df.set_index(dim_col)[[val_col]]
+            st.caption(f"📈 Biểu đồ cột: {val_col} theo {dim_col}")
+            st.bar_chart(chart_df)
+        except Exception:
+            pass
+
+
 # ---------------------------------------------------------
 # HÀM GỬI FEEDBACK VỀ BACKEND / LANGFUSE
 # ---------------------------------------------------------
@@ -264,18 +344,8 @@ def render_chat_message(message: dict, idx: int | None = None):
                 else:
                     st.dataframe(df, use_container_width=True)
 
-                    # Tự động vẽ biểu đồ cột nếu có cột số và chuỗi
-                    num_cols = df.select_dtypes(include=["number"]).columns.tolist()
-                    text_cols = df.select_dtypes(include=["object", "string"]).columns.tolist()
-                    if num_cols and text_cols and len(df) <= 50:
-                        try:
-                            x_col = text_cols[0]
-                            y_col = num_cols[0]
-                            chart_df = df.set_index(x_col)[[y_col]]
-                            st.caption(f"📈 Biểu đồ cột: {y_col} theo {x_col}")
-                            st.bar_chart(chart_df)
-                        except Exception:
-                            pass
+                    # Tự động vẽ biểu đồ cột với nhãn xoay ngang
+                    render_data_chart(df)
 
     # Hiển thị nguồn trích dẫn (nếu là kết quả RAG)
     if message.get("sources"):
@@ -403,18 +473,8 @@ if prompt:
                             with st.expander("📋 Bảng số liệu chi tiết", expanded=True):
                                 st.dataframe(df, use_container_width=True)
 
-                                # Tự động vẽ biểu đồ cột nếu có cột số và chuỗi
-                                num_cols = df.select_dtypes(include=["number"]).columns.tolist()
-                                text_cols = df.select_dtypes(include=["object", "string"]).columns.tolist()
-                                if num_cols and text_cols and len(df) <= 50:
-                                    try:
-                                        x_col = text_cols[0]
-                                        y_col = num_cols[0]
-                                        chart_df = df.set_index(x_col)[[y_col]]
-                                        st.caption(f"📈 Biểu đồ cột: {y_col} theo {x_col}")
-                                        st.bar_chart(chart_df)
-                                    except Exception:
-                                        pass
+                                # Tự động vẽ biểu đồ cột với nhãn xoay ngang
+                                render_data_chart(df)
                         if sources_captured:
                             with st.expander(f"📚 Nguồn trích dẫn ({len(sources_captured)} đoạn trích)"):
                                 for s_idx, src in enumerate(sources_captured, start=1):
@@ -625,17 +685,7 @@ if prompt:
                     if isinstance(df, pd.DataFrame) and not df.empty:
                         with st.expander("📋 Bảng số liệu chi tiết", expanded=True):
                             st.dataframe(df, use_container_width=True)
-                            num_cols = df.select_dtypes(include=["number"]).columns.tolist()
-                            text_cols = df.select_dtypes(include=["object", "string"]).columns.tolist()
-                            if num_cols and text_cols and len(df) <= 50:
-                                try:
-                                    x_col = text_cols[0]
-                                    y_col = num_cols[0]
-                                    chart_df = df.set_index(x_col)[[y_col]]
-                                    st.caption(f"📈 Biểu đồ cột: {y_col} theo {x_col}")
-                                    st.bar_chart(chart_df)
-                                except Exception:
-                                    pass
+                            render_data_chart(df)
                 if assistant_msg.get("trace_id"):
                     st.caption(f"Trace ID: `{assistant_msg['trace_id']}`")
 
