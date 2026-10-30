@@ -402,6 +402,19 @@ if prompt:
                         if df is not None and not df.empty:
                             with st.expander("📋 Bảng số liệu chi tiết", expanded=True):
                                 st.dataframe(df, use_container_width=True)
+
+                                # Tự động vẽ biểu đồ cột nếu có cột số và chuỗi
+                                num_cols = df.select_dtypes(include=["number"]).columns.tolist()
+                                text_cols = df.select_dtypes(include=["object", "string"]).columns.tolist()
+                                if num_cols and text_cols and len(df) <= 50:
+                                    try:
+                                        x_col = text_cols[0]
+                                        y_col = num_cols[0]
+                                        chart_df = df.set_index(x_col)[[y_col]]
+                                        st.caption(f"📈 Biểu đồ cột: {y_col} theo {x_col}")
+                                        st.bar_chart(chart_df)
+                                    except Exception:
+                                        pass
                         if sources_captured:
                             with st.expander(f"📚 Nguồn trích dẫn ({len(sources_captured)} đoạn trích)"):
                                 for s_idx, src in enumerate(sources_captured, start=1):
