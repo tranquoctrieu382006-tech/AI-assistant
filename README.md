@@ -216,8 +216,8 @@ Hệ thống tích hợp sâu với Langfuse Cloud để giám sát toàn diện
      * **Abstention Accuracy (Từ chối an toàn khi thiếu dữ liệu):** **98.5%** (64/65 ca quyết định đúng, Hallucination trên câu hỏi âm = 0/24).
      * **Hit@5 Retrieval (Tỷ lệ tìm thấy tài liệu liên quan):** **97.6%** (40/41 ca answerable, MRR = 0.9207).
      * **Fragment Match (Khớp nội dung trả lời chuẩn):** **31–32/41 (75.6% – 78.0%)**.
-   - **Đo lường NLQ (Golden set 30 ca Text-to-SQL — xem `eval/report_v2.md`):**
-     * **Execution Accuracy (Khớp chính xác kết quả SQL):** **20/30 (66.7%)** với Gemini 3.1/3.5 Flash-Lite (hoặc 16/30 với Local Gemma3:12b).
+   - **Đo lường NLQ (Golden set 30 ca Text-to-SQL — xem `eval/report_v2.md` §3.1):**
+     * **Execution Accuracy (Khớp chính xác SQL lần đầu):** **18–20/30 (60.0% – 66.7%)** (Gemini 3.1 Flash-Lite: **20/30 = 66.7%**, Gemini 3.5 Flash-Lite: **18/30 = 60.0%**, Local Gemma3:12b: **16/30 = 53.3%**; sau cơ chế Self-Repair 2 vòng của LangGraph đạt **24/30 = 80.0%**).
 
 ---
 
