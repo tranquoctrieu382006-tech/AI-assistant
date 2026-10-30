@@ -6,8 +6,8 @@
   "execution_accuracy": 0.4666666666666667,
   "strict_execution_correct": 14,
   "strict_execution_accuracy": 0.4666666666666667,
-  "relaxed_execution_correct": 4,
-  "relaxed_execution_accuracy": 0.13333333333333333,
+  "relaxed_execution_correct": 14,
+  "relaxed_execution_accuracy": 0.4666666666666667,
   "executed_cases": 22,
   "executed_accuracy": 0.6363636363636364,
   "counts": {
@@ -41,7 +41,7 @@
       "validated_sql": "SELECT COUNT(*) FROM products LIMIT 201",
       "status": "pass",
       "strict_status": "pass",
-      "relaxed_status": "fail",
+      "relaxed_status": "pass",
       "expected": [
         {
           "product_count": 80
@@ -64,7 +64,7 @@
       "validated_sql": "SELECT COUNT(*) FROM customers LIMIT 201",
       "status": "pass",
       "strict_status": "pass",
-      "relaxed_status": "fail",
+      "relaxed_status": "pass",
       "expected": [
         {
           "customer_count": 200
@@ -87,7 +87,7 @@
       "validated_sql": "SELECT COUNT(*) FROM orders LIMIT 201",
       "status": "pass",
       "strict_status": "pass",
-      "relaxed_status": "fail",
+      "relaxed_status": "pass",
       "expected": [
         {
           "order_count": 300
@@ -110,7 +110,7 @@
       "validated_sql": "SELECT COUNT(*) FROM warehouses LIMIT 201",
       "status": "pass",
       "strict_status": "pass",
-      "relaxed_status": "fail",
+      "relaxed_status": "pass",
       "expected": [
         {
           "warehouse_count": 3
@@ -133,7 +133,7 @@
       "validated_sql": "SELECT COUNT(*) FROM products WHERE active = TRUE LIMIT 201",
       "status": "pass",
       "strict_status": "pass",
-      "relaxed_status": "fail",
+      "relaxed_status": "pass",
       "expected": [
         {
           "active_product_count": 80
@@ -156,7 +156,7 @@
       "validated_sql": "SELECT c.name, COUNT(p.product_id) AS product_count FROM categories AS c LEFT JOIN products AS p ON c.category_id = p.category_id GROUP BY c.category_id, c.name ORDER BY c.name LIMIT 201",
       "status": "pass",
       "strict_status": "pass",
-      "relaxed_status": "fail",
+      "relaxed_status": "pass",
       "expected": [
         {
           "category": "Chăm sóc cá nhân",
@@ -465,7 +465,7 @@
       "validated_sql": "SELECT COUNT(*) FROM inventory WHERE on_hand < 10 LIMIT 201",
       "status": "pass",
       "strict_status": "pass",
-      "relaxed_status": "fail",
+      "relaxed_status": "pass",
       "expected": [
         {
           "low_stock_rows": 16
@@ -488,7 +488,7 @@
       "validated_sql": "SELECT COUNT(*) FROM products WHERE NOT product_id IN (SELECT product_id FROM inventory) LIMIT 201",
       "status": "pass",
       "strict_status": "pass",
-      "relaxed_status": "fail",
+      "relaxed_status": "pass",
       "expected": [
         {
           "products_without_inventory": 0
@@ -951,7 +951,7 @@
       "validated_sql": "SELECT COUNT(*) FROM orders WHERE delivered_date IS NULL LIMIT 201",
       "status": "pass",
       "strict_status": "pass",
-      "relaxed_status": "fail",
+      "relaxed_status": "pass",
       "expected": [
         {
           "undelivered_date_orders": 240
@@ -1088,7 +1088,7 @@
       "validated_sql": "SELECT EXTRACT(YEAR FROM o.order_date) AS order_year, ROUND(SUM(oi.quantity * oi.unit_price), 2) AS total_revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status <> 'đã hủy' GROUP BY EXTRACT(YEAR FROM o.order_date) ORDER BY order_year LIMIT 201",
       "status": "pass",
       "strict_status": "pass",
-      "relaxed_status": "fail",
+      "relaxed_status": "pass",
       "expected": [
         {
           "year": 2025,

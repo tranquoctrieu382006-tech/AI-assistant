@@ -189,6 +189,10 @@ lxml==6.1.3
     # via python-docx
 markupsafe==3.0.4
     # via jinja2
+mcp==2.3.0
+    # via -r requirements.txt
+mcp-types==2.3.0
+    # via mcp
 multidict==7.1.0
     # via
     #   aiohttp
@@ -309,6 +313,8 @@ pydantic-settings==2.16.1
     #   langchain-community
 pydeck==0.9.3
     # via streamlit
+pyjwt==2.15.1
+    # via mcp
 pygments==2.21.0
     # via pytest
 pypdf==6.21.2
@@ -374,6 +380,8 @@ sqlalchemy==2.1.6
     #   langchain-community
 sqlglot==30.24.0
     # via -r requirements.txt
+sse-starlette==3.6.0
+    # via mcp
 starlette==1.9.0
     # via
     #   fastapi

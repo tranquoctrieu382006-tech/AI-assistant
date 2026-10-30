@@ -220,7 +220,7 @@ Hệ thống tích hợp sâu với Langfuse Cloud để giám sát toàn diện
      * **Kết quả đo trực tiếp với Gemini 3.5 Flash-Lite (`eval/nlq_eval_run_current.json`):**
        - **Strict Execution Accuracy (Toàn bộ 30 ca):** **14/30 (46.7%)**.
        - **Strict Execution Accuracy (Chỉ tính 22 ca hoàn tất thực thi):** **14/22 (63.6%)**.
-       - **Relaxed Execution Accuracy:** **4/30 (13.3%)**.
+       - **Relaxed Execution Accuracy:** **14/30 (46.7%)** trên toàn bộ 30 ca, và **14/22 (63.6%)** trên 22 ca thực thi thành công (sau khi chuẩn hóa logic so khớp alias trong `evaluate_nlq_model.py` để relaxed accuracy luôn $\ge$ strict accuracy).
        - **Cơ cấu chi tiết 30 ca:** 14 PASS, 8 FAIL, 1 REJECTED (bị SQL validator AST chặn an toàn), 7 ERROR (lỗi HTTP 429 RESOURCE_EXHAUSTED do Gemini Free Tier chạm ngưỡng 15 RPM; script đo kiểm offline này chạy trực tiếp không qua pipeline LangGraph production và không có cơ chế fallback).
      * **Baseline DDL tĩnh trước đó (Báo cáo v2 §3.3):** Đạt **18–20/30 (60.0% – 66.7%)** và relaxed **24/30 (80.0%)** (trên bộ DDL thử nghiệm cũ chưa có tie-break trong golden set).
      * *Chi tiết đối chiếu số liệu và nhật ký thực thi:* Được lưu tại [`eval/nlq_eval_run_current.json`](eval/nlq_eval_run_current.json) và [`eval/current_numbers.md`](eval/current_numbers.md) §3.
@@ -234,6 +234,7 @@ ai-assistant/
 ├── app/
 │   ├── main.py                    # Khởi tạo ứng dụng FastAPI và middleware
 │   ├── streamlit_app.py           # Giao diện Chat Web UI tương tác
+│   ├── mcp_server.py              # Máy chủ chuẩn mở Model Context Protocol (Anthropic MCP SDK)
 │   ├── api/
 │   │   ├── rag.py                 # POST /api/rag/ask, /stream, /upload
 │   │   ├── nlq.py                 # POST /api/nlq/ask
@@ -275,6 +276,44 @@ ai-assistant/
 ├── docker-compose.yml             # Triển khai nhanh PostgreSQL + pgvector + Ollama
 ├── Dockerfile                     # Dockerfile đóng gói ứng dụng
 └── LICENSE                        # MIT License
+```
+
+---
+
+## 🔌 Máy Chủ Chuẩn Mở MCP Server (TASK-AI19)
+
+Hệ thống hỗ trợ chuẩn giao thức mở **Model Context Protocol (MCP)** qua SDK chính thức `mcp==2.3.0`, cho phép các ứng dụng AI bên ngoài (như **Claude Desktop**, **Cursor**, **Antigravity IDE** hoặc **MCP Inspector**) kết nối trực tiếp và an toàn vào kho tri thức nội bộ.
+
+### Các công cụ (Tools) được cung cấp:
+- `search_documents(query: str, top_k: int = 5)`: Tra cứu quy định, chính sách, tài liệu bảo hành/đổi trả qua pipeline RAG.
+- `query_data(query: str)`: Truy vấn số liệu bán hàng, doanh thu, tồn kho qua Text-to-SQL an toàn với AST validation.
+
+### Hướng dẫn sử dụng:
+```bash
+# 1. Khởi chạy MCP Server trực tiếp (giao thức stdio)
+python -m app.mcp_server
+
+# 2. Kiểm tra trực quan bằng MCP Inspector
+npx @modelcontextprotocol/inspector python -m app.mcp_server
+
+# 3. Chạy script xác minh live gọi thật vào CSDL & RAG
+python -X utf8 -m scripts.verify_mcp_live
+```
+
+### Cấu hình mẫu cho Claude Desktop (`claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "enterprise-ai-assistant": {
+      "command": "python",
+      "args": ["-m", "app.mcp_server"],
+      "cwd": "D:\\ITSS\\ai-assistant",
+      "env": {
+        "PYTHONPATH": "."
+      }
+    }
+  }
+}
 ```
 
 ---
@@ -330,6 +369,7 @@ Dựa trên lưu lượng phân bổ thực tế trong doanh nghiệp (50% RAG, 
 
 - [Báo Cáo Tự Kiểm Thử Tích Hợp 8 Kịch Bản (TASK-AI24)](docs/task_ai24_self_test_report.md)
 - [Kiến trúc chi tiết hệ thống](docs/architecture.md)
+- [So Sánh Router vs Tool-Calling Agent (TASK-AI17)](docs/router_vs_tool_calling_comparison.md)
 - [Kịch bản Demo chi tiết 20-30 phút (Cheat Sheet 10 câu mẫu)](docs/demo_script_week2.md)
 - [Đặc tả RAG API & Server-Sent Events (SSE)](docs/rag_api.md)
 - [Hướng dẫn cấu hình NLQ API](docs/nlq_api.md)

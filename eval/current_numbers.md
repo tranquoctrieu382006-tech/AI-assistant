@@ -6,7 +6,7 @@ tránh so sánh chéo giữa các bộ dữ liệu khác nhau. Mọi giá trị 
 
 | Mốc | Commit | Ghi chú |
 |---|---|---|
-| HEAD bàn giao Tuần 2 | `eecd36bd50f3dd7736e401b64bdcda4c1c0f8b10` (`eecd36b`) | nhánh `feature/TASK-AI24-AI26-testing-handover-demo` & `release/week-2-demo`; **403** test passed 100% (403/403) |
+| HEAD bàn giao Tuần 2 | `a3a49edc4c271c7f14ded990852f168fae68258e` (`a3a49ed`) | nhánh `feature/TASK-AI24-AI26-testing-handover-demo` & `release/week-2-demo`; **403** test passed 100% (403/403) |
 | Kết quả chạy kiểm thử | `eval/pytest_run_log.txt` | Lưu chi tiết toàn bộ 403 test case thực thi đạt 100% trong 19.45s |
 | Bản đóng gói bàn giao | Mã nguồn hoàn thiện | Đầy đủ mã nguồn, tài liệu, kịch bản demo và log kiểm thử độc lập |
 
@@ -154,7 +154,7 @@ sàn nhiễu retrieval = 0 ca).
 - `eval/nlq_eval_run_current.json`: **30 ca** đo kiểm offline trực tiếp bằng script `evaluate_nlq_model.py` với Gemini 3.5 Flash-Lite:
   * **Strict Execution Accuracy (toàn bộ 30 ca):** **14/30 = 46.7%**.
   * **Strict Execution Accuracy (trên 22 ca thực thi xong):** **14/22 = 63.6%**.
-  * **Relaxed Execution Accuracy:** **4/30 = 13.3%** (chỉ có 4 ca mở rộng đạt tiêu chuẩn relaxed riêng biệt).
+  * **Relaxed Execution Accuracy:** **14/30 = 46.7%** (và **14/22 = 63.6%** trên 22 ca thực thi thành công; sau khi chuẩn hóa logic so khớp alias trong `evaluate_nlq_model.py` để relaxed accuracy luôn $\ge$ strict accuracy).
   * **Cơ cấu chi tiết đủ 30 ca:** **14 pass**, **8 fail** (sai logic SQL), **1 rejected** (bị validator AST chặn an toàn), **7 error** (lỗi HTTP 429 RESOURCE_EXHAUSTED do Gemini Free Tier chạm ngưỡng 15 RPM).
   * *Lưu ý về phạm vi đo:* Lần đo này chạy script offline trực tiếp với DDL tĩnh, không qua đường LangGraph production và không có cơ chế `with_fallbacks`, nên 7 ca lỗi 429 không được chuyển đổi sang model dự phòng.
 - Kết quả đối chiếu với baseline tĩnh trước đó (Báo cáo v2 §3.3): Từng đạt **18–20/30 (60.0% – 66.7%)** và relaxed **24/30 (80.0%)**, nhưng là trên bộ DDL thử nghiệm cũ chưa có tie-break trong golden set.

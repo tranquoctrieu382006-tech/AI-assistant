@@ -268,7 +268,9 @@ def evaluate(
             expected_value = case["expected"]
             expected = expected_value if isinstance(expected_value, list) else [expected_value]
             ok = _execution_results_match(actual, expected, ordered=ordered)
-            relaxed_ok = _relaxed_execution_results_match(actual, expected, ordered=ordered)
+            # Relaxed execution: A strict match by definition satisfies relaxed criteria.
+            # In addition, queries projecting extra columns while preserving expected fields pass relaxed.
+            relaxed_ok = ok or _relaxed_execution_results_match(actual, expected, ordered=ordered)
             result.update({
                 "status": "pass" if ok else "fail",
                 "strict_status": "pass" if ok else "fail",
