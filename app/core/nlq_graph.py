@@ -17,8 +17,12 @@ from app.core.llm import extract_message_text, get_llm, get_model_provider
 from app.core.nlq_policy import (
     _SENSITIVE,
     has_sensitive_mention,
+    is_human_pii_query,
+    get_allowed_columns_for_table,
     ALLOWED_CUSTOMER_COLUMNS,
     PolicyViolation,
+    PrivacyViolation,
+    InvalidSqlError,
     SchemaMismatch,
     NlqValidationError,
 )
@@ -221,12 +225,12 @@ def validate_sql(
     """Accept one safe SELECT and impose a hard row cap before execution."""
     statements = [node for node in parse(sql, read="postgres") if node is not None and not isinstance(node, exp.Semicolon)]
     if len(statements) != 1:
-        raise PolicyViolation("Chỉ cho phép một câu lệnh SQL.")
+        raise InvalidSqlError("Chỉ cho phép một câu lệnh SQL.")
     root = statements[0]
     if not isinstance(root, exp.Select):
-        raise PolicyViolation("Chỉ cho phép truy vấn SELECT hoặc WITH ... SELECT.")
+        raise InvalidSqlError("Chỉ cho phép truy vấn SELECT hoặc WITH ... SELECT.")
     if root.args.get("into") or root.args.get("locks"):
-        raise PolicyViolation("Không cho phép SELECT INTO hoặc khóa dòng.")
+        raise InvalidSqlError("Không cho phép SELECT INTO hoặc khóa dòng.")
     for node in root.walk():
         if isinstance(node, (exp.Insert, exp.Update, exp.Delete, exp.Drop, exp.Create, exp.Command, exp.Merge, exp.Transaction)):
             raise PolicyViolation("Truy vấn chứa thao tác ghi hoặc lệnh không được phép.")
@@ -235,7 +239,7 @@ def validate_sql(
                 node.name if isinstance(node, exp.Anonymous) else node.sql_name()
             ).casefold()
             if function_name not in _ALLOWED_FUNCTIONS:
-                raise PolicyViolation("Truy vấn gọi hàm ngoài danh sách cho phép.")
+                raise InvalidSqlError("Truy vấn gọi hàm ngoài danh sách cho phép.")
     cte_names = {cte.alias_or_name.casefold() for cte in root.find_all(exp.CTE)}
     table_or_alias_names = set()
     referenced = set()
@@ -248,9 +252,9 @@ def validate_sql(
 
         for table in scope.tables:
             if table.catalog:
-                raise PolicyViolation("Truy vấn tham chiếu schema hoặc catalog không được phép.")
+                raise InvalidSqlError("Truy vấn tham chiếu schema hoặc catalog không được phép.")
             if table.db and table.db.casefold() not in ("", "public"):
-                raise PolicyViolation("Truy vấn tham chiếu schema hoặc catalog không được phép.")
+                raise InvalidSqlError("Truy vấn tham chiếu schema hoặc catalog không được phép.")
 
             # Bảng có tiền tố schema (vd: public.rag_chunks) hoặc không trùng tên CTE là bảng thật
             is_physical = bool(table.db) or (table.name.casefold() not in cte_names)
@@ -271,10 +275,10 @@ def validate_sql(
                 parent = col.parent
                 while parent and parent != scope.expression:
                     if parent in scope.expression.selects:
-                        raise PolicyViolation("Không cho phép chọn trực tiếp cả dòng hoặc alias.")
+                        raise InvalidSqlError("Không cho phép chọn trực tiếp cả dòng hoặc alias.")
                     parent = parent.parent
                 if col in scope.expression.selects:
-                    raise PolicyViolation("Không cho phép chọn trực tiếp cả dòng hoặc alias.")
+                    raise InvalidSqlError("Không cho phép chọn trực tiếp cả dòng hoặc alias.")
 
     for select in root.find_all(exp.Select):
         for expr in select.expressions:
@@ -404,24 +408,11 @@ def _make_graph(llm):
         return {"schema": tables}
 
     def _suggest_columns(schema: list[dict]) -> list[str]:
-        suggested_cols: list[str] = []
-        for table in schema:
-            if table["name"] == "customers":
-                suggested_cols.extend(
-                    column["name"]
-                    for column in table["columns"]
-                    if not _SENSITIVE.search(column["name"])
-                )
-        display = [
-            ALLOWED_CUSTOMER_COLUMNS[col]
-            for col in suggested_cols
-            if col in ALLOWED_CUSTOMER_COLUMNS
-        ]
-        return display or list(ALLOWED_CUSTOMER_COLUMNS.values())
+        return get_allowed_columns_for_table(schema, table_name="customers")
 
     def link(state: NlqState) -> NlqState:
         q = state["question"]
-        if has_sensitive_mention(q):
+        if is_human_pii_query(q):
             with langfuse_observation(
                 name="nlq-schema-linking", input={"question": q}
             ) as span:
@@ -505,12 +496,15 @@ def _make_graph(llm):
                 )
                 update_langfuse_observation(span, output={"accepted": True, "sql": safe_sql})
                 return {"sql": safe_sql, "error": "", "error_type": ""}
-            except PolicyViolation as exc:
+            except PrivacyViolation as exc:
                 update_langfuse_observation(span, output={"accepted": False, "reason": str(exc)}, level="WARNING")
-                return {"error": str(exc), "error_type": "policy", "error_code": "policy_denied"}
+                return {"error": str(exc), "error_type": "privacy", "error_code": "policy_denied"}
             except SchemaMismatch as exc:
                 update_langfuse_observation(span, output={"accepted": False, "reason": str(exc)}, level="WARNING")
                 return {"error": str(exc), "error_type": "schema", "error_code": "unanswerable"}
+            except InvalidSqlError as exc:
+                update_langfuse_observation(span, output={"accepted": False, "reason": str(exc)}, level="WARNING")
+                return {"error": str(exc), "error_type": "syntax", "error_code": "exec_error"}
             except Exception as exc:
                 update_langfuse_observation(span, output={"accepted": False, "reason": str(exc)}, level="WARNING")
                 return {"error": str(exc), "error_type": "other", "error_code": "exec_error"}
@@ -623,7 +617,7 @@ def _make_graph(llm):
     builder.add_edge("generate_sql", "validate_sql")
 
     def after_validation(state):
-        if state.get("error_type") == "policy" and ("nhạy cảm" in state.get("error", "") or "rag_chunks" in state.get("error", "")):
+        if state.get("error_type") == "privacy":
             return "restricted"
         if state.get("error"):
             if state.get("repair_count", 0) < settings.nlq_max_repairs:

@@ -284,12 +284,11 @@ def _rule_based_classify(question: str) -> RouteDecision:
 
     # 1. Nhận diện mệnh lệnh ghi/xóa/sửa CSDL (Write intent).
     # Dấu hỏi phải kiểm tra trên raw_q vì q_clean đã bị bỏ hết dấu câu.
-    ends_with_question = raw_q.rstrip().endswith(("?", "？"))
     has_question_cue = any(
         re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
         for p in QUESTION_INDICATORS
     )
-    if not ends_with_question and not has_question_cue:
+    if not has_question_cue:
         is_write_cmd = any(
             re.search(p, q_clean, re.I) or re.search(p, q_no_accents, re.I)
             for p in WRITE_IMPERATIVE_PATTERNS

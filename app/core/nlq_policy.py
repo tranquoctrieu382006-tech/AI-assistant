@@ -1,21 +1,50 @@
 import re
 from typing import Any
 
-# Biểu thức chính quy cho cột và bảng nhạy cảm (Single Source of Truth)
+# Biểu thức chính quy cho cột và bảng nhạy cảm trong CSDL (Single Source of Truth)
 _SENSITIVE_PATTERN = r"password|passwd|secret|token|email|phone|mobile|address|account_number|national_id|full_name"
 _SENSITIVE = re.compile(_SENSITIVE_PATTERN, re.IGNORECASE)
 
-# Biểu thức chính quy nhận diện từ khóa đề cập thuộc tính nhạy cảm trong câu hỏi của người dùng
-_SENSITIVE_MENTION_RE = re.compile(
+# Các trường thông tin liên hệ / danh tính cá nhân nhạy cảm
+_PII_FIELD_PATTERN = (
     r"\b(?:số\s+điện\s+thoại|so\s+dien\s+thoai|sđt|sdt|email|thư\s+điện\s+tử|thu\s+dien\s+tu|"
-    r"mật\s+khẩu|mat\s+khau|địa\s+chỉ|dia\s+chi|cmnd|cccd|căn\s+cước|can\s+cuoc|"
-    r"tài\s+khoản\s+ngân\s+hàng|tai\s+khoan\s+ngan\s+hang|password|phone)\b",
+    r"mật\s+khẩu|mat\s+khau|địa\s+chỉ(?:\s+nhà)?|dia\s+chi(?:\s+nha)?|cmnd|cccd|căn\s+cước|can\s+cuoc|"
+    r"tài\s+khoản\s+ngân\s+hàng|tai\s+khoan\s+ngan\s+hang|password|phone)\b"
+)
+_PII_FIELD_RE = re.compile(_PII_FIELD_PATTERN, re.IGNORECASE)
+
+# Các thực thể người (human/person entities) cần bảo vệ PII
+_HUMAN_ENTITY_PATTERN = (
+    r"\b(?:khách\s+hàng|khach\s+hang|người\s+dùng|nguoi\s+dung|user|nhân\s+viên|nhan\s+vien|"
+    r"cá\s+nhân|ca\s+nhan|tài\s+khoản|tai\s+khoan|thành\s+viên|thanh\s+vien)\b"
+)
+_HUMAN_ENTITY_RE = re.compile(_HUMAN_ENTITY_PATTERN, re.IGNORECASE)
+
+# Mẫu câu hỏi đếm số lượng tổng hợp (Aggregate Count) - cho phép qua CSDL, không phải là truy vấn lộ PII
+_COUNT_AGGREGATE_RE = re.compile(
+    r"\b(?:(?:có\s+)?(?:bao\s+nhiêu|mấy)|đếm|thống\s+kê|tổng\s+số|số\s+lượng|tỷ\s+lệ)\s+"
+    r"(?:khách\s+hàng|khach\s+hang|người|nguoi|user|tài\s+khoản|tai\s+khoan|thành\s+viên|thanh\s+vien)\b",
     re.IGNORECASE,
 )
 
-# Danh sách cột được phép thực tế của bảng customers theo đúng schema CSDL (schema_seed.sql & GRANT)
-# Lưu ý: Bảng customers chỉ có (customer_id, full_name, email, city, member_tier, joined_on)
-# Trong đó full_name và email đã bị hạn chế truy cập bởi quyền DB.
+# Nhãn tiếng Việt cho các cột thường gặp
+COLUMN_DISPLAY_LABELS = {
+    "customer_id": "mã khách hàng",
+    "city": "thành phố",
+    "member_tier": "hạng thành viên",
+    "joined_on": "ngày tham gia",
+    "order_id": "mã đơn hàng",
+    "order_date": "ngày đặt hàng",
+    "delivered_date": "ngày giao hàng",
+    "status": "trạng thái",
+    "shipping_fee": "phí vận chuyển",
+    "product_id": "mã sản phẩm",
+    "name": "tên sản phẩm",
+    "sku": "mã SKU",
+    "unit_price": "giá bán",
+}
+
+# Danh sách cột mặc định của bảng customers theo đúng schema và quyền DB (schema_seed.sql)
 ALLOWED_CUSTOMER_COLUMNS = {
     "customer_id": "mã khách hàng",
     "city": "thành phố",
@@ -24,37 +53,96 @@ ALLOWED_CUSTOMER_COLUMNS = {
 }
 
 
-def has_sensitive_mention(question: str) -> bool:
+def is_human_pii_query(question: str) -> bool:
     """
-    Kiểm tra xem câu hỏi có đề cập đến các thuộc tính nhạy cảm hay không.
-    Được dùng làm chốt chặn an toàn: Nếu câu hỏi có cờ này mà CSDL từ chối,
-    tuyệt đối không cho phép fallback sang RAG để tránh rò rỉ thông tin cá nhân.
+    Nhận diện câu hỏi có yêu cầu truy xuất dữ liệu cá nhân (PII) của con người hay không.
+    Điều kiện:
+    - Có chứa trường PII (số điện thoại, email, địa chỉ, mật khẩu, CCCD, tài khoản).
+    - Đi kèm thực thể người (khách hàng, người dùng, nhân viên, thành viên).
+    - VÀ KHÔNG PHẢI là câu hỏi đếm tổng hợp số lượng (ví dụ: 'Có bao nhiêu khách hàng có email?' là hợp lệ).
     """
     if not question:
         return False
-    return bool(_SENSITIVE_MENTION_RE.search(question))
 
+    has_pii_field = bool(_PII_FIELD_RE.search(question))
+    if not has_pii_field:
+        return False
+
+    has_human_entity = bool(_HUMAN_ENTITY_RE.search(question))
+    if not has_human_entity:
+        # Nếu hỏi thực thể phi cá nhân (ví dụ: 'Số điện thoại kho hàng', 'Hotline công ty') thì không phải PII người
+        return False
+
+    # Miễn trừ nếu là câu hỏi đếm tổng hợp số lượng (COUNT)
+    if _COUNT_AGGREGATE_RE.search(question):
+        return False
+
+    return True
+
+
+def has_sensitive_mention(question: str) -> bool:
+    """Kiểm tra câu hỏi có chứa yêu cầu PII cá nhân hay không (dùng làm chốt chặn an toàn)."""
+    return is_human_pii_query(question)
+
+
+def get_allowed_columns_for_table(schema: list[dict] | None = None, table_name: str = "customers") -> list[str]:
+    """Lấy danh sách các cột được phép từ schema CSDL thật (loại trừ các cột nhạy cảm)."""
+    if schema:
+        for table in schema:
+            if table.get("name") == table_name:
+                cols = [
+                    COLUMN_DISPLAY_LABELS.get(col["name"], col["name"])
+                    for col in table.get("columns", [])
+                    if not _SENSITIVE.search(col["name"])
+                ]
+                if cols:
+                    return cols
+    return list(ALLOWED_CUSTOMER_COLUMNS.values())
+
+
+# ==============================================================================
+# HỆ THỐNG NGOẠI LỆ CÓ KIỂU (TYPED EXCEPTIONS)
+# ==============================================================================
 
 class NlqValidationError(ValueError):
-    """Lớp cha cho các ngoại lệ kiểm tra tính an toàn hoặc hợp lệ của truy vấn NLQ (kế thừa ValueError để tương thích)."""
-    pass
+    """Lớp cha cho các ngoại lệ kiểm tra SQL trong NLQ (kế thừa ValueError để tương thích test cũ)."""
+    error_code: str = "validation_error"
 
 
-class PolicyViolation(NlqValidationError):
+class PrivacyViolation(NlqValidationError):
     """
-    Vi phạm chính sách bảo mật:
-    - Truy vấn chọn cột nhạy cảm (email, phone, password...).
-    - Thao tác ghi/sửa dữ liệu (INSERT, UPDATE, DELETE, DROP...).
-    - Truy cập bảng hệ thống bị cấm (rag_chunks...).
-    Hành động: Ngắt ngay lập tức, KHÔNG đưa vào vòng repair, KHÔNG fallback sang RAG.
+    Vi phạm quyền riêng tư và an ninh:
+    - Chọn cột nhạy cảm (email, phone, password, full_name...).
+    - Truy cập bảng cấm (rag_chunks).
+    - Thao tác ghi/sửa/xóa dữ liệu (INSERT, UPDATE, DELETE, DROP, TRUNCATE...).
+    Hành động: DỪNG NGAY LẬP TỨC (không vào repair_sql), trả về status='restricted', error_code='policy_denied'.
     """
-    pass
+    error_code: str = "policy_denied"
+
+
+# Alias tương thích
+PolicyViolation = PrivacyViolation
+
+
+class InvalidSqlError(NlqValidationError):
+    """
+    Model sinh SQL không hợp lệ về mặt kỹ thuật/cú pháp:
+    - Chứa nhiều câu lệnh (multiple statements).
+    - Gọi hàm ngoài whitelist cho phép.
+    - Chọn cả dòng qua alias bảng (SELECT c FROM customers c).
+    - SELECT INTO hoặc khóa dòng.
+    Hành động: Cho phép repair_sql. Nếu hết lượt repair thì trả về status='error', error_code='exec_error'.
+    """
+    error_code: str = "exec_error"
 
 
 class SchemaMismatch(NlqValidationError):
     """
-    Tham chiếu bảng hoặc cột không tồn tại trong schema được cấp quyền.
-    Hành động: Cho phép repair; nếu hết lượt repair thì chuyển thành kết cục out_of_scope/unanswerable.
-    Được phép fallback sang RAG nếu câu hỏi không chứa cờ nhạy cảm.
+    Truy vấn tham chiếu bảng hoặc cột ngoài schema được cấp quyền:
+    - Bảng ngoài schema.
+    - Cột ngoài schema.
+    - SELECT * (cần chọn cột cụ thể).
+    Hành động: Cho phép repair_sql. Nếu hết lượt repair thì trả về status='out_of_scope', error_code='unanswerable'.
+    Được phép fallback sang RAG nếu câu hỏi không chứa cờ PII.
     """
-    pass
+    error_code: str = "unanswerable"

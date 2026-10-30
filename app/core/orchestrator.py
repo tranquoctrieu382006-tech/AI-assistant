@@ -1,12 +1,21 @@
+import asyncio
 import logging
 from typing import Any, Literal
+from fastapi import HTTPException
 from pydantic import BaseModel, Field
+import psycopg
 
-from app.api.rag import _answer_rag
-from app.core.nlq_graph import ask_nlq
-from app.core.nlq_policy import has_sensitive_mention
+from app.core.nlq_graph import NlqRequestTimeout, ask_nlq
+from app.core.nlq_policy import (
+    InvalidSqlError,
+    PrivacyViolation,
+    SchemaMismatch,
+    has_sensitive_mention,
+    is_human_pii_query,
+)
+from app.core.rag_service import answer_rag_request
 from app.core.router import RouteCategory, route_question
-from app.core.tracing import create_trace_id
+from app.core.tracing import create_trace_id, langfuse_observation, update_langfuse_observation
 from app.schemas.rag import RagAskRequest
 
 logger = logging.getLogger(__name__)
@@ -34,16 +43,105 @@ class AskUnifiedResponse(BaseModel):
     trace_id: str | None = None
 
 
+async def _run_nlq_step(
+    question: str,
+    session_id: str | None,
+    user_id: str | None,
+    trace_id: str,
+) -> dict[str, Any]:
+    """Chạy NLQ trong thread riêng, bọc tracing và chuẩn hóa lỗi hạ tầng (503/504)."""
+    headers = {"X-Trace-Id": trace_id} if trace_id else None
+    try:
+        with langfuse_observation(name="nlq-request", trace_id=trace_id) as observation:
+            result = await asyncio.to_thread(
+                ask_nlq,
+                question,
+                session_id=session_id,
+                user_id=user_id,
+            )
+            update_langfuse_observation(
+                observation,
+                output={
+                    "sql": result.get("sql"),
+                    "row_count": len(result.get("rows", [])),
+                    "status": result.get("status"),
+                },
+            )
+            return result
+    except NlqRequestTimeout as exc:
+        raise HTTPException(status_code=504, detail="NLQ request timed out.", headers=headers) from exc
+    except (psycopg.OperationalError, psycopg.Error) as exc:
+        logger.exception("NLQ database connection failure in orchestrator")
+        raise HTTPException(status_code=503, detail="NLQ database is unavailable.", headers=headers) from exc
+    except RuntimeError as exc:
+        if "NLQ_DATABASE_URL" in str(exc):
+            raise HTTPException(
+                status_code=503,
+                detail="NLQ chưa được cấu hình tài khoản PostgreSQL chỉ đọc.",
+                headers=headers,
+            ) from exc
+        logger.exception("NLQ runtime failure in orchestrator")
+        raise HTTPException(status_code=503, detail="NLQ hiện chưa sẵn sàng.", headers=headers) from exc
+    except PrivacyViolation as exc:
+        return {
+            "sql": "",
+            "columns": [],
+            "rows": [],
+            "answer": f"Yêu cầu bị từ chối do vi phạm chính sách: {exc}",
+            "repaired": False,
+            "truncated": False,
+            "status": "restricted",
+            "error_code": "policy_denied",
+        }
+    except SchemaMismatch as exc:
+        return {
+            "sql": "",
+            "columns": [],
+            "rows": [],
+            "answer": f"Không tìm thấy dữ liệu phù hợp trong CSDL: {exc}",
+            "repaired": False,
+            "truncated": False,
+            "status": "out_of_scope",
+            "error_code": "unanswerable",
+        }
+    except InvalidSqlError as exc:
+        return {
+            "sql": "",
+            "columns": [],
+            "rows": [],
+            "answer": f"Không thể tạo hoặc chạy truy vấn an toàn: {exc}",
+            "repaired": False,
+            "truncated": False,
+            "status": "error",
+            "error_code": "exec_error",
+        }
+
+
 async def ask_orchestrated(request: AskUnifiedRequest) -> AskUnifiedResponse:
     """
     Điều phối truy vấn hợp nhất tại tầng Backend:
     - Tiếp nhận câu hỏi, tự động định tuyến nếu ở chế độ 'auto'.
+    - Chặn các câu hỏi PII cá nhân con người ngay tại cửa ngõ.
     - Chặn các câu lệnh ghi/xóa (unsupported_action) ngay lập tức.
     - Chặn câu hỏi nhạy cảm và không bao giờ fallback sang RAG để chống lộ dữ liệu.
     - Nếu NLQ trả về out_of_scope (unanswerable) mà không nhạy cảm -> tự động fallback sang RAG đúng 1 lần.
     """
     q = request.question.strip()
     trace_id = create_trace_id()
+
+    # 0. Chốt chặn bảo vệ PII cá nhân con người ngay tại cửa ngõ
+    # Áp dụng cho mọi chế độ (auto, nlq, rag) để chống thất thoát dữ liệu người dùng
+    if is_human_pii_query(q):
+        return AskUnifiedResponse(
+            route="nlq" if request.mode == "nlq" else ("rag" if request.mode == "rag" else "nlq"),
+            status="restricted",
+            answer="Thông tin cá nhân/nhạy cảm (số điện thoại, email, địa chỉ...) bị hạn chế để bảo vệ quyền riêng tư.",
+            columns=[],
+            rows=[],
+            reasoning="Chặn truy cập dữ liệu nhạy cảm / PII cá nhân",
+            error_code="policy_denied",
+            trace_id=trace_id,
+        )
 
     # 1. Chế độ ép RAG
     if request.mode == "rag":
@@ -53,7 +151,7 @@ async def ask_orchestrated(request: AskUnifiedRequest) -> AskUnifiedResponse:
             user_id=request.user_id,
             top_k=request.top_k,
         )
-        rag_res = await _answer_rag(rag_req, trace_id=trace_id)
+        rag_res = await answer_rag_request(rag_req, trace_id=trace_id)
         return AskUnifiedResponse(
             route="rag",
             status="ok" if rag_res.sources else "out_of_scope",
@@ -64,7 +162,7 @@ async def ask_orchestrated(request: AskUnifiedRequest) -> AskUnifiedResponse:
 
     # 2. Chế độ ép NLQ
     if request.mode == "nlq":
-        nlq_res = ask_nlq(q, session_id=request.session_id, user_id=request.user_id)
+        nlq_res = await _run_nlq_step(q, request.session_id, request.user_id, trace_id)
         return AskUnifiedResponse(
             route="nlq",
             status=nlq_res.get("status", "ok"),
@@ -101,7 +199,7 @@ async def ask_orchestrated(request: AskUnifiedRequest) -> AskUnifiedResponse:
 
     # C. Định tuyến CSDL (NLQ)
     if decision.category == RouteCategory.NLQ:
-        nlq_res = ask_nlq(q, session_id=request.session_id, user_id=request.user_id)
+        nlq_res = await _run_nlq_step(q, request.session_id, request.user_id, trace_id)
         nlq_status = nlq_res.get("status", "ok")
 
         # Vi phạm chính sách / cột nhạy cảm: Tuyệt đối KHÔNG fallback sang RAG!
@@ -142,7 +240,7 @@ async def ask_orchestrated(request: AskUnifiedRequest) -> AskUnifiedResponse:
                 user_id=request.user_id,
                 top_k=request.top_k,
             )
-            rag_res = await _answer_rag(rag_req, trace_id=trace_id)
+            rag_res = await answer_rag_request(rag_req, trace_id=trace_id)
             return AskUnifiedResponse(
                 route="rag",
                 fallback_from="nlq",
@@ -173,7 +271,7 @@ async def ask_orchestrated(request: AskUnifiedRequest) -> AskUnifiedResponse:
         user_id=request.user_id,
         top_k=request.top_k,
     )
-    rag_res = await _answer_rag(rag_req, trace_id=trace_id)
+    rag_res = await answer_rag_request(rag_req, trace_id=trace_id)
     return AskUnifiedResponse(
         route="rag",
         status="ok" if rag_res.sources else "out_of_scope",

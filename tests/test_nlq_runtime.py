@@ -484,14 +484,14 @@ async def test_orchestrator_blocks_sensitive_fallback_to_rag():
 
 def test_typed_exceptions_policy_vs_schema():
     """Kiểm tra ngoại lệ có kiểu PolicyViolation vs SchemaMismatch (kế thừa ValueError)."""
-    from app.core.nlq_policy import PolicyViolation, SchemaMismatch
+    from app.core.nlq_policy import InvalidSqlError, PolicyViolation, SchemaMismatch
 
     with pytest.raises(PolicyViolation) as exc_info:
         validate_sql("SELECT phone FROM customers", ALL_TABLES)
     assert issubclass(PolicyViolation, ValueError)
     assert "nhạy cảm" in str(exc_info.value)
 
-    with pytest.raises(PolicyViolation):
+    with pytest.raises(InvalidSqlError):
         validate_sql("DELETE FROM orders", ALL_TABLES)
 
     with pytest.raises(SchemaMismatch) as exc_info:

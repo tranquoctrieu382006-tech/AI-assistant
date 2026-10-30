@@ -5,6 +5,7 @@ import psycopg
 
 from app.core.config import settings
 from app.core.nlq_graph import NlqRequestTimeout, ask_nlq
+from app.core.nlq_policy import InvalidSqlError, PrivacyViolation, SchemaMismatch
 from app.core.security import require_api_key
 from app.core.tracing import create_trace_id, langfuse_observation, update_langfuse_observation
 from app.schemas.nlq import NlqAskRequest, NlqAskResponse
@@ -59,35 +60,55 @@ def ask_database(request: NlqAskRequest, response: Response = None) -> NlqAskRes
             ) from exc
         logger.exception("NLQ configuration/runtime failure")
         raise HTTPException(status_code=503, detail="NLQ hiện chưa sẵn sàng.", headers=headers) from exc
-    except ValueError as exc:
-        # Lỗi xác thực chính sách hoặc schema: trả về HTTP 200 kèm status và giải thích, không ném 502
-        logger.warning("NLQ policy or validation rejection: %s", exc)
+    except PrivacyViolation as exc:
+        logger.warning("NLQ privacy violation: %s", exc)
         if trace_id and response is not None:
             response.headers["X-Trace-Id"] = trace_id
-        is_policy = "nhạy cảm" in str(exc).lower() or "không cho phép" in str(exc).lower()
         return NlqAskResponse(
             sql="",
             columns=[],
             rows=[],
-            answer=str(exc),
+            answer=f"Yêu cầu bị từ chối do vi phạm chính sách: {exc}",
             repaired=False,
             truncated=False,
             trace_id=trace_id,
-            status="restricted" if is_policy else "out_of_scope",
-            error_code="policy_denied" if is_policy else "unanswerable",
+            status="restricted",
+            error_code="policy_denied",
         )
-    except Exception as exc:
-        logger.exception("NLQ unexpected failure")
+    except SchemaMismatch as exc:
+        logger.warning("NLQ schema mismatch: %s", exc)
         if trace_id and response is not None:
             response.headers["X-Trace-Id"] = trace_id
         return NlqAskResponse(
             sql="",
             columns=[],
             rows=[],
-            answer=f"Không thể xử lý truy vấn: {exc}",
+            answer=f"Không tìm thấy dữ liệu phù hợp trong CSDL: {exc}",
+            repaired=False,
+            truncated=False,
+            trace_id=trace_id,
+            status="out_of_scope",
+            error_code="unanswerable",
+        )
+    except InvalidSqlError as exc:
+        logger.warning("NLQ invalid SQL: %s", exc)
+        if trace_id and response is not None:
+            response.headers["X-Trace-Id"] = trace_id
+        return NlqAskResponse(
+            sql="",
+            columns=[],
+            rows=[],
+            answer=f"Không thể tạo truy vấn an toàn: {exc}",
             repaired=False,
             truncated=False,
             trace_id=trace_id,
             status="error",
             error_code="exec_error",
         )
+    except Exception as exc:
+        logger.exception("NLQ unexpected failure")
+        raise HTTPException(
+            status_code=502,
+            detail="Không thể tạo hoặc chạy truy vấn NLQ an toàn.",
+            headers=headers,
+        ) from exc
