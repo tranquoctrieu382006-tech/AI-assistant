@@ -299,13 +299,17 @@ def _rule_based_classify(question: str) -> RouteDecision:
                 reasoning="Thao tác ghi/sửa/xóa cơ sở dữ liệu không được hỗ trợ (hệ thống chỉ đọc)",
             )
 
-    # 1. Câu hỏi quá ngắn, vô nghĩa (< 5 ký tự) không chứa thực thể hay chính sách
+    # 1. Chào hỏi xã giao (ưu tiên nhận diện trước kiểm tra độ dài câu)
+    if is_greeting and not has_policy and not (has_quantitative and has_db_entity) and not has_pure_db_metric:
+        return RouteDecision(category=RouteCategory.OUT_OF_SCOPE, reasoning="Chào hỏi xã giao")
+
+    # 2. Câu hỏi quá ngắn, vô nghĩa (< 5 ký tự) không chứa thực thể hay chính sách
     if len(q_no_accents) <= 5 and not has_policy and not has_db_entity and not has_pure_db_metric:
         return RouteDecision(category=RouteCategory.OUT_OF_SCOPE, reasoning="Câu hỏi quá ngắn hoặc vô nghĩa")
 
-    # 2. Chào hỏi hoặc lạc đề thuần túy (không chứa từ khóa nghiệp vụ)
-    if (is_greeting or is_off_topic) and not has_policy and not (has_quantitative and has_db_entity) and not has_pure_db_metric:
-        return RouteDecision(category=RouteCategory.OUT_OF_SCOPE, reasoning="Chào hỏi xã giao hoặc ngoài phạm vi nghiệp vụ")
+    # 3. Lạc đề thuần túy (không chứa từ khóa nghiệp vụ)
+    if is_off_topic and not has_policy and not (has_quantitative and has_db_entity) and not has_pure_db_metric:
+        return RouteDecision(category=RouteCategory.OUT_OF_SCOPE, reasoning="Ngoài phạm vi nghiệp vụ")
 
     # 3. Câu hỏi văn bản chính sách/thủ tục (kể cả khi nhắc đến thực thể CSDL như đơn hàng/sản phẩm)
     if has_policy:

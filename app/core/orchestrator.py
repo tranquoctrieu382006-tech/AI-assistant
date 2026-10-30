@@ -187,8 +187,22 @@ async def ask_orchestrated(request: AskUnifiedRequest) -> AskUnifiedResponse:
             trace_id=trace_id,
         )
 
-    # B. Ngoài phạm vi hỗ trợ
+    # B. Ngoài phạm vi hỗ trợ (Chào hỏi xã giao hoặc lạc đề)
     if decision.category == RouteCategory.OUT_OF_SCOPE:
+        if decision.reasoning == "Chào hỏi xã giao":
+            greeting_answer = (
+                "Xin chào! Tôi là trợ lý ảo hỗ trợ tra cứu tài liệu quy định và số liệu kinh doanh. "
+                "Bạn có thể đặt câu hỏi về quy chế công ty, chính sách bán hàng, đổi trả, bảo hành hoặc tra cứu đơn hàng, doanh thu, sản phẩm. "
+                "Tôi có thể giúp gì cho bạn hôm nay?"
+            )
+            return AskUnifiedResponse(
+                route="out_of_scope",
+                status="out_of_scope",
+                answer=greeting_answer,
+                reasoning=decision.reasoning,
+                trace_id=trace_id,
+            )
+
         return AskUnifiedResponse(
             route="out_of_scope",
             status="out_of_scope",

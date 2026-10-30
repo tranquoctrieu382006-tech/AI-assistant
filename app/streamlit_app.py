@@ -347,7 +347,10 @@ if prompt:
                         elif status_val == "unsupported_action":
                             status_box.update(label="⚠️ Thao tác không được hỗ trợ", state="complete", expanded=False)
                         elif status_val == "out_of_scope":
-                            status_box.update(label="ℹ️ Câu hỏi ngoài phạm vi", state="complete", expanded=False)
+                            if reasoning == "Chào hỏi xã giao" or "Xin chào" in ans:
+                                status_box.update(label="👋 Chào bạn!", state="complete", expanded=False)
+                            else:
+                                status_box.update(label="ℹ️ Câu hỏi ngoài phạm vi", state="complete", expanded=False)
                         elif route == "nlq":
                             status_box.update(label="✅ Hoàn tất truy vấn CSDL", state="complete", expanded=False)
                         else:
