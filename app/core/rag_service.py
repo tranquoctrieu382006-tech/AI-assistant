@@ -250,7 +250,7 @@ async def answer_rag_request(request: RagAskRequest, trace_id: str | None = None
         with langfuse_context(session_id=request.session_id, tags=["rag", "ai07"]):
             chain = await run_in_threadpool(
                 build_rag_chain,
-                get_rag_llm(temperature=0),
+                get_rag_llm(temperature=0, with_fallback=True),
             )
             generated = await _invoke_rag_with_retry(
                 chain,

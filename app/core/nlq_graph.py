@@ -13,7 +13,7 @@ from sqlglot import exp, parse
 from sqlglot.optimizer.scope import Scope, traverse_scope
 
 from app.core.config import settings
-from app.core.llm import extract_message_text, get_llm, get_model_provider
+from app.core.llm import extract_message_text, get_llm, get_llm_with_fallbacks, get_model_provider
 from app.core.nlq_policy import (
     _SENSITIVE,
     is_human_pii_query,
@@ -678,8 +678,9 @@ def ask_nlq(question: str, *, session_id: str | None = None, user_id: str | None
     per_call_budget = max(10.0, deadline_seconds / max(1, max_graph_model_calls))
     model_timeout = max(10.0, min(settings.nlq_model_timeout_seconds, per_call_budget))
     deadline = time.monotonic() + deadline_seconds
-    llm = get_llm(
-        settings.nlq_model,
+    llm = get_llm_with_fallbacks(
+        primary_role=settings.nlq_model,
+        fallback_roles=["strong", "local"] if settings.nlq_model in ("fast", "default") else ["fast", "local"],
         temperature=0,
         timeout=model_timeout,
         max_retries=settings.nlq_model_max_retries,

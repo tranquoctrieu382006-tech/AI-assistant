@@ -325,6 +325,7 @@ def test_nlq_graph_with_langchain_fake_list_chat_model(monkeypatch):
 
     # Kiểm tra trực tiếp hàm điểm vào ask_nlq (đảm bảo đọc đúng settings và không lỗi AttributeError)
     monkeypatch.setattr(nlq_graph, "get_llm", lambda *a, **kw: fake_llm)
+    monkeypatch.setattr(nlq_graph, "get_llm_with_fallbacks", lambda *a, **kw: fake_llm)
     ask_result = nlq_graph.ask_nlq("Có bao nhiêu sản phẩm?")
     assert ask_result["rows"] == [{"product_count": 150}]
     assert ask_result["answer"] == "Hiện tại hệ thống có 150 sản phẩm."
@@ -461,7 +462,11 @@ def test_sensitive_attribute_returns_restricted_without_fallback():
     q_sensitive = "Email của khách hàng Nguyễn Văn A là gì?"
     assert has_sensitive_mention(q_sensitive) is True
 
-    with patch("app.core.nlq_graph.load_schema", return_value=_schema()):
+    from langchain_community.chat_models import FakeListChatModel
+    fake_llm = FakeListChatModel(responses=["customers"])
+    with patch("app.core.nlq_graph.load_schema", return_value=_schema()), \
+         patch("app.core.nlq_graph.get_llm", return_value=fake_llm), \
+         patch("app.core.nlq_graph.get_llm_with_fallbacks", return_value=fake_llm):
         nlq_res = nlq_graph.ask_nlq(q_sensitive)
     assert nlq_res["status"] == "restricted"
     assert nlq_res["error_code"] == "policy_denied"

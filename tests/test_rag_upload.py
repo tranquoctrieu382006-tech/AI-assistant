@@ -163,6 +163,7 @@ def test_upload_prompt_injection_document_resistance(client):
     }
     with patch("app.core.vector_store.similarity_search", return_value=[mock_retrieved_chunk]), \
          patch("app.api.rag.retrieve_and_gate", return_value=([mock_retrieved_chunk], False)), \
+         patch("app.api.rag.get_rag_llm", return_value=MagicMock()), \
          patch("app.api.rag.build_rag_chain", return_value=mock_chain):
         ask_resp = client.post("/api/rag/ask", json={"question": "Hướng dẫn bảo mật nói gì?"})
 

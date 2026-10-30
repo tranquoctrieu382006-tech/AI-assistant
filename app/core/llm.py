@@ -231,14 +231,23 @@ def get_llm_with_fallbacks(
     hệ thống tự động chuyển tiếp truy vấn sang danh sách fallback_roles theo thứ tự.
     """
     if fallback_roles is None:
-        fallback_roles = ["local"]
+        if primary_role in ("fast", settings.fast_model):
+            fallback_roles = ["strong", "local"]
+        elif primary_role in ("strong", settings.strong_model):
+            fallback_roles = ["fast", "local"]
+        else:
+            fallback_roles = ["local"]
 
     primary_llm = get_llm(primary_role, temperature=temperature, **kwargs)
     fallbacks: list[BaseChatModel] = []
     for role in fallback_roles:
         if role and role != primary_role:
             try:
-                fallbacks.append(get_llm(role, temperature=temperature, **kwargs))
+                fb_kwargs = dict(kwargs)
+                fb_provider = get_model_provider(role)
+                if fb_provider != "ollama":
+                    fb_kwargs.pop("num_ctx", None)
+                fallbacks.append(get_llm(role, temperature=temperature, **fb_kwargs))
             except Exception as e:
                 logger.warning("Không thể khởi tạo fallback model %s: %s", role, e)
 

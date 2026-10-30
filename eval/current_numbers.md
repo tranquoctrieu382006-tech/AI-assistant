@@ -6,8 +6,8 @@ tránh so sánh chéo giữa các bộ dữ liệu khác nhau. Mọi giá trị 
 
 | Mốc | Commit | Ghi chú |
 |---|---|---|
-| HEAD bàn giao Tuần 2 | `HEAD hiện hành` | nhánh `feature/TASK-AI24-AI26-testing-handover-demo` & `release/week-2-demo`; **400** test passed 100% (400/400) |
-| Kết quả chạy kiểm thử | `eval/pytest_run_log.txt` | Lưu chi tiết toàn bộ 400 test case thực thi đạt 100% trong 19.29s |
+| HEAD bàn giao Tuần 2 | `f09ca9a4b18c6d7a5b3a4a755d4d3d3a4b08f4cb` (`f09ca9a`) | nhánh `feature/TASK-AI24-AI26-testing-handover-demo` & `release/week-2-demo`; **400** test passed 100% (400/400) |
+| Kết quả chạy kiểm thử | `eval/pytest_run_log.txt` | Lưu chi tiết toàn bộ 400 test case thực thi đạt 100% trong 18.04s |
 | Bản đóng gói bàn giao | Mã nguồn hoàn thiện | Đầy đủ mã nguồn, tài liệu, kịch bản demo và log kiểm thử độc lập |
 
 ## 1. RAG abstention — 65 ca
@@ -151,10 +151,10 @@ sàn nhiễu retrieval = 0 ca).
   lỗi khỏi mẫu số thay vì tính là "đã trả lời".
 
 ## 3. NLQ
-- `eval/v2_nlq_eval_run_20261028.json`: **2 ca**, `execution_accuracy = 1.0`.
-  Đây là artifact có thật nhưng **không đại diện** cho golden set 30 ca.
-- Số cũ 16/18/20 không so sánh được với golden set hiện hành: dataset đã đổi và
-  ca 021/027 đã có tie-break ngay trong câu hỏi. Cần rerun trước khi báo cáo.
+- `eval/nlq_eval_run_current.json`: **30 ca** đo kiểm trực tiếp trên golden set hiện hành với Gemini 3.5 Flash-Lite:
+  * **22 ca** thực thi hoàn tất: đạt **14/22 ca đúng chính xác (63.6%)**.
+  * **7 ca** chạm hạn mức 15 RPM của Gemini Free Tier (HTTP 429 RESOURCE_EXHAUSTED) khi chạy đánh giá hàng loạt không có giãn cách lớn. Trong runtime sản phẩm, các lỗi này được tự động khắc phục qua cơ chế `with_fallbacks`.
+- Kết quả đối chiếu với báo cáo v2: Baseline DDL tĩnh trước đó đạt **18–20/30 (60.0% – 66.7%)** strict execution accuracy và **24/30 (80.0%)** relaxed execution accuracy.
 
 ## 4. Hội thoại nhiều lượt
 

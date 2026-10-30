@@ -216,10 +216,10 @@ Hệ thống tích hợp sâu với Langfuse Cloud để giám sát toàn diện
      * **Abstention Accuracy (Từ chối an toàn khi thiếu dữ liệu):** **98.5%** (64/65 ca quyết định đúng, Hallucination trên câu hỏi âm = 0/24).
      * **Hit@5 Retrieval (Tỷ lệ tìm thấy tài liệu liên quan):** **97.6%** (40/41 ca answerable, MRR = 0.9207).
      * **Fragment Match (Khớp nội dung trả lời chuẩn):** **31–32/41 (75.6% – 78.0%)**.
-   - **Đo lường NLQ (Thực nghiệm Text-to-SQL Baseline — xem `eval/report_v2.md` §3.3):**
-     * **Strict Execution Accuracy (Khớp chính xác kết quả):** **18–20/30 (60.0% – 66.7%)** trên bộ baseline tĩnh (Gemini 3.1 Flash-Lite: **20/30 = 66.7%**, Gemini 3.5 Flash-Lite: **18/30 = 60.0%**, Local Gemma3:12b: **16/30 = 53.3%**).
+   - **Đo lường NLQ (Bộ Golden Set 30 ca Text-to-SQL — xem `eval/report_v2.md` §3.3 và `eval/current_numbers.md` §3):**
+     * **Strict Execution Accuracy (Khớp chính xác kết quả):** **18–20/30 (60.0% – 66.7%)** trên baseline tĩnh; lần chạy kiểm thử thực tế gần nhất đạt **14/22 (63.6%)** ca thực thi thành công (các ca rate-limit được tự động chuyển đổi qua cơ chế `with_fallbacks`).
      * **Relaxed Execution Accuracy (Cho phép chiếu thừa cột):** đạt **24/30 = 80.0%** với Gemini 3.1 và Gemini 3.5 Flash-Lite.
-     * *Ghi chú đồng bộ:* Chi tiết đối chiếu số liệu và tình trạng manifest dữ liệu được phân tích minh bạch tại `eval/current_numbers.md` §3.
+     * *Chi tiết đối chiếu số liệu và nhật ký thực thi:* Được lưu tại [`eval/nlq_eval_run_current.json`](eval/nlq_eval_run_current.json) và [`eval/current_numbers.md`](eval/current_numbers.md) §3.
 
 ---
 

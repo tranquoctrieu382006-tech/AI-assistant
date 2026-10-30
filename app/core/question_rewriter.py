@@ -111,6 +111,7 @@ def build_rewriter_chain(model_role: str | None = None):
         temperature=0.0,
         timeout=settings.question_rewriter_timeout_seconds,
         max_retries=0,
+        with_fallback=True,
     )
     return prompt | llm | StrOutputParser()
 

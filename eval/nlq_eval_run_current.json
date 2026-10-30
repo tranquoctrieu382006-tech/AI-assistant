@@ -1,0 +1,1114 @@
+{
+  "model_role": "fast",
+  "model_name": "google_genai/gemini-3.5-flash-lite",
+  "cases": 30,
+  "execution_correct": 14,
+  "execution_accuracy": 0.4666666666666667,
+  "strict_execution_correct": 14,
+  "strict_execution_accuracy": 0.4666666666666667,
+  "relaxed_execution_correct": 4,
+  "relaxed_execution_accuracy": 0.13333333333333333,
+  "executed_cases": 22,
+  "executed_accuracy": 0.6363636363636364,
+  "counts": {
+    "pass": 14,
+    "fail": 8,
+    "rejected": 1,
+    "error": 7
+  },
+  "mean_generation_latency_seconds": 0.8356521739130435,
+  "total_generation_latency_seconds": 19.22,
+  "evaluation_wall_seconds": 45.314,
+  "token_totals": {
+    "input_tokens": 13982,
+    "output_tokens": 1099,
+    "total_tokens": 15081
+  },
+  "estimated_api_cost_usd": 0.0069421,
+  "pricing_basis": "Google Gemini paid-tier standard text rates",
+  "model_evaluated": true,
+  "evaluation_scope": "SQL generation with seed DDL; not the production LangGraph/schema-linking path",
+  "trace_uploaded": false,
+  "results": [
+    {
+      "id": "nlq-001",
+      "question": "Có bao nhiêu sản phẩm?",
+      "generation_latency_seconds": 1.004,
+      "input_tokens": 601,
+      "output_tokens": 11,
+      "total_tokens": 612,
+      "generated_sql": "SELECT count(*) FROM products;",
+      "validated_sql": "SELECT COUNT(*) FROM products LIMIT 201",
+      "status": "pass",
+      "strict_status": "pass",
+      "relaxed_status": "fail",
+      "expected": [
+        {
+          "product_count": 80
+        }
+      ],
+      "actual": [
+        {
+          "count": 80
+        }
+      ]
+    },
+    {
+      "id": "nlq-002",
+      "question": "Có bao nhiêu khách hàng?",
+      "generation_latency_seconds": 0.658,
+      "input_tokens": 601,
+      "output_tokens": 10,
+      "total_tokens": 611,
+      "generated_sql": "SELECT count(*) FROM customers",
+      "validated_sql": "SELECT COUNT(*) FROM customers LIMIT 201",
+      "status": "pass",
+      "strict_status": "pass",
+      "relaxed_status": "fail",
+      "expected": [
+        {
+          "customer_count": 200
+        }
+      ],
+      "actual": [
+        {
+          "count": 200
+        }
+      ]
+    },
+    {
+      "id": "nlq-003",
+      "question": "Có bao nhiêu đơn hàng?",
+      "generation_latency_seconds": 0.794,
+      "input_tokens": 601,
+      "output_tokens": 11,
+      "total_tokens": 612,
+      "generated_sql": "SELECT COUNT(*) FROM orders;",
+      "validated_sql": "SELECT COUNT(*) FROM orders LIMIT 201",
+      "status": "pass",
+      "strict_status": "pass",
+      "relaxed_status": "fail",
+      "expected": [
+        {
+          "order_count": 300
+        }
+      ],
+      "actual": [
+        {
+          "count": 300
+        }
+      ]
+    },
+    {
+      "id": "nlq-004",
+      "question": "Có bao nhiêu kho hàng?",
+      "generation_latency_seconds": 0.69,
+      "input_tokens": 601,
+      "output_tokens": 11,
+      "total_tokens": 612,
+      "generated_sql": "SELECT COUNT(*) FROM warehouses;",
+      "validated_sql": "SELECT COUNT(*) FROM warehouses LIMIT 201",
+      "status": "pass",
+      "strict_status": "pass",
+      "relaxed_status": "fail",
+      "expected": [
+        {
+          "warehouse_count": 3
+        }
+      ],
+      "actual": [
+        {
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": "nlq-005",
+      "question": "Có bao nhiêu sản phẩm đang kinh doanh?",
+      "generation_latency_seconds": 0.642,
+      "input_tokens": 604,
+      "output_tokens": 15,
+      "total_tokens": 619,
+      "generated_sql": "SELECT count(*) FROM products WHERE active = true;",
+      "validated_sql": "SELECT COUNT(*) FROM products WHERE active = TRUE LIMIT 201",
+      "status": "pass",
+      "strict_status": "pass",
+      "relaxed_status": "fail",
+      "expected": [
+        {
+          "active_product_count": 80
+        }
+      ],
+      "actual": [
+        {
+          "count": 80
+        }
+      ]
+    },
+    {
+      "id": "nlq-006",
+      "question": "Mỗi danh mục hiện có bao nhiêu sản phẩm?",
+      "generation_latency_seconds": 1.042,
+      "input_tokens": 606,
+      "output_tokens": 62,
+      "total_tokens": 668,
+      "generated_sql": "SELECT c.name, COUNT(p.product_id) AS product_count\nFROM categories c\nLEFT JOIN products p ON c.category_id = p.category_id\nGROUP BY c.category_id, c.name\nORDER BY c.name;",
+      "validated_sql": "SELECT c.name, COUNT(p.product_id) AS product_count FROM categories AS c LEFT JOIN products AS p ON c.category_id = p.category_id GROUP BY c.category_id, c.name ORDER BY c.name LIMIT 201",
+      "status": "pass",
+      "strict_status": "pass",
+      "relaxed_status": "fail",
+      "expected": [
+        {
+          "category": "Chăm sóc cá nhân",
+          "product_count": 10
+        },
+        {
+          "category": "Điện tử",
+          "product_count": 10
+        },
+        {
+          "category": "Đồ dùng du lịch",
+          "product_count": 10
+        },
+        {
+          "category": "Gia dụng",
+          "product_count": 10
+        },
+        {
+          "category": "Nhà bếp",
+          "product_count": 10
+        },
+        {
+          "category": "Phụ kiện",
+          "product_count": 10
+        },
+        {
+          "category": "Thể thao",
+          "product_count": 10
+        },
+        {
+          "category": "Văn phòng phẩm",
+          "product_count": 10
+        }
+      ],
+      "actual": [
+        {
+          "name": "Chăm sóc cá nhân",
+          "product_count": 10
+        },
+        {
+          "name": "Điện tử",
+          "product_count": 10
+        },
+        {
+          "name": "Đồ dùng du lịch",
+          "product_count": 10
+        },
+        {
+          "name": "Gia dụng",
+          "product_count": 10
+        },
+        {
+          "name": "Nhà bếp",
+          "product_count": 10
+        },
+        {
+          "name": "Phụ kiện",
+          "product_count": 10
+        },
+        {
+          "name": "Thể thao",
+          "product_count": 10
+        },
+        {
+          "name": "Văn phòng phẩm",
+          "product_count": 10
+        }
+      ]
+    },
+    {
+      "id": "nlq-007",
+      "question": "Có bao nhiêu khách hàng ở mỗi hạng thành viên?",
+      "generation_latency_seconds": 0.623,
+      "input_tokens": 606,
+      "output_tokens": 32,
+      "total_tokens": 638,
+      "generated_sql": "SELECT member_tier, COUNT(*) AS customer_count\nFROM customers\nGROUP BY member_tier\nORDER BY member_tier;",
+      "validated_sql": "SELECT member_tier, COUNT(*) AS customer_count FROM customers GROUP BY member_tier ORDER BY member_tier LIMIT 201",
+      "status": "pass",
+      "strict_status": "pass",
+      "relaxed_status": "pass",
+      "expected": [
+        {
+          "member_tier": "Bạc",
+          "customer_count": 50
+        },
+        {
+          "member_tier": "Đồng",
+          "customer_count": 50
+        },
+        {
+          "member_tier": "Kim cương",
+          "customer_count": 50
+        },
+        {
+          "member_tier": "Vàng",
+          "customer_count": 50
+        }
+      ],
+      "actual": [
+        {
+          "member_tier": "Bạc",
+          "customer_count": 50
+        },
+        {
+          "member_tier": "Đồng",
+          "customer_count": 50
+        },
+        {
+          "member_tier": "Kim cương",
+          "customer_count": 50
+        },
+        {
+          "member_tier": "Vàng",
+          "customer_count": 50
+        }
+      ]
+    },
+    {
+      "id": "nlq-008",
+      "question": "Số đơn hàng theo từng trạng thái là bao nhiêu?",
+      "generation_latency_seconds": 0.654,
+      "input_tokens": 606,
+      "output_tokens": 32,
+      "total_tokens": 638,
+      "generated_sql": "SELECT status, COUNT(*) AS order_count\nFROM orders\nGROUP BY status\nORDER BY order_count DESC, status ASC;",
+      "validated_sql": "SELECT status, COUNT(*) AS order_count FROM orders GROUP BY status ORDER BY order_count DESC, status ASC LIMIT 201",
+      "status": "pass",
+      "strict_status": "pass",
+      "relaxed_status": "pass",
+      "expected": [
+        {
+          "status": "đã giao",
+          "order_count": 60
+        },
+        {
+          "status": "đã hủy",
+          "order_count": 60
+        },
+        {
+          "status": "đã xác nhận",
+          "order_count": 60
+        },
+        {
+          "status": "đang giao",
+          "order_count": 60
+        },
+        {
+          "status": "mới",
+          "order_count": 60
+        }
+      ],
+      "actual": [
+        {
+          "status": "đã giao",
+          "order_count": 60
+        },
+        {
+          "status": "đã hủy",
+          "order_count": 60
+        },
+        {
+          "status": "đã xác nhận",
+          "order_count": 60
+        },
+        {
+          "status": "đang giao",
+          "order_count": 60
+        },
+        {
+          "status": "mới",
+          "order_count": 60
+        }
+      ]
+    },
+    {
+      "id": "nlq-009",
+      "question": "Mỗi thành phố có bao nhiêu nhà cung cấp?",
+      "generation_latency_seconds": 0.748,
+      "input_tokens": 606,
+      "output_tokens": 36,
+      "total_tokens": 642,
+      "generated_sql": "SELECT city, COUNT(supplier_id) AS supplier_count\nFROM suppliers\nGROUP BY city\nORDER BY supplier_count DESC, city ASC;",
+      "validated_sql": "SELECT city, COUNT(supplier_id) AS supplier_count FROM suppliers GROUP BY city ORDER BY supplier_count DESC, city ASC LIMIT 201",
+      "status": "fail",
+      "strict_status": "fail",
+      "relaxed_status": "fail",
+      "expected": [
+        {
+          "city": "Biên Hòa",
+          "supplier_count": 2
+        },
+        {
+          "city": "Cần Thơ",
+          "supplier_count": 2
+        },
+        {
+          "city": "Đà Nẵng",
+          "supplier_count": 2
+        },
+        {
+          "city": "Hà Nội",
+          "supplier_count": 1
+        },
+        {
+          "city": "Hải Phòng",
+          "supplier_count": 2
+        },
+        {
+          "city": "Huế",
+          "supplier_count": 2
+        },
+        {
+          "city": "Nha Trang",
+          "supplier_count": 2
+        },
+        {
+          "city": "TP Hồ Chí Minh",
+          "supplier_count": 2
+        }
+      ],
+      "actual": [
+        {
+          "city": "Biên Hòa",
+          "supplier_count": 2
+        },
+        {
+          "city": "Cần Thơ",
+          "supplier_count": 2
+        },
+        {
+          "city": "Đà Nẵng",
+          "supplier_count": 2
+        },
+        {
+          "city": "Hải Phòng",
+          "supplier_count": 2
+        },
+        {
+          "city": "Huế",
+          "supplier_count": 2
+        },
+        {
+          "city": "Nha Trang",
+          "supplier_count": 2
+        },
+        {
+          "city": "TP Hồ Chí Minh",
+          "supplier_count": 2
+        },
+        {
+          "city": "Hà Nội",
+          "supplier_count": 1
+        }
+      ]
+    },
+    {
+      "id": "nlq-010",
+      "question": "Tổng số lượng tồn kho hiện tại của từng kho là bao nhiêu?",
+      "generation_latency_seconds": 0.861,
+      "input_tokens": 609,
+      "output_tokens": 71,
+      "total_tokens": 680,
+      "generated_sql": "SELECT w.name, SUM(i.on_hand) AS total_on_hand\nFROM warehouses w\nJOIN inventory i ON w.warehouse_id = i.warehouse_id\nGROUP BY w.warehouse_id, w.name\nORDER BY total_on_hand DESC, w.name ASC;",
+      "validated_sql": "SELECT w.name, SUM(i.on_hand) AS total_on_hand FROM warehouses AS w JOIN inventory AS i ON w.warehouse_id = i.warehouse_id GROUP BY w.warehouse_id, w.name ORDER BY total_on_hand DESC, w.name ASC LIMIT 201",
+      "status": "fail",
+      "strict_status": "fail",
+      "relaxed_status": "fail",
+      "expected": [
+        {
+          "warehouse": "Kho Đà Nẵng",
+          "units_on_hand": 6079
+        },
+        {
+          "warehouse": "Kho Hà Nội",
+          "units_on_hand": 6897
+        },
+        {
+          "warehouse": "Kho TP Hồ Chí Minh",
+          "units_on_hand": 6973
+        }
+      ],
+      "actual": [
+        {
+          "name": "Kho TP Hồ Chí Minh",
+          "total_on_hand": 6973
+        },
+        {
+          "name": "Kho Hà Nội",
+          "total_on_hand": 6897
+        },
+        {
+          "name": "Kho Đà Nẵng",
+          "total_on_hand": 6079
+        }
+      ]
+    },
+    {
+      "id": "nlq-011",
+      "question": "Có bao nhiêu dòng tồn kho dưới 10 sản phẩm?",
+      "generation_latency_seconds": 0.726,
+      "input_tokens": 608,
+      "output_tokens": 19,
+      "total_tokens": 627,
+      "generated_sql": "SELECT COUNT(*) FROM inventory WHERE on_hand < 10;",
+      "validated_sql": "SELECT COUNT(*) FROM inventory WHERE on_hand < 10 LIMIT 201",
+      "status": "pass",
+      "strict_status": "pass",
+      "relaxed_status": "fail",
+      "expected": [
+        {
+          "low_stock_rows": 16
+        }
+      ],
+      "actual": [
+        {
+          "count": 16
+        }
+      ]
+    },
+    {
+      "id": "nlq-012",
+      "question": "Có bao nhiêu sản phẩm chưa có bản ghi tồn kho?",
+      "generation_latency_seconds": 0.637,
+      "input_tokens": 607,
+      "output_tokens": 24,
+      "total_tokens": 631,
+      "generated_sql": "SELECT count(*) FROM products WHERE product_id NOT IN (SELECT product_id FROM inventory);",
+      "validated_sql": "SELECT COUNT(*) FROM products WHERE NOT product_id IN (SELECT product_id FROM inventory) LIMIT 201",
+      "status": "pass",
+      "strict_status": "pass",
+      "relaxed_status": "fail",
+      "expected": [
+        {
+          "products_without_inventory": 0
+        }
+      ],
+      "actual": [
+        {
+          "count": 0
+        }
+      ]
+    },
+    {
+      "id": "nlq-013",
+      "question": "Giá bán trung bình theo danh mục sản phẩm là bao nhiêu?",
+      "generation_latency_seconds": 2.196,
+      "input_tokens": 608,
+      "output_tokens": 76,
+      "total_tokens": 684,
+      "generated_sql": "SELECT c.name AS category_name, ROUND(AVG(p.unit_price), 2) AS average_price\nFROM categories c\nJOIN products p ON c.category_id = p.category_id\nGROUP BY c.category_id, c.name\nORDER BY average_price DESC, c.name ASC;",
+      "validated_sql": "SELECT c.name AS category_name, ROUND(CAST(AVG(p.unit_price) AS DECIMAL), 2) AS average_price FROM categories AS c JOIN products AS p ON c.category_id = p.category_id GROUP BY c.category_id, c.name ORDER BY average_price DESC, c.name ASC LIMIT 201",
+      "status": "fail",
+      "strict_status": "fail",
+      "relaxed_status": "fail",
+      "expected": [
+        {
+          "category": "Chăm sóc cá nhân",
+          "avg_price": 1232293.79
+        },
+        {
+          "category": "Điện tử",
+          "avg_price": 1705926.4
+        },
+        {
+          "category": "Đồ dùng du lịch",
+          "avg_price": 1830337.38
+        },
+        {
+          "category": "Gia dụng",
+          "avg_price": 1175508.59
+        },
+        {
+          "category": "Nhà bếp",
+          "avg_price": 989814.33
+        },
+        {
+          "category": "Phụ kiện",
+          "avg_price": 1366556.66
+        },
+        {
+          "category": "Thể thao",
+          "avg_price": 1541212.13
+        },
+        {
+          "category": "Văn phòng phẩm",
+          "avg_price": 1198507.43
+        }
+      ],
+      "actual": [
+        {
+          "category_name": "Đồ dùng du lịch",
+          "average_price": "1830337.38"
+        },
+        {
+          "category_name": "Điện tử",
+          "average_price": "1705926.40"
+        },
+        {
+          "category_name": "Thể thao",
+          "average_price": "1541212.13"
+        },
+        {
+          "category_name": "Phụ kiện",
+          "average_price": "1366556.66"
+        },
+        {
+          "category_name": "Chăm sóc cá nhân",
+          "average_price": "1232293.79"
+        },
+        {
+          "category_name": "Văn phòng phẩm",
+          "average_price": "1198507.43"
+        },
+        {
+          "category_name": "Gia dụng",
+          "average_price": "1175508.59"
+        },
+        {
+          "category_name": "Nhà bếp",
+          "average_price": "989814.33"
+        }
+      ]
+    },
+    {
+      "id": "nlq-014",
+      "question": "Doanh thu hàng hóa theo danh mục là bao nhiêu?",
+      "generation_latency_seconds": 0.845,
+      "input_tokens": 607,
+      "output_tokens": 127,
+      "total_tokens": 734,
+      "generated_sql": "SELECT \n    c.name AS category_name, \n    ROUND(SUM(oi.quantity * oi.unit_price), 2) AS revenue\nFROM categories c\nJOIN products p ON c.category_id = p.category_id\nJOIN order_items oi ON p.product_id = oi.product_id\nJOIN orders o ON oi.order_id = o.order_id\nWHERE o.status <> 'đã hủy'\nGROUP BY c.category_id, c.name\nORDER BY revenue DESC, c.name ASC;",
+      "validated_sql": "SELECT c.name AS category_name, ROUND(SUM(oi.quantity * oi.unit_price), 2) AS revenue FROM categories AS c JOIN products AS p ON c.category_id = p.category_id JOIN order_items AS oi ON p.product_id = oi.product_id JOIN orders AS o ON oi.order_id = o.order_id WHERE o.status <> 'đã hủy' GROUP BY c.category_id, c.name ORDER BY revenue DESC, c.name ASC LIMIT 201",
+      "status": "fail",
+      "strict_status": "fail",
+      "relaxed_status": "fail",
+      "expected": [
+        {
+          "category": "Chăm sóc cá nhân",
+          "revenue": 137522782.0
+        },
+        {
+          "category": "Điện tử",
+          "revenue": 167926536.0
+        },
+        {
+          "category": "Đồ dùng du lịch",
+          "revenue": 197535752.0
+        },
+        {
+          "category": "Gia dụng",
+          "revenue": 191406110.0
+        },
+        {
+          "category": "Nhà bếp",
+          "revenue": 186123669.0
+        },
+        {
+          "category": "Phụ kiện",
+          "revenue": 192674516.0
+        },
+        {
+          "category": "Thể thao",
+          "revenue": 149265910.0
+        },
+        {
+          "category": "Văn phòng phẩm",
+          "revenue": 146873629.0
+        }
+      ],
+      "actual": [
+        {
+          "category_name": "Đồ dùng du lịch",
+          "revenue": "197535752.00"
+        },
+        {
+          "category_name": "Phụ kiện",
+          "revenue": "192674516.00"
+        },
+        {
+          "category_name": "Gia dụng",
+          "revenue": "191406110.00"
+        },
+        {
+          "category_name": "Nhà bếp",
+          "revenue": "186123669.00"
+        },
+        {
+          "category_name": "Điện tử",
+          "revenue": "167926536.00"
+        },
+        {
+          "category_name": "Thể thao",
+          "revenue": "149265910.00"
+        },
+        {
+          "category_name": "Văn phòng phẩm",
+          "revenue": "146873629.00"
+        },
+        {
+          "category_name": "Chăm sóc cá nhân",
+          "revenue": "137522782.00"
+        }
+      ]
+    },
+    {
+      "id": "nlq-015",
+      "question": "Năm sản phẩm bán ra nhiều nhất theo số lượng là những sản phẩm nào?",
+      "generation_latency_seconds": 0.929,
+      "input_tokens": 612,
+      "output_tokens": 98,
+      "total_tokens": 710,
+      "generated_sql": "SELECT p.name, SUM(oi.quantity) AS total_quantity\nFROM products p\nJOIN order_items oi ON p.product_id = oi.product_id\nJOIN orders o ON oi.order_id = o.order_id\nWHERE o.status != 'đã hủy'\nGROUP BY p.product_id, p.name\nORDER BY total_quantity DESC, p.name ASC\nLIMIT 5;",
+      "validated_sql": "SELECT p.name, SUM(oi.quantity) AS total_quantity FROM products AS p JOIN order_items AS oi ON p.product_id = oi.product_id JOIN orders AS o ON oi.order_id = o.order_id WHERE o.status <> 'đã hủy' GROUP BY p.product_id, p.name ORDER BY total_quantity DESC, p.name ASC LIMIT 5",
+      "status": "fail",
+      "strict_status": "fail",
+      "relaxed_status": "fail",
+      "expected": [
+        {
+          "product_id": 34,
+          "units_sold": 54
+        },
+        {
+          "product_id": 76,
+          "units_sold": 48
+        },
+        {
+          "product_id": 26,
+          "units_sold": 47
+        },
+        {
+          "product_id": 31,
+          "units_sold": 46
+        },
+        {
+          "product_id": 24,
+          "units_sold": 43
+        }
+      ],
+      "actual": [
+        {
+          "name": "Chuột không dây mẫu 34",
+          "total_quantity": 38
+        },
+        {
+          "name": "Sạc nhanh USB-C mẫu 76",
+          "total_quantity": 38
+        },
+        {
+          "name": "Bình giữ nhiệt mẫu 72",
+          "total_quantity": 37
+        },
+        {
+          "name": "Tai nghe Bluetooth mẫu 31",
+          "total_quantity": 36
+        },
+        {
+          "name": "Ba lô laptop mẫu 77",
+          "total_quantity": 33
+        }
+      ]
+    },
+    {
+      "id": "nlq-016",
+      "question": "Năm khách hàng có tổng giá trị hàng đã đặt cao nhất là ai (theo mã khách)?",
+      "generation_latency_seconds": 0.72,
+      "input_tokens": 615,
+      "output_tokens": 96,
+      "total_tokens": 711,
+      "generated_sql": "SELECT c.customer_id\nFROM customers c\nJOIN orders o ON c.customer_id = o.customer_id\nJOIN order_items oi ON o.order_id = oi.order_id\nWHERE o.status <> 'đã hủy'\nGROUP BY c.customer_id\nORDER BY SUM(oi.quantity * oi.unit_price) DESC, c.customer_id ASC\nLIMIT 5;",
+      "validated_sql": "SELECT c.customer_id FROM customers AS c JOIN orders AS o ON c.customer_id = o.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status <> 'đã hủy' GROUP BY c.customer_id ORDER BY SUM(oi.quantity * oi.unit_price) DESC, c.customer_id ASC LIMIT 5",
+      "status": "fail",
+      "strict_status": "fail",
+      "relaxed_status": "fail",
+      "expected": [
+        {
+          "customer_id": 31,
+          "spend": 20749139.0
+        },
+        {
+          "customer_id": 97,
+          "spend": 20542274.0
+        },
+        {
+          "customer_id": 35,
+          "spend": 18087415.0
+        },
+        {
+          "customer_id": 16,
+          "spend": 17342762.0
+        },
+        {
+          "customer_id": 14,
+          "spend": 17322167.0
+        }
+      ],
+      "actual": [
+        {
+          "customer_id": 31
+        },
+        {
+          "customer_id": 97
+        },
+        {
+          "customer_id": 35
+        },
+        {
+          "customer_id": 16
+        },
+        {
+          "customer_id": 67
+        }
+      ]
+    },
+    {
+      "id": "nlq-017",
+      "question": "Số đơn theo tháng trong năm 2026 là bao nhiêu?",
+      "generation_latency_seconds": 0.706,
+      "input_tokens": 610,
+      "output_tokens": 75,
+      "total_tokens": 685,
+      "generated_sql": "SELECT \n    EXTRACT(MONTH FROM order_date) AS month,\n    COUNT(order_id) AS order_count\nFROM orders\nWHERE EXTRACT(YEAR FROM order_date) = 2026\nGROUP BY EXTRACT(MONTH FROM order_date)\nORDER BY month, order_count DESC;",
+      "validated_sql": "SELECT EXTRACT(MONTH FROM order_date) AS month, COUNT(order_id) AS order_count FROM orders WHERE EXTRACT(YEAR FROM order_date) = 2026 GROUP BY EXTRACT(MONTH FROM order_date) ORDER BY month, order_count DESC LIMIT 201",
+      "status": "fail",
+      "strict_status": "fail",
+      "relaxed_status": "fail",
+      "expected": [
+        {
+          "month": "2026-01",
+          "order_count": 10
+        },
+        {
+          "month": "2026-02",
+          "order_count": 10
+        },
+        {
+          "month": "2026-03",
+          "order_count": 10
+        },
+        {
+          "month": "2026-04",
+          "order_count": 10
+        },
+        {
+          "month": "2026-05",
+          "order_count": 10
+        },
+        {
+          "month": "2026-06",
+          "order_count": 10
+        },
+        {
+          "month": "2026-07",
+          "order_count": 11
+        },
+        {
+          "month": "2026-08",
+          "order_count": 7
+        }
+      ],
+      "actual": [
+        {
+          "month": "1",
+          "order_count": 10
+        },
+        {
+          "month": "2",
+          "order_count": 10
+        },
+        {
+          "month": "3",
+          "order_count": 10
+        },
+        {
+          "month": "4",
+          "order_count": 10
+        },
+        {
+          "month": "5",
+          "order_count": 10
+        },
+        {
+          "month": "6",
+          "order_count": 10
+        },
+        {
+          "month": "7",
+          "order_count": 11
+        },
+        {
+          "month": "8",
+          "order_count": 7
+        }
+      ]
+    },
+    {
+      "id": "nlq-018",
+      "question": "Có bao nhiêu đơn ở mỗi trạng thái chưa giao thành công?",
+      "generation_latency_seconds": 0.877,
+      "input_tokens": 608,
+      "output_tokens": 40,
+      "total_tokens": 648,
+      "generated_sql": "SELECT status, COUNT(*) AS order_count\nFROM orders\nWHERE status <> 'đã giao'\nGROUP BY status\nORDER BY status, order_count DESC;",
+      "validated_sql": "SELECT status, COUNT(*) AS order_count FROM orders WHERE status <> 'đã giao' GROUP BY status ORDER BY status, order_count DESC LIMIT 201",
+      "status": "pass",
+      "strict_status": "pass",
+      "relaxed_status": "pass",
+      "expected": [
+        {
+          "status": "đã hủy",
+          "order_count": 60
+        },
+        {
+          "status": "đã xác nhận",
+          "order_count": 60
+        },
+        {
+          "status": "đang giao",
+          "order_count": 60
+        },
+        {
+          "status": "mới",
+          "order_count": 60
+        }
+      ],
+      "actual": [
+        {
+          "status": "đã hủy",
+          "order_count": 60
+        },
+        {
+          "status": "đã xác nhận",
+          "order_count": 60
+        },
+        {
+          "status": "đang giao",
+          "order_count": 60
+        },
+        {
+          "status": "mới",
+          "order_count": 60
+        }
+      ]
+    },
+    {
+      "id": "nlq-019",
+      "question": "Số đơn đã giao thành công theo tháng trong quý IV/2025 là bao nhiêu?",
+      "status": "error",
+      "error_type": "GoogleRateLimitError",
+      "error": "Error calling model 'gemini-3.5-flash-lite' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 15, model: gemini-3.5-fla"
+    },
+    {
+      "id": "nlq-020",
+      "question": "Phí giao hàng trung bình theo trạng thái đơn là bao nhiêu?",
+      "status": "error",
+      "error_type": "GoogleRateLimitError",
+      "error": "Error calling model 'gemini-3.5-flash-lite' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 15, model: gemini-3.5-fla"
+    },
+    {
+      "id": "nlq-021",
+      "question": "Năm thành phố có nhiều khách hàng nhất là những thành phố nào? Nếu đồng hạng, sắp xếp tên thành phố tăng dần.",
+      "generation_latency_seconds": 0.753,
+      "input_tokens": 622,
+      "output_tokens": 30,
+      "total_tokens": 652,
+      "generated_sql": "SELECT city\nFROM customers\nGROUP BY city\nCOUNT(customer_id) DESC, city ASC\nLIMIT 5;",
+      "status": "rejected",
+      "reason": "Invalid expression / Unexpected token. Line 4, Col: 5.\n  SELECT city\nFROM customers\nGROUP BY city\n\u001b[4mCOUNT\u001b[0m(customer_id) DESC, city ASC\nLIMIT 5;"
+    },
+    {
+      "id": "nlq-022",
+      "question": "Giá trị hàng trung bình của một đơn hàng là bao nhiêu?",
+      "status": "error",
+      "error_type": "GoogleRateLimitError",
+      "error": "Error calling model 'gemini-3.5-flash-lite' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 15, model: gemini-3.5-fla"
+    },
+    {
+      "id": "nlq-023",
+      "question": "Có bao nhiêu đơn hàng gồm nhiều hơn một dòng sản phẩm?",
+      "status": "error",
+      "error_type": "GoogleRateLimitError",
+      "error": "Error calling model 'gemini-3.5-flash-lite' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 15, model: gemini-3.5-fla"
+    },
+    {
+      "id": "nlq-024",
+      "question": "Có bao nhiêu đơn chưa có ngày giao?",
+      "generation_latency_seconds": 0.632,
+      "input_tokens": 604,
+      "output_tokens": 17,
+      "total_tokens": 621,
+      "generated_sql": "SELECT count(*) FROM orders WHERE delivered_date IS NULL;",
+      "validated_sql": "SELECT COUNT(*) FROM orders WHERE delivered_date IS NULL LIMIT 201",
+      "status": "pass",
+      "strict_status": "pass",
+      "relaxed_status": "fail",
+      "expected": [
+        {
+          "undelivered_date_orders": 240
+        }
+      ],
+      "actual": [
+        {
+          "count": 240
+        }
+      ]
+    },
+    {
+      "id": "nlq-025",
+      "question": "Số lần biến động kho theo từng loại là bao nhiêu?",
+      "generation_latency_seconds": 0.726,
+      "input_tokens": 607,
+      "output_tokens": 41,
+      "total_tokens": 648,
+      "generated_sql": "SELECT movement_type, COUNT(*) AS movement_count\nFROM stock_movements\nGROUP BY movement_type\nORDER BY movement_count DESC, movement_type ASC;",
+      "validated_sql": "SELECT movement_type, COUNT(*) AS movement_count FROM stock_movements GROUP BY movement_type ORDER BY movement_count DESC, movement_type ASC LIMIT 201",
+      "status": "pass",
+      "strict_status": "pass",
+      "relaxed_status": "pass",
+      "expected": [
+        {
+          "movement_type": "điều chỉnh",
+          "movement_count": 200
+        },
+        {
+          "movement_type": "nhập",
+          "movement_count": 200
+        },
+        {
+          "movement_type": "xuất",
+          "movement_count": 200
+        }
+      ],
+      "actual": [
+        {
+          "movement_type": "điều chỉnh",
+          "movement_count": 200
+        },
+        {
+          "movement_type": "nhập",
+          "movement_count": 200
+        },
+        {
+          "movement_type": "xuất",
+          "movement_count": 200
+        }
+      ]
+    },
+    {
+      "id": "nlq-026",
+      "question": "Tổng số lượng biến động theo kho và loại biến động là bao nhiêu?",
+      "status": "error",
+      "error_type": "GoogleRateLimitError",
+      "error": "Error calling model 'gemini-3.5-flash-lite' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 15, model: gemini-3.5-fla"
+    },
+    {
+      "id": "nlq-027",
+      "question": "Năm nhà cung cấp có nhiều sản phẩm nhất là những ai (theo mã)? Nếu đồng hạng, sắp xếp mã nhà cung cấp tăng dần.",
+      "generation_latency_seconds": 0.77,
+      "input_tokens": 625,
+      "output_tokens": 63,
+      "total_tokens": 688,
+      "generated_sql": "SELECT s.supplier_id\nFROM suppliers s\nJOIN products p ON s.supplier_id = p.supplier_id\nGROUP BY s.supplier_id\nORDER BY COUNT(p.product_id) DESC, s.supplier_id ASC\nLIMIT 5;",
+      "validated_sql": "SELECT s.supplier_id FROM suppliers AS s JOIN products AS p ON s.supplier_id = p.supplier_id GROUP BY s.supplier_id ORDER BY COUNT(p.product_id) DESC, s.supplier_id ASC LIMIT 5",
+      "status": "fail",
+      "strict_status": "fail",
+      "relaxed_status": "fail",
+      "expected": [
+        {
+          "supplier_id": 1,
+          "product_count": 6
+        },
+        {
+          "supplier_id": 2,
+          "product_count": 6
+        },
+        {
+          "supplier_id": 3,
+          "product_count": 6
+        },
+        {
+          "supplier_id": 4,
+          "product_count": 6
+        },
+        {
+          "supplier_id": 5,
+          "product_count": 6
+        }
+      ],
+      "actual": [
+        {
+          "supplier_id": 1
+        },
+        {
+          "supplier_id": 2
+        },
+        {
+          "supplier_id": 3
+        },
+        {
+          "supplier_id": 4
+        },
+        {
+          "supplier_id": 5
+        }
+      ]
+    },
+    {
+      "id": "nlq-028",
+      "question": "Danh mục nào có doanh thu hàng hóa cao nhất?",
+      "status": "error",
+      "error_type": "GoogleRateLimitError",
+      "error": "Error calling model 'gemini-3.5-flash-lite' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 15, model: gemini-3.5-fla"
+    },
+    {
+      "id": "nlq-029",
+      "question": "Giá thấp nhất và cao nhất theo danh mục là bao nhiêu?",
+      "status": "error",
+      "error_type": "GoogleRateLimitError",
+      "error": "Error calling model 'gemini-3.5-flash-lite' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 15, model: gemini-3.5-fla"
+    },
+    {
+      "id": "nlq-030",
+      "question": "Tổng doanh thu hàng hóa theo năm đặt hàng là bao nhiêu?",
+      "generation_latency_seconds": 0.987,
+      "input_tokens": 608,
+      "output_tokens": 102,
+      "total_tokens": 710,
+      "generated_sql": "SELECT \n    EXTRACT(YEAR FROM o.order_date) AS order_year,\n    ROUND(SUM(oi.quantity * oi.unit_price), 2) AS total_revenue\nFROM orders o\nJOIN order_items oi ON o.order_id = oi.order_id\nWHERE o.status <> 'đã hủy'\nGROUP BY EXTRACT(YEAR FROM o.order_date)\nORDER BY order_year;",
+      "validated_sql": "SELECT EXTRACT(YEAR FROM o.order_date) AS order_year, ROUND(SUM(oi.quantity * oi.unit_price), 2) AS total_revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status <> 'đã hủy' GROUP BY EXTRACT(YEAR FROM o.order_date) ORDER BY order_year LIMIT 201",
+      "status": "pass",
+      "strict_status": "pass",
+      "relaxed_status": "fail",
+      "expected": [
+        {
+          "year": 2025,
+          "revenue": 1024512292.0
+        },
+        {
+          "year": 2026,
+          "revenue": 344816612.0
+        }
+      ],
+      "actual": [
+        {
+          "order_year": "2025",
+          "total_revenue": "1024512292.00"
+        },
+        {
+          "order_year": "2026",
+          "total_revenue": "344816612.00"
+        }
+      ]
+    }
+  ]
+}

@@ -529,7 +529,7 @@ async def ask_rag_stream(request: RagAskRequest):
         )
         try:
             prompt_template = build_rag_text_prompt()
-            llm = get_rag_llm(temperature=0)
+            llm = get_rag_llm(temperature=0, with_fallback=True)
             chain = prompt_template | llm
             generation_span_id = getattr(gen_obs, "id", None) or root_span_id
             handler = get_langfuse_handler(
@@ -715,7 +715,7 @@ async def _answer_rag(request: RagAskRequest, trace_id: str | None = None) -> Ra
         with langfuse_context(session_id=request.session_id, tags=["rag", "ai07"]):
             chain = await run_in_threadpool(
                 build_rag_chain,
-                get_rag_llm(temperature=0),
+                get_rag_llm(temperature=0, with_fallback=True),
             )
             generated = await _invoke_rag_with_retry(
                 chain,

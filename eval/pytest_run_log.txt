@@ -1,7 +1,7 @@
 ============================= test session starts =============================
 platform win32 -- Python 3.12.0, pytest-9.1.1, pluggy-1.7.0 -- C:\Users\LENOVO\AppData\Local\Programs\Python\Python312\python.exe
 cachedir: .pytest_cache
-rootdir: D:\ITSS\ai-assistant
+rootdir: d:\ITSS\ai-assistant
 configfile: pytest.ini
 plugins: anyio-4.15.1, langsmith-0.14.12, platformdirs-4.13.3, asyncio-1.4.0
 asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
@@ -448,7 +448,7 @@ tests/test_vector_store.py::test_upsert_document_chunks_scoped_to_source_and_cor
 
 ============================== warnings summary ===============================
 app\main.py:14
-  D:\ITSS\ai-assistant\app\main.py:14: StarletteDeprecationWarning: 'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated. Use 'HTTP_422_UNPROCESSABLE_CONTENT' instead.
+  d:\ITSS\ai-assistant\app\main.py:14: StarletteDeprecationWarning: 'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated. Use 'HTTP_422_UNPROCESSABLE_CONTENT' instead.
     from app.api import ask, feedback, health, nlq, rag, router_api
 
 <frozen importlib._bootstrap>:488
@@ -462,4 +462,4 @@ tests/test_ingestion.py::test_pdf_loader_keeps_one_based_page_metadata
     return _bootstrap._gcd_import(name[level:], package, level)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-====================== 400 passed, 4 warnings in 19.29s =======================
+====================== 400 passed, 4 warnings in 18.04s =======================
