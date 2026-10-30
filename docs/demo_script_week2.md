@@ -17,12 +17,11 @@
 
 ```mermaid
 flowchart LR
-    A["01. Giới thiệu tổng quan\n(3 phút)"]
-    --> B["02. Chào hỏi & RAG Stream\n(5 phút)"]
-    --> C["03. NLQ Text-to-SQL\n(6 phút)"]
-    --> D["04. An ninh & Fallback\n(5 phút)"]
-    --> E["05. Langfuse & Chi phí\n(5 phút)"]
-    --> F["06. Q&A & Bàn giao\n(3 phút)"]
+    A["01. Giới thiệu tổng quan (3 phút)"] --> B["02. Chào hỏi & RAG Stream (5 phút)"]
+    B --> C["03. NLQ Text-to-SQL (6 phút)"]
+    C --> D["04. An ninh & Fallback (5 phút)"]
+    D --> E["05. Langfuse & Chi phí (5 phút)"]
+    E --> F["06. Q&A & Bàn giao (3 phút)"]
 ```
 
 ---

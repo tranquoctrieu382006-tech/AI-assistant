@@ -21,25 +21,29 @@ Mini AI Assistant – Hệ thống Trợ lý Doanh nghiệp hỗ trợ tra cứu
 
 ```mermaid
 flowchart TD
-    User([Người dùng / Web Client]) --> UI[Streamlit Chat UI :8501]
-    UI --> API[FastAPI Backend :8000]
-    API --> Orch[Unified Orchestrator /api/ask]
+    User["Người dùng / Web Client"] --> UI["Streamlit Chat UI (:8501)"]
+    UI --> API["FastAPI Backend (:8000)"]
+    API --> Orch["Unified Orchestrator (/api/ask)"]
     
-    Orch --> Router{Smart Router\nPhân Loại & Bảo Vệ}
-    Router -->|Chào hỏi xã giao| Greet[👋 Chào mừng & Hướng dẫn]
-    Router -->|Lệnh ghi phá hoại| Guard[⚠️ Chặn phá hoại / Write Guard]
-    Router -->|Ngoài phạm vi| OOS[ℹ️ Từ chối an toàn / Abstention]
-    Router -->|Chính sách / Tra cứu| RAG[Luồng RAG: Tra cứu tài liệu]
-    Router -->|Số liệu / Báo cáo| NLQ[Luồng NLQ: Text-to-SQL CSDL]
+    Orch --> Router{"Smart Router (Phân Loại & Bảo Vệ)"}
+    Router -->|Chào hỏi xã giao| Greet["👋 Chào mừng & Hướng dẫn"]
+    Router -->|Lệnh ghi phá hoại| Guard["⚠️ Chặn phá hoại (Write Guard)"]
+    Router -->|Ngoài phạm vi| OOS["ℹ️ Từ chối an toàn (Abstention)"]
+    Router -->|Chính sách / Tra cứu| RAG["Luồng RAG (Tra cứu tài liệu)"]
+    Router -->|Số liệu / Báo cáo| NLQ["Luồng NLQ (Text-to-SQL CSDL)"]
     
-    NLQ -->|PII khách hàng| PII[🔒 Chặn thông tin nhạy cảm]
-    NLQ -->|Không có cột CSDL| Fallback[🔄 Fallback 1 bước sang RAG]
+    NLQ -->|PII khách hàng| PII["🔒 Chặn thông tin nhạy cảm"]
+    NLQ -->|Không có cột CSDL| Fallback["🔄 Fallback 1 bước sang RAG"]
     
-    RAG --> PGVector[(PostgreSQL 16 + pgvector)]
-    NLQ --> PGReadOnly[(PostgreSQL ai_nlq_reader)]
+    RAG --> PGVector[("PostgreSQL 16 + pgvector")]
+    NLQ --> PGReadOnly[("PostgreSQL ai_nlq_reader")]
     
-    RAG & NLQ --> LLM[Multi-LLM Provider\nGemini / GPT / Ollama]
-    Orch & RAG & NLQ -.->|Async Traces & Metrics| Langfuse[(Langfuse Cloud / Self-hosted)]
+    RAG --> LLM["Multi-LLM Provider (Gemini / GPT / Ollama)"]
+    NLQ --> LLM
+    
+    Orch -.->|Traces & Metrics| Langfuse[("Langfuse Cloud / Self-hosted")]
+    RAG -.-> Langfuse
+    NLQ -.-> Langfuse
 ```
 
 ---
