@@ -51,8 +51,9 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/live"]
-      interval: 30s
+      interval: 10s
       timeout: 5s
+      start_period: 5s
       retries: 3
 
   ui:
@@ -72,8 +73,9 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
-      interval: 30s
+      interval: 10s
       timeout: 5s
+      start_period: 5s
       retries: 3
 
 volumes:

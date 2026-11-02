@@ -13,7 +13,7 @@ from sqlglot import exp, parse
 from sqlglot.optimizer.scope import Scope, traverse_scope
 
 from app.core.config import settings
-from app.core.llm import extract_message_text, get_llm, get_llm_with_fallbacks, get_model_provider
+from app.core.llm import extract_message_text, get_llm_with_fallbacks, get_model_provider
 from app.core.nlq_policy import (
     _SENSITIVE,
     is_human_pii_query,
