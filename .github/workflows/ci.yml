@@ -61,9 +61,9 @@ jobs:
         run: python -m pip install -r requirements.lock
       - name: Initialize PostgreSQL schema & roles
         run: |
-          psql -h localhost -U postgres -d ai_assistant_test -f docker/init-db/01_init.sql
-          psql -h localhost -U postgres -d ai_assistant_test -f data/demo_sales_warehouse/schema_seed.sql
-          PGHOST=localhost POSTGRES_USER=postgres POSTGRES_DB=ai_assistant_test NLQ_READER_PASSWORD=secret_nlq_reader bash docker/init-db/03_create_reader_role.sh
+          PGPASSWORD=test_password_123 psql -h localhost -U postgres -d ai_assistant_test -f docker/init-db/01_init.sql
+          PGPASSWORD=test_password_123 psql -h localhost -U postgres -d ai_assistant_test -f data/demo_sales_warehouse/schema_seed.sql
+          PGPASSWORD=test_password_123 PGHOST=localhost POSTGRES_USER=postgres POSTGRES_DB=ai_assistant_test NLQ_READER_PASSWORD=secret_nlq_reader bash docker/init-db/03_create_reader_role.sh
       - name: Run test suite with JUnit XML report
         run: python -m pytest -v --junitxml=test-results.xml
       - name: Upload JUnit test report

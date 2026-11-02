@@ -28,5 +28,11 @@ psql "${HOST_ARGS[@]}" -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "
       ON customers TO ai_nlq_reader;
 
     -- Đảm bảo không cấp quyền đọc bảng rag_chunks cho tài khoản NLQ
-    REVOKE ALL ON TABLE rag_chunks FROM ai_nlq_reader;
+    DO \$\$
+    BEGIN
+      IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'rag_chunks') THEN
+        EXECUTE 'REVOKE ALL ON TABLE rag_chunks FROM ai_nlq_reader';
+      END IF;
+    END
+    \$\$;
 EOSQL
